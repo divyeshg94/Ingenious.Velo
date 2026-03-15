@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Velo.SQL.Models;
 
 [Table("DoraMetrics")]
-public class DoraMetrics
+public class DoraMetrics : AuditableEntity
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();

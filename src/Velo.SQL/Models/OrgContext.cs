@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Velo.SQL.Models;
 
 [Table("Organizations")]
-public class OrgContext
+public class OrgContext : AuditableEntity
 {
     [Key, MaxLength(100)]
     public string OrgId { get; set; } = string.Empty;

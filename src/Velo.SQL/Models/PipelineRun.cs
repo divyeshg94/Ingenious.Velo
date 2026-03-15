@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Velo.SQL.Models;
 
 [Table("PipelineRuns")]
-public class PipelineRun
+public class PipelineRun : AuditableEntity
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();

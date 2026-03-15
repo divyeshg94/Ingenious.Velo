@@ -20,6 +20,11 @@ namespace Velo.SQL.Migrations
                     DailyTokenBudget = table.Column<int>(type: "int", nullable: false, defaultValue: 50000),
                     RegisteredAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     LastSeenAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    ,CreatedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ,ModifiedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    ,IsDeleted = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -44,6 +49,11 @@ namespace Velo.SQL.Migrations
                     StageName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     TriggeredBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     IngestedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ,CreatedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ,ModifiedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    ,IsDeleted = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -75,6 +85,11 @@ namespace Velo.SQL.Migrations
                     MttrRating = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ReworkRate = table.Column<double>(type: "float", nullable: false),
                     ReworkRateRating = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    ,CreatedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ,ModifiedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    ,IsDeleted = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -104,6 +119,11 @@ namespace Velo.SQL.Migrations
                     TestPassRate = table.Column<double>(type: "float", nullable: false),
                     FlakyTestRate = table.Column<double>(type: "float", nullable: false),
                     DeploymentRiskScore = table.Column<double>(type: "float", nullable: false)
+                    ,CreatedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ,ModifiedBy = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                    ,ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
+                    ,IsDeleted = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
