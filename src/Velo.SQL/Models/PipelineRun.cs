@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Velo.Shared.Models;
+namespace Velo.SQL.Models;
 
 [Table("PipelineRuns")]
 public class PipelineRun

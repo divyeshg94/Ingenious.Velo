@@ -297,6 +297,7 @@ export class DashboardComponent { }
 - Always use `async` EF methods: `ToListAsync`, `FirstOrDefaultAsync`, `SaveChangesAsync`.
 - Never use `DbContext` directly in controllers — only in services or repositories.
 - Global query filters on `VeloDbContext` handle RLS at the application layer automatically — do not add manual `Where(r => r.OrgId == orgId)` clauses; they are redundant and misleading.
+- **Use EF Core C# migration files** for database schema changes. The design-time factory should read the connection string from the API project's `appsettings.json`.
 
 ### Raw SQL (Dapper)
 
