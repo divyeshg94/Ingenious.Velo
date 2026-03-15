@@ -7,12 +7,9 @@
   "public": false,
   "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
   "categories": ["Azure Pipelines"],
-  "icons": {
-    "default": "src/assets/velo-logo.png"
-  },
   "files": [
     {
-      "path": "dist",
+      "path": "dist/velo-extension",
       "addressable": true
     }
   ],
@@ -40,7 +37,7 @@
       "properties": {
         "name": "Velo",
         "order": 99,
-        "uri": "dist/index.html"
+        "uri": "dist/velo-extension/index.html"
       }
     },
     {
@@ -51,8 +48,7 @@
       "properties": {
         "name": "Velo DORA Metrics",
         "description": "Display DORA metrics for your project",
-        "catalogIconUrl": "dist/assets/widget-icon.png",
-        "uri": "dist/widget.html",
+        "uri": "dist/velo-extension/widget.html",
         "supportedSizes": [
           { "rowSpan": 1, "columnSpan": 2 },
           { "rowSpan": 2, "columnSpan": 2 }

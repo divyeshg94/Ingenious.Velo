@@ -20,7 +20,10 @@
       "Bash(mkdir -p \"$ROOT/Models\" \"$ROOT/Contracts\")",
       "Bash(dotnet new:*)",
       "Bash(dotnet sln:*)",
-      "Bash(ls \"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo\"/*.sln*)"
+      "Bash(ls \"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo\"/*.sln*)",
+      "Bash(find C:UsersDivyeshGovaerdhanansourcereposPersonalIngenious.VeloVelo-ADOExtension -type f ! -path */node_modules/* ! -path */.git/*)",
+      "Bash(find C:UsersDivyeshGovaerdhanansourcereposPersonalIngenious.Velo -maxdepth 2 -type d -name *ADO* -o -type d -name *Velo* ! -path *node_modules* ! -path *.git* ! -path *.vs* ! -path *.claude*)",
+      "Bash(npm run:*)"
     ]
   }
 }
