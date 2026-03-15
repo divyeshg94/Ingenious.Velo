@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Velo.Agent</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pin to specific version to guard against GA-fresh SDK breaking changes -->
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.*" />
+    <PackageReference Include="Azure.AI.Projects" Version="1.*" />
+    <PackageReference Include="Azure.Identity" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Velo.Shared\Velo.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

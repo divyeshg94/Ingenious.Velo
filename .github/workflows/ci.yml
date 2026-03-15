@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build .NET solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run .NET tests
+        run: dotnet test --no-build --configuration Release
+
+      - name: Install extension dependencies
+        working-directory: src/Velo.Extension
+        run: npm ci
+
+      - name: Lint extension
+        working-directory: src/Velo.Extension
+        run: npm run lint
+
+      - name: Build extension
+        working-directory: src/Velo.Extension
+        run: npm run build

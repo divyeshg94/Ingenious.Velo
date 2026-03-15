@@ -1,0 +1,15 @@
+namespace Velo.Agent;
+
+public class AgentConfig
+{
+    public string FoundryEndpoint { get; set; } = string.Empty;
+    public string AgentId { get; set; } = string.Empty;
+    public string DeploymentName { get; set; } = "gpt-4o";
+    public int DailyTokenBudgetPerOrg { get; set; } = 50_000;
+
+    /// <summary>
+    /// Cache TTL for Foundry responses keyed by pipeline definition hash.
+    /// Eliminates repeat token spend for unchanged pipelines.
+    /// </summary>
+    public TimeSpan ResponseCacheTtl { get; set; } = TimeSpan.FromHours(6);
+}

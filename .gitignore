@@ -1,0 +1,37 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+publish/
+*.nupkg
+
+# Secrets - NEVER commit these
+appsettings.*.local.json
+local.settings.json
+.env
+.env.*
+*.pfx
+*.p12
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+
+# Azure Functions local settings
+src/Velo.Functions/local.settings.json
+
+# Bicep compiled ARM
+*.json.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.code-workspace
+.vscode/settings.json

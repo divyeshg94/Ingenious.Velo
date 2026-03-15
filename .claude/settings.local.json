@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/DivyeshGovaerdhanan/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/dada52c6-1046-4bdf-842a-22e98438e71e/2aed4e27-2f9b-4344-95eb-40ee155d9f14/skills/docx/**)",
+      "Bash(pandoc --track-changes=all \"C:\\\\Users\\\\DivyeshGovaerdhanan\\\\Downloads\\\\Velo_Blueprint_v2.docx\" -o output.md)",
+      "Bash(python scripts/office/unpack.py \"C:\\\\Users\\\\DivyeshGovaerdhanan\\\\Downloads\\\\Velo_Blueprint_v2.docx\" unpacked/)",
+      "Bash(pip install:*)",
+      "Bash(python -c \":*)",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo\")",
+      "Bash(mkdir -p \"$ROOT/.github/workflows\" \"$ROOT/.github/ISSUE_TEMPLATE\")",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo/src/Velo.Extension\")",
+      "Bash(mkdir -p \"$ROOT/src/app/hub/dashboard\" \"$ROOT/src/app/hub/dora\" \"$ROOT/src/app/hub/health\" \"$ROOT/src/app/hub/agent\" \"$ROOT/src/app/hub/pipelines\" \"$ROOT/src/app/hub/connections\" \"$ROOT/src/app/widgets/dora-tile\" \"$ROOT/src/app/widgets/health-tile\" \"$ROOT/src/app/shared/components\" \"$ROOT/src/app/shared/services\" \"$ROOT/src/app/shared/models\" \"$ROOT/src/app/pipeline-task\" \"$ROOT/src/assets\" \"$ROOT/src/environments\")",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo/src/Velo.Api\")",
+      "Bash(mkdir -p \"$ROOT/Controllers\" \"$ROOT/Services\" \"$ROOT/Middleware\" \"$ROOT/Models\" \"$ROOT/Data\")",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo/src/Velo.Functions\")",
+      "Bash(mkdir -p \"$ROOT/Triggers\" \"$ROOT/Models\" \"$ROOT/Services\")",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo/src/Velo.Agent\")",
+      "Bash(mkdir -p \"$ROOT/Tools\" \"$ROOT/Prompts\")",
+      "Bash(ROOT=\"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo/src/Velo.Shared\")",
+      "Bash(mkdir -p \"$ROOT/Models\" \"$ROOT/Contracts\")",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(ls \"C:/Users/DivyeshGovaerdhanan/source/repos/Personal/Ingenious.Velo\"/*.sln*)"
+    ]
+  }
+}

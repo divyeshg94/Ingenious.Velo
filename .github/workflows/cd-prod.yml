@@ -1,0 +1,34 @@
+name: CD - Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Build API
+        run: dotnet publish src/Velo.Api/Velo.Api.csproj -c Release -o ./publish/api
+
+      - name: Build Functions
+        run: dotnet publish src/Velo.Functions/Velo.Functions.csproj -c Release -o ./publish/functions
+
+      - name: Deploy to Azure Container Apps (API)
+        run: echo "TODO: az containerapp update ..."
+
+      - name: Deploy Azure Functions
+        run: echo "TODO: func azure functionapp publish ..."
+
+      - name: Package and publish ADO Extension
+        working-directory: src/Velo.Extension
+        run: echo "TODO: tfx extension publish ..."

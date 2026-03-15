@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Velo.Agent/Velo.Agent.csproj" />
+    <Project Path="src/Velo.Api/Velo.Api.csproj" />
+    <Project Path="src/Velo.Functions/Velo.Functions.csproj" />
+    <Project Path="src/Velo.Shared/Velo.Shared.csproj" />
+  </Folder>
+</Solution>
