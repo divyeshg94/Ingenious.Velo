@@ -36,3 +36,4 @@ Thumbs.db
 *.code-workspace
 .vscode/settings.json
 /src/Velo.Extension/package-lock.json
+/src/Velo.Extension/*.vsix

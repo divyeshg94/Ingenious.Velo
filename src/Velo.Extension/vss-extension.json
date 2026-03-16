@@ -2,17 +2,34 @@
   "manifestVersion": 1,
   "id": "velo",
   "name": "Velo - Engineering Intelligence for Azure DevOps",
-  "version": "1.0.0",
-  "publisher": "divyeshg94",
+  "version": "1.0.2",
+  "publisher": "DivyeshGovaerdhanan",
   "public": false,
   "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
   "categories": ["Azure Pipelines"],
+  "targets": [
+    { "id": "Microsoft.VisualStudio.Services" }
+  ],
   "files": [
     {
       "path": "dist/velo-extension",
       "addressable": true
+    },
+    {
+      "path": "tasks/VeloTask"
+    },
+    {
+      "path": "images",
+      "addressable": true
+    },
+    {
+      "path": "README.md",
+      "addressable": true
     }
   ],
+  "icons": {
+    "default": "images/catalog-icon.png"
+  },
   "content": {
     "details": {
       "path": "README.md"
@@ -53,7 +70,9 @@
           { "rowSpan": 1, "columnSpan": 2 },
           { "rowSpan": 2, "columnSpan": 2 }
         ],
-        "supportedScopes": ["project_team"]
+        "supportedScopes": ["project_team"],
+        "catalogIconUrl": "images/catalog-icon.png",
+        "previewImageUrl": "images/preview.png"
       }
     },
     {
@@ -62,7 +81,7 @@
       "description": "Velo pipeline instrumentation task",
       "targets": ["ms.vss-distributed-task.tasks"],
       "properties": {
-        "name": "VeloTask"
+        "name": "tasks/VeloTask"
       }
     }
   ]

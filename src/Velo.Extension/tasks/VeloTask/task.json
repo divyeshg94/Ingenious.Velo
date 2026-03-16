@@ -1,0 +1,31 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/azure-devops/v2/task.json",
+  "id": "b4f2b6f6-0000-4000-8000-000000000001",
+  "name": "VeloTask",
+  "friendlyName": "Velo - Pipeline Instrumentation",
+  "description": "Instruments and reports pipeline runs to Velo for DORA metrics.",
+  "author": "DivyeshGovaerdhanan",
+  "helpMarkDown": "# Velo Pipeline Task\nThis task sends pipeline metadata to Velo for analytics.",
+  "category": "Utility",
+  "visibility": ["Build", "Release"],
+  "version": {
+    "Major": 1,
+    "Minor": 0,
+    "Patch": 0
+  },
+  "instanceNameFormat": "Velo: $(endpoint)",
+  "inputs": [
+    {
+      "name": "connection",
+      "type": "connectedService:AzureRM",
+      "label": "Velo Connection",
+      "required": false
+    }
+  ],
+  "execution": {
+    "Node20": {
+      "target": "run.js",
+      "argumentFormat": ""
+    }
+  }
+}

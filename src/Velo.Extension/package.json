@@ -2,13 +2,17 @@
   "name": "velo-extension",
   "version": "1.0.0",
   "scripts": {
-    "start": "ng serve",
-    "build": "ng build --configuration production",
-    "build:dev": "ng build",
+    "start": "npx ng serve",
+    "build": "npx ng build --configuration production",
+    "build:dev": "npx ng build",
     "lint": "ng lint",
     "test": "ng test --watch=false --browsers=ChromeHeadless",
     "package": "tfx extension create --manifest-globs vss-extension.json",
     "publish:dev": "tfx extension publish --manifest-globs vss-extension.json --env dev"
+  },
+  "clean-install": {
+    "windows": "powershell -ExecutionPolicy Bypass -File ./scripts/clean-install.ps1",
+    "default": "rm -rf node_modules && npm ci"
   },
   "dependencies": {
     "@angular/common": "^19.0.0",

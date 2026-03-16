@@ -23,12 +23,12 @@ jobs:
       - name: Build Functions
         run: dotnet publish src/Velo.Functions/Velo.Functions.csproj -c Release -o ./publish/functions
 
-      - name: Deploy to Azure Container Apps (API)
-        run: echo "TODO: az containerapp update ..."
+      # - name: Deploy to Azure Container Apps (API)
+        # run: echo "TODO: az containerapp update ..."
 
-      - name: Deploy Azure Functions
-        run: echo "TODO: func azure functionapp publish ..."
+      # - name: Deploy Azure Functions
+        # run: echo "TODO: func azure functionapp publish ..."
 
-      - name: Package and publish ADO Extension
-        working-directory: src/Velo.Extension
-        run: echo "TODO: tfx extension publish ..."
+      # - name: Package and publish ADO Extension
+        # working-directory: src/Velo.Extension
+        # run: echo "TODO: tfx extension publish ..."
