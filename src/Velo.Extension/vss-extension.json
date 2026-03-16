@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "velo",
   "name": "Velo - Engineering Intelligence for Azure DevOps",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "DivyeshGovaerdhanan",
   "public": false,
   "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
@@ -47,13 +47,27 @@
   ],
   "contributions": [
     {
-      "id": "velo-hub",
-      "type": "ms.vss-web.hub",
-      "description": "Velo engineering intelligence dashboard",
-      "targets": ["ms.vss-web.project-hub-group"],
+      "id": "velo-hub-group",
+      "type": "ms.vss-web.hub-group",
+      "description": "Velo engineering intelligence hub group",
+      "targets": ["ms.vss-web.project-hub-groups-collection"],
       "properties": {
         "name": "Velo",
         "order": 99,
+        "icon": {
+          "light": "images/catalog-icon.png",
+          "dark": "images/catalog-icon.png"
+        }
+      }
+    },
+    {
+      "id": "velo-hub",
+      "type": "ms.vss-web.hub",
+      "description": "Velo engineering intelligence dashboard",
+      "targets": [".velo-hub-group"],
+      "properties": {
+        "name": "Dashboard",
+        "order": 1,
         "uri": "dist/velo-extension/index.html"
       }
     },

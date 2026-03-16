@@ -24,7 +24,7 @@ public class PipelineRun : AuditableEntity
     public string RunNumber { get; set; } = string.Empty;
 
     [MaxLength(50)]
-    public string Result { get; set; } = string.Empty; // succeeded, failed, canceled, partiallySucceeded
+    public string Result { get; set; } = string.Empty;
 
     public DateTimeOffset StartTime { get; set; }
     public DateTimeOffset? FinishTime { get; set; }

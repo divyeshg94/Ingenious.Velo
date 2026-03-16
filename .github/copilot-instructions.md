@@ -365,3 +365,9 @@ var result = await connection.QueryAsync<DoraMetricRow>(
 - One logical change per PR
 - All CI checks (`dotnet test`, `npm test`, `npm run lint`) must pass before merge
 - Squash merge to `main`
+
+---
+
+## Azure DevOps Extension Hub Configuration
+
+- Configure the Velo extension hub to appear as its own top-level hub group in the Azure DevOps project sidebar, not nested under Pipelines or any other existing hub group.

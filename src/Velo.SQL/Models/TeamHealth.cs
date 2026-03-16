@@ -17,21 +17,17 @@ public class TeamHealth : AuditableEntity
 
     public DateTimeOffset ComputedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    // Cycle time breakdown (hours)
     public double CodingTimeHours { get; set; }
     public double ReviewTimeHours { get; set; }
     public double MergeTimeHours { get; set; }
     public double DeployTimeHours { get; set; }
 
-    // PR quality
     public double AveragePrSizeLines { get; set; }
     public double PrCommentDensity { get; set; }
     public double PrApprovalRate { get; set; }
 
-    // Test health
     public double TestPassRate { get; set; }
     public double FlakyTestRate { get; set; }
 
-    // Deployment risk
-    public double DeploymentRiskScore { get; set; } // 0.0 = low risk, 1.0 = high risk
+    public double DeploymentRiskScore { get; set; }
 }
