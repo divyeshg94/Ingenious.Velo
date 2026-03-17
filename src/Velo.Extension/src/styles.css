@@ -1,0 +1,178 @@
+/* Azure DevOps theme variables - these are provided by the ADO host */
+:root {
+  /* Light theme defaults */
+  --background-color: #f3f2f1;
+  --text-primary-color: #323130;
+  --text-secondary-color: #605e5c;
+  --text-disabled-color: #a19f9d;
+  --header-background-color: #0078d4;
+  --header-foreground-color: #ffffff;
+  --header-border-color: rgba(0, 0, 0, 0.1);
+  --primary-color: #0078d4;
+  --primary-color-hover: #106ebe;
+  --border-color: #edebe9;
+  --card-background: #ffffff;
+  --card-border: #edebe9;
+  --card-shadow: 0 1.6px 3.6px 0 rgba(0,0,0,0.132), 0 0.3px 0.9px 0 rgba(0,0,0,0.108);
+  --heading-color: #323130;
+  --link-color: #0078d4;
+  --link-hover-color: #106ebe;
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+  --background-color: #1e1e1e;
+  --text-primary-color: #e0e0e0;
+  --text-secondary-color: #a6a6a6;
+  --text-disabled-color: #6e6e6e;
+  --header-background-color: #2d2d30;
+  --header-foreground-color: #ffffff;
+  --header-border-color: rgba(255, 255, 255, 0.1);
+  --primary-color: #60c5f1;
+  --primary-color-hover: #73cef5;
+  --border-color: #3f3f46;
+  --card-background: #252526;
+  --card-border: #3f3f46;
+  --card-shadow: 0 1.6px 3.6px 0 rgba(0,0,0,0.4), 0 0.3px 0.9px 0 rgba(0,0,0,0.3);
+  --heading-color: #ffffff;
+  --link-color: #60c5f1;
+  --link-hover-color: #73cef5;
+}
+
+/* High contrast theme */
+[data-theme="high-contrast"] {
+  --background-color: #000000;
+  --text-primary-color: #ffffff;
+  --text-secondary-color: #ffffff;
+  --text-disabled-color: #3ff23f;
+  --header-background-color: #000000;
+  --header-foreground-color: #ffffff;
+  --header-border-color: #ffffff;
+  --primary-color: #1aebff;
+  --primary-color-hover: #1aebff;
+  --border-color: #ffffff;
+  --card-background: #000000;
+  --card-border: #ffffff;
+  --card-shadow: none;
+  --heading-color: #ffffff;
+  --link-color: #1aebff;
+  --link-hover-color: #1aebff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-primary-color);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Azure DevOps card styles */
+.card {
+  background-color: var(--card-background);
+  border: 1px solid var(--card-border);
+  border-radius: 2px;
+  box-shadow: var(--card-shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card-header {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--heading-color);
+  margin-bottom: 12px;
+  line-height: 24px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.card-content {
+  color: var(--text-primary-color);
+}
+
+.card-secondary-text {
+  color: var(--text-secondary-color);
+  font-size: 12px;
+}
+
+/* Headings matching ADO style */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--heading-color);
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+h1 { font-size: 28px; line-height: 36px; }
+h2 { font-size: 20px; line-height: 28px; }
+h3 { font-size: 18px; line-height: 24px; }
+h4 { font-size: 16px; line-height: 22px; }
+h5 { font-size: 14px; line-height: 20px; }
+h6 { font-size: 12px; line-height: 18px; }
+
+/* Links */
+a {
+  color: var(--link-color);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a:hover {
+  color: var(--link-hover-color);
+  text-decoration: underline;
+}
+
+/* Info callout (like ADO uses) */
+.info-callout {
+  background-color: var(--card-background);
+  border-left: 3px solid var(--primary-color);
+  padding: 12px 16px;
+  margin: 16px 0;
+  color: var(--text-primary-color);
+  border-radius: 2px;
+}
+
+/* Buttons matching ADO style */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border: 1px solid var(--primary-color);
+  background-color: var(--primary-color);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.btn:hover {
+  background-color: var(--primary-color-hover);
+  border-color: var(--primary-color-hover);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--text-primary-color);
+  border-color: var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--card-background);
+  border-color: var(--text-secondary-color);
+}
