@@ -22,7 +22,7 @@ export interface AgentChatResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AgentService {
-  private readonly baseUrl = `${environment.apiBaseUrl}/agent`;
+  private readonly baseUrl = `${environment.apiUrl}/agent`;
 
   constructor(private http: HttpClient) {}
 

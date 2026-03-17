@@ -6,7 +6,7 @@ import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class DoraService {
-  private readonly baseUrl = `${environment.apiBaseUrl}/dora`;
+  private readonly baseUrl = `${environment.apiUrl}/dora`;
 
   constructor(private http: HttpClient) {}
 

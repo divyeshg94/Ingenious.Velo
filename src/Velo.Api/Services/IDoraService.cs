@@ -1,4 +1,5 @@
-using Velo.Shared.Models;
+using Velo.SQL;
+using Velo.SQL.Models;
 
 namespace Velo.Api.Services;
 
@@ -9,7 +10,7 @@ public interface IDoraService
     Task<TeamHealth> GetTeamHealthAsync(string projectId, CancellationToken cancellationToken);
 }
 
-public class DoraService(Data.VeloDbContext db) : IDoraService
+public class DoraService(VeloDbContext db) : IDoraService
 {
     public Task<DoraMetrics> GetMetricsAsync(string projectId, int days, CancellationToken cancellationToken)
         => throw new NotImplementedException();

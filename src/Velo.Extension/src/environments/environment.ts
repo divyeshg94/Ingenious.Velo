@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://localhost:7001/api',
+  apiUrl: 'https://localhost:59556', // Local development - ensure HTTPS and proper CORS
 };

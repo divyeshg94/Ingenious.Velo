@@ -1,3 +1,5 @@
+using Velo.SQL;
+
 namespace Velo.Api.Services;
 
 public interface IConnectionService
@@ -6,7 +8,7 @@ public interface IConnectionService
     Task RemoveAsync(CancellationToken cancellationToken);
 }
 
-public class ConnectionService(Data.VeloDbContext db) : IConnectionService
+public class ConnectionService(VeloDbContext db) : IConnectionService
 {
     public Task RegisterAsync(string orgUrl, string personalAccessToken, CancellationToken cancellationToken)
         => throw new NotImplementedException();

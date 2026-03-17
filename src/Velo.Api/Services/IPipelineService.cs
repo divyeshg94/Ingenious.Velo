@@ -1,4 +1,6 @@
+using Velo.SQL;
 using Velo.Shared.Models;
+using Velo.SQL.Models;
 
 namespace Velo.Api.Services;
 
@@ -8,7 +10,7 @@ public interface IPipelineService
     Task<object> GetAnalysisAsync(int pipelineId, CancellationToken cancellationToken);
 }
 
-public class PipelineService(Data.VeloDbContext db) : IPipelineService
+public class PipelineService(VeloDbContext db) : IPipelineService
 {
     public Task<IEnumerable<PipelineRun>> GetRunsAsync(string projectId, int page, int pageSize, CancellationToken cancellationToken)
         => throw new NotImplementedException();

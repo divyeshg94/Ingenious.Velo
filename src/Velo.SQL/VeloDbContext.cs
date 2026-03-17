@@ -21,11 +21,10 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<DoraMetrics>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
 
+        // Configure OrgContext
         modelBuilder.Entity<OrgContext>(eb =>
         {
             eb.HasKey(o => o.OrgId);
-
-            // Audit fields
             eb.Property(p => p.CreatedBy).HasMaxLength(200);
             eb.Property(p => p.CreatedDate).HasDefaultValueSql("SYSUTCDATETIME()");
             eb.Property(p => p.ModifiedBy).HasMaxLength(200);
@@ -46,6 +45,45 @@ public class VeloDbContext : DbContext
         ConfigureAuditable<PipelineRun>();
         ConfigureAuditable<DoraMetrics>();
         ConfigureAuditable<TeamHealth>();
+
+        // Configure indexes for performance and multi-tenancy
+
+        // PipelineRuns indexes
+        modelBuilder.Entity<PipelineRun>()
+            .HasIndex(r => new { r.OrgId, r.ProjectId, r.StartTime })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_PipelineRuns_OrgId_ProjectId_StartTime_DESC");
+
+        modelBuilder.Entity<PipelineRun>()
+            .HasIndex(r => new { r.OrgId, r.IsDeployment })
+            .HasDatabaseName("IX_PipelineRuns_OrgId_IsDeployment");
+
+        modelBuilder.Entity<PipelineRun>()
+            .HasIndex(r => r.StartTime)
+            .IsDescending(true)
+            .HasDatabaseName("IX_PipelineRuns_StartTime_DESC");
+
+        // DoraMetrics indexes
+        modelBuilder.Entity<DoraMetrics>()
+            .HasIndex(m => new { m.OrgId, m.ProjectId, m.ComputedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_DoraMetrics_OrgId_ProjectId_ComputedAt_DESC");
+
+        modelBuilder.Entity<DoraMetrics>()
+            .HasIndex(m => m.ComputedAt)
+            .IsDescending(true)
+            .HasDatabaseName("IX_DoraMetrics_ComputedAt_DESC");
+
+        // TeamHealth indexes
+        modelBuilder.Entity<TeamHealth>()
+            .HasIndex(h => new { h.OrgId, h.ProjectId, h.ComputedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_TeamHealth_OrgId_ProjectId_ComputedAt_DESC");
+
+        modelBuilder.Entity<TeamHealth>()
+            .HasIndex(h => h.ComputedAt)
+            .IsDescending(true)
+            .HasDatabaseName("IX_TeamHealth_ComputedAt_DESC");
 
         base.OnModelCreating(modelBuilder);
     }

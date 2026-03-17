@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.getvelo.dev/api',
+  apiUrl: 'https://velo-api.azurecontainerapps.io' // Production Azure Container Apps endpoint
 };
