@@ -4,8 +4,10 @@ import { Component } from '@angular/core';
   selector: 'velo-health',
   standalone: true,
   template: `
-    <h1>Team Health</h1>
-    <p>Cycle time breakdown, PR quality scores, and test stability trends — coming in Phase 1.</p>
+    <div style="padding: 20px; color: var(--text-secondary-color);">
+      <h2>❤️ Team Health Metrics</h2>
+      <p>Cycle time breakdown, PR quality scores, and test stability trends — coming in Phase 2</p>
+    </div>
   `,
 })
 export class HealthComponent {}

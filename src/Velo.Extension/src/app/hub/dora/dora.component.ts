@@ -4,8 +4,10 @@ import { Component } from '@angular/core';
   selector: 'velo-dora',
   standalone: true,
   template: `
-    <h1>DORA Metrics</h1>
-    <p>Detailed DORA metric trends — coming in Phase 1.</p>
+    <div style="padding: 20px; color: var(--text-secondary-color);">
+      <h2>📊 DORA Metrics History</h2>
+      <p>Detailed DORA metric trends and historical analysis — coming in Phase 2</p>
+    </div>
   `,
 })
 export class DoraComponent {}

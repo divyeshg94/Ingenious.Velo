@@ -1,0 +1,104 @@
+<div class="connections-container">
+  <h2>Organization Connection</h2>
+  
+  <!-- Connected Org Info - Auto-detected or loaded from DB -->
+  <div *ngIf="currentOrg" class="card">
+    <h3>✅ Connected Organization</h3>
+    <p class="org-status">
+      <span class="status-badge" [class.auto-detected]="isAutoDetected">
+        {{ isAutoDetected ? '🔍 Auto-detected' : '💾 Registered' }}
+      </span>
+    </p>
+    
+    <div class="org-info">
+      <div class="info-item">
+        <span class="label">Organization ID:</span>
+        <span class="value">{{ currentOrg.orgId }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">URL:</span>
+        <span class="value">{{ currentOrg.orgUrl }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Plan:</span>
+        <span class="value">{{ currentOrg.isPremium ? '💎 Premium' : '🆓 Free' }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Token Budget:</span>
+        <span class="value">{{ currentOrg.dailyTokenBudget | number }}</span>
+      </div>
+    </div>
+
+    <!-- Update Org URL Form -->
+    <div class="update-form" *ngIf="!editingUrl && currentOrg">
+      <button (click)="toggleEditUrl()" class="btn btn-secondary">✏️ Edit Organization URL</button>
+    </div>
+
+    <div class="update-form" *ngIf="editingUrl && currentOrg">
+      <p class="form-label">Update Organization URL:</p>
+      <input 
+        type="text" 
+        [(ngModel)]="editOrgUrl" 
+        placeholder="https://dev.azure.com/your-org"
+        class="input-field"
+      />
+      <div class="form-buttons">
+        <button (click)="updateOrgUrl()" [disabled]="isLoading || !editOrgUrl" class="btn btn-primary">
+          {{ isLoading ? '🔄 Saving...' : '💾 Save' }}
+        </button>
+        <button (click)="toggleEditUrl()" class="btn btn-secondary">❌ Cancel</button>
+      </div>
+      <div *ngIf="updateErrorMessage" class="error-message">
+        ❌ {{ updateErrorMessage }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects List -->
+  <div *ngIf="projects.length > 0" class="card">
+    <h3>📁 Available Projects</h3>
+    <p class="projects-description">Select a project to view DORA metrics on the Dashboard</p>
+    
+    <div class="projects-list">
+      <div 
+        *ngFor="let project of projects" 
+        class="project-item"
+        [class.selected]="project === selectedProjectId"
+        (click)="selectProject(project)"
+        title="Click to select"
+      >
+        {{ project }}
+      </div>
+    </div>
+    
+    <div class="selection-info" *ngIf="selectedProjectId">
+      <p>✅ <strong>{{ selectedProjectId }}</strong> selected • Dashboard will load metrics for this project</p>
+    </div>
+  </div>
+
+  <!-- No Projects -->
+  <div *ngIf="currentOrg && projects.length === 0 && !isLoading" class="card info-callout">
+    <h3>📁 No Projects Found</h3>
+    <p>No projects have been ingested yet. Once you connect Azure DevOps pipelines and they execute, projects will appear here automatically.</p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading && !currentOrg" class="loading">
+    ⏳ Loading organization data...
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="errorMessage" class="error-message">
+    ❌ {{ errorMessage }}
+  </div>
+
+  <!-- Info Box -->
+  <div class="info-box">
+    <h4>ℹ️ How It Works</h4>
+    <ul>
+      <li><strong>Inside Azure DevOps:</strong> Your organization is automatically detected from your Azure AD account.</li>
+      <li><strong>Local Development:</strong> Organization ID comes from dev settings (configure via ⚙️ button).</li>
+      <li><strong>Projects appear automatically</strong> when pipelines are executed and ingested into Velo.</li>
+    </ul>
+  </div>
+</div>

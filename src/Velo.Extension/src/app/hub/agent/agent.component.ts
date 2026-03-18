@@ -4,8 +4,10 @@ import { Component } from '@angular/core';
   selector: 'velo-agent',
   standalone: true,
   template: `
-    <h1>Pipeline Intelligence Agent</h1>
-    <p>AI-powered pipeline analysis and optimization recommendations — coming in Phase 2.</p>
+    <div style="padding: 20px; color: var(--text-secondary-color);">
+      <h2>🤖 Foundry AI Agent</h2>
+      <p>AI-powered pipeline analysis and optimization recommendations — coming in Phase 2</p>
+    </div>
   `,
 })
 export class AgentComponent {}

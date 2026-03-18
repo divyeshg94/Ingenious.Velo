@@ -1,0 +1,79 @@
+<div class="dashboard-container">
+  <h2>📊 DORA Metrics Dashboard</h2>
+  
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading">
+    ⏳ Loading metrics data...
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
+  </div>
+
+  <!-- No Data / No Project Selected -->
+  <div *ngIf="!isLoading && !metrics" class="info-callout">
+    <strong>📁 No project selected</strong><br>
+    Go to the <strong>Connections</strong> tab and select a project to view DORA metrics here.
+  </div>
+
+  <!-- Metrics Grid -->
+  <div *ngIf="metrics" class="metrics-grid">
+    <!-- Deployment Frequency -->
+    <div class="metric-card">
+      <div class="metric-header">📦 DEPLOYMENT FREQUENCY</div>
+      <div class="metric-value">{{ metrics.deploymentFrequency | number:'1.2-2' }}</div>
+      <div class="metric-unit">deployments / day</div>
+      <div class="metric-rating" [class]="getRatingClass(metrics.deploymentFrequencyRating)">
+        {{ metrics.deploymentFrequencyRating }}
+      </div>
+    </div>
+
+    <!-- Lead Time for Changes -->
+    <div class="metric-card">
+      <div class="metric-header">⏱️ LEAD TIME FOR CHANGES</div>
+      <div class="metric-value">{{ metrics.leadTimeForChangesHours | number:'1.1-1' }}</div>
+      <div class="metric-unit">hours (avg)</div>
+      <div class="metric-rating" [class]="getRatingClass(metrics.leadTimeRating)">
+        {{ metrics.leadTimeRating }}
+      </div>
+    </div>
+
+    <!-- Change Failure Rate -->
+    <div class="metric-card">
+      <div class="metric-header">⚠️ CHANGE FAILURE RATE</div>
+      <div class="metric-value">{{ metrics.changeFailureRate | number:'1.1-1' }}%</div>
+      <div class="metric-unit">percent</div>
+      <div class="metric-rating" [class]="getRatingClass(metrics.changeFailureRating)">
+        {{ metrics.changeFailureRating }}
+      </div>
+    </div>
+
+    <!-- Mean Time to Restore -->
+    <div class="metric-card">
+      <div class="metric-header">⚙️ MEAN TIME TO RESTORE</div>
+      <div class="metric-value">{{ metrics.meanTimeToRestoreHours | number:'1.1-1' }}</div>
+      <div class="metric-unit">hours (avg)</div>
+      <div class="metric-rating" [class]="getRatingClass(metrics.mttrRating)">
+        {{ metrics.mttrRating }}
+      </div>
+    </div>
+
+    <!-- Rework Rate -->
+    <div class="metric-card">
+      <div class="metric-header">🔄 REWORK RATE</div>
+      <div class="metric-value">{{ metrics.reworkRate | number:'1.1-1' }}%</div>
+      <div class="metric-unit">percent</div>
+      <div class="metric-rating" [class]="getRatingClass(metrics.reworkRateRating)">
+        {{ metrics.reworkRateRating }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Refresh Button -->
+  <div class="refresh-button" *ngIf="metrics || isLoading">
+    <button (click)="loadMetrics()" [disabled]="isLoading" class="btn-refresh">
+      {{ isLoading ? '🔄 Refreshing...' : '🔄 Refresh Metrics' }}
+    </button>
+  </div>
+</div>

@@ -2,17 +2,24 @@ import { Injectable } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import * as SDK from 'azure-devops-extension-sdk';
+import { getSDK, isRunningInADO } from '../services/sdk-initializer.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    // Get the VSTS token from the Azure DevOps SDK context
-    // This token is automatically issued to the extension by ADO and includes the user's org context
-    const token = SDK.getAppToken();
+    let token: string | null = null;
+
+    if (isRunningInADO()) {
+      // Get token from ADO SDK
+      const SDK = getSDK();
+      token = SDK.getAppToken?.();
+    } else {
+      // Local development - get token from localStorage or use mock
+      token = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
+      console.log('[Auth Interceptor] Using local mock token');
+    }
 
     if (token) {
-      // Clone the request and add the Authorization header
       req = req.clone({
         setHeaders: {
           Authorization: `Bearer ${token}`,
@@ -30,10 +37,8 @@ export class AuthInterceptor implements HttpInterceptor {
     let errorMessage = 'An error occurred';
 
     if (error.error instanceof ErrorEvent) {
-      // Client-side error
       errorMessage = `Error: ${error.error.message}`;
     } else {
-      // Server-side error
       if (error.status === 401) {
         errorMessage = 'Unauthorized - Please reauthenticate';
       } else if (error.status === 403) {

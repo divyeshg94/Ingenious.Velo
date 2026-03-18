@@ -22,7 +22,9 @@ public class OrgsController(
 {
     /// <summary>
     /// Get the current organization from the JWT token claim.
-    /// Multi-tenant: Returns only the org_id from the user's token (set by TenantResolutionMiddleware).
+    /// Multi-tenant: Returns the org_id and auto-populates org details from database or creates default.
+    /// In Azure DevOps: org_id comes from the user's token automatically.
+    /// In Local Dev: org_id comes from mock token or localStorage.
     /// </summary>
     [HttpGet("me")]
     public async Task<ActionResult<OrgContextDto>> GetCurrentOrg(CancellationToken cancellationToken)
@@ -45,25 +47,39 @@ public class OrgsController(
                 "AUDIT: Fetching organization context - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 orgId, userId, correlationId);
 
+            // Try to fetch org from database
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
 
             if (org == null)
             {
                 logger.LogInformation(
-                    "AUDIT: Organization not yet registered - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    orgId, userId, correlationId);
+                    "AUDIT: Organization not yet registered - creating default context for OrgId: {OrgId}",
+                    orgId);
 
-                // Return default org info for first-time users
-                return Ok(new OrgContextDto
+                // Auto-create default org context on first access
+                // This allows seamless first-time user experience
+                var defaultOrg = new OrgContextDto
                 {
                     OrgId = orgId,
                     OrgUrl = $"https://dev.azure.com/{orgId}",
                     DisplayName = orgId,
                     IsPremium = false,
+                    DailyTokenBudget = 50_000,
                     RegisteredAt = DateTime.UtcNow,
                     LastSeenAt = DateTime.UtcNow
-                });
+                };
+
+                await metricsRepository.SaveOrgContextAsync(defaultOrg, cancellationToken);
+                logger.LogInformation(
+                    "AUDIT: Auto-created default organization context for OrgId: {OrgId}",
+                    orgId);
+
+                return Ok(defaultOrg);
             }
+
+            // Update last seen time
+            org.LastSeenAt = DateTime.UtcNow;
+            await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
 
             logger.LogInformation(
                 "AUDIT: Successfully returned organization context - OrgId: {OrgId}, Premium: {IsPremium}, UserId: {UserId}, CorrelationId: {CorrelationId}",
@@ -124,13 +140,13 @@ public class OrgsController(
     }
 
     /// <summary>
-    /// Connect a new Azure DevOps organization to Velo.
-    /// Multi-tenant: Only the authenticated user (org_id in token) can connect their org.
-    /// Validates Azure DevOps org ownership before registering.
+    /// Update an existing organization's connection details.
+    /// This endpoint allows users to update their org URL and other settings.
+    /// The org_id is already determined from the JWT token - cannot be changed.
     /// </summary>
-    [HttpPost("connect")]
-    public async Task<ActionResult<OrgContextDto>> ConnectOrganization(
-        [FromBody] ConnectOrgRequest request,
+    [HttpPost("update")]
+    public async Task<ActionResult<OrgContextDto>> UpdateOrganization(
+        [FromBody] UpdateOrgRequest request,
         CancellationToken cancellationToken)
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
@@ -142,7 +158,7 @@ public class OrgsController(
             if (string.IsNullOrEmpty(orgId))
             {
                 logger.LogWarning(
-                    "SECURITY: Unauthorized attempt to connect organization - OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                    "SECURITY: Unauthorized attempt to update organization - OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
                     userId, correlationId);
                 return Unauthorized(new { error = "Organization context not found" });
             }
@@ -150,45 +166,48 @@ public class OrgsController(
             if (string.IsNullOrWhiteSpace(request.OrgUrl))
             {
                 logger.LogWarning(
-                    "AUDIT: Invalid org connection request - missing OrgUrl, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                    "AUDIT: Invalid org update request - missing OrgUrl, UserId: {UserId}, CorrelationId: {CorrelationId}",
                     userId, correlationId);
                 return BadRequest(new { error = "OrgUrl is required" });
             }
 
             logger.LogInformation(
-                "AUDIT: Connecting organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                "AUDIT: Updating organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 orgId, request.OrgUrl, userId, correlationId);
 
-            // TODO: Validate org ownership via Azure DevOps API using Managed Identity
-            // This ensures the user actually owns/manages the org before allowing connection
-
-            var orgDto = new OrgContextDto
+            // Fetch existing org
+            var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
+            if (org == null)
             {
-                OrgId = orgId,
-                OrgUrl = request.OrgUrl,
-                DisplayName = orgId,
-                IsPremium = false,
-                RegisteredAt = DateTime.UtcNow,
-                LastSeenAt = DateTime.UtcNow,
-                DailyTokenBudget = 50_000
-            };
+                logger.LogWarning(
+                    "AUDIT: Organization not found for update - OrgId: {OrgId}, UserId: {UserId}",
+                    orgId, userId);
+                return NotFound(new { error = "Organization not found" });
+            }
 
-            await metricsRepository.SaveOrgContextAsync(orgDto, cancellationToken);
+            // Update fields (org_id cannot be changed)
+            org.OrgUrl = request.OrgUrl;
+            if (!string.IsNullOrEmpty(request.DisplayName))
+            {
+                org.DisplayName = request.DisplayName;
+            }
+
+            await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
 
             logger.LogInformation(
-                "AUDIT: Successfully connected organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                "AUDIT: Successfully updated organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 orgId, request.OrgUrl, userId, correlationId);
 
-            return Ok(orgDto);
+            return Ok(org);
         }
         catch (Exception ex)
         {
             logger.LogError(ex,
-                "ERROR: Exception connecting organization - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                "ERROR: Exception updating organization - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 orgId, userId, correlationId);
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
 }
 
-public record ConnectOrgRequest(string OrgUrl);
+public record UpdateOrgRequest(string OrgUrl, string? DisplayName = null);
