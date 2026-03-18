@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OrgConnectionService, OrgConnectionDto } from '../../shared/services/org-connection.service';
+import { isRunningInADO } from '../../shared/services/sdk-initializer.service';
 
 @Component({
   selector: 'velo-connections',
@@ -11,16 +12,22 @@ import { OrgConnectionService, OrgConnectionDto } from '../../shared/services/or
   styleUrls: ['./connections.component.scss']
 })
 export class ConnectionsComponent implements OnInit {
-  currentOrg: OrgConnectionDto | null = null;
-  projects: string[] = [];
-  selectedProjectId: string | null = null;
-  orgUrl: string = '';
-  isLoading = false;
+currentOrg: OrgConnectionDto | null = null;
+projects: string[] = [];
+selectedProjectId: string | null = null;
+orgUrl: string = '';
+editingUrl = false;
+editOrgUrl: string = '';
+isAutoDetected = false;
+isADO = true;
+isLoading = false;
   errorMessage = '';
+  updateErrorMessage = '';
 
   constructor(private orgService: OrgConnectionService) {}
 
   ngOnInit(): void {
+    this.isADO = isRunningInADO();
     // Load selected project from sessionStorage
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
     this.loadCurrentOrg();
@@ -32,6 +39,7 @@ export class ConnectionsComponent implements OnInit {
       next: (org) => {
         console.log('[Connections] ✅ Organization loaded:', org);
         this.currentOrg = org;
+        this.isAutoDetected = false;
         this.loadProjects();
       },
       error: (err) => {
@@ -68,12 +76,44 @@ export class ConnectionsComponent implements OnInit {
       next: (org) => {
         console.log('[Connections] ✅ Organization connected successfully:', org);
         this.currentOrg = org;
+        this.isAutoDetected = false;
         this.orgUrl = '';
         this.loadProjects();
       },
       error: (err) => {
         console.error('[Connections] ❌ Failed to connect organization:', err);
         this.errorMessage = 'Failed to connect organization. Please check the URL and try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  toggleEditUrl(): void {
+    this.editingUrl = !this.editingUrl;
+    this.editOrgUrl = this.currentOrg?.orgUrl || '';
+    this.updateErrorMessage = '';
+  }
+
+  updateOrgUrl(): void {
+    if (!this.editOrgUrl) return;
+
+    this.isLoading = true;
+    this.updateErrorMessage = '';
+
+    console.log('[Connections] 🔄 Updating organization URL:', this.editOrgUrl);
+
+    this.orgService.connectOrganization(this.editOrgUrl).subscribe({
+      next: (org) => {
+        console.log('[Connections] ✅ Organization URL updated successfully:', org);
+        this.currentOrg = org;
+        this.isAutoDetected = false;
+        this.editingUrl = false;
+        this.editOrgUrl = '';
+        this.loadProjects();
+      },
+      error: (err) => {
+        console.error('[Connections] ❌ Failed to update organization URL:', err);
+        this.updateErrorMessage = 'Failed to update organization URL. Please check the URL and try again.';
         this.isLoading = false;
       }
     });

@@ -1,34 +1,36 @@
 import { Injectable } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, throwError, from } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { getSDK, isRunningInADO } from '../services/sdk-initializer.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    let token: string | null = null;
-
     if (isRunningInADO()) {
-      // Get token from ADO SDK
+      // ADO SDK v4: getAppToken() returns Promise<string>
       const SDK = getSDK();
-      token = SDK.getAppToken?.();
-    } else {
-      // Local development - get token from localStorage or use mock
-      token = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
-      console.log('[Auth Interceptor] Using local mock token');
+      return from(Promise.resolve(SDK.getAppToken?.())).pipe(
+        switchMap((token: string | undefined) => {
+          const authedReq = token
+            ? req.clone({ setHeaders: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
+            : req;
+          return next.handle(authedReq);
+        }),
+        catchError((error: HttpErrorResponse) => this.handleError(error))
+      );
     }
 
-    if (token) {
-      req = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-
-    return next.handle(req).pipe(
+    // Local development — synchronous mock token
+    const token = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
+    console.log('[Auth Interceptor] Using local mock token');
+    const cloned = req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return next.handle(cloned).pipe(
       catchError((error: HttpErrorResponse) => this.handleError(error))
     );
   }

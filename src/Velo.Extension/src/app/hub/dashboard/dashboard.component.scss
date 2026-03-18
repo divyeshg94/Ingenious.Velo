@@ -30,6 +30,7 @@
 
 .info-callout {
   background-color: var(--card-background);
+  border: 1px solid var(--card-border);
   border-left: 3px solid var(--primary-color);
   padding: 16px;
   border-radius: 2px;
@@ -40,6 +41,7 @@
 
   strong {
     font-weight: 600;
+    color: var(--heading-color);
   }
 }
 
@@ -99,22 +101,22 @@
 
 .rating-elite {
   background-color: rgba(16, 124, 16, 0.2);
-  color: #107c10;
+  color: #6ccb5f;
 }
 
 .rating-high {
   background-color: rgba(0, 120, 212, 0.2);
-  color: #0078d4;
+  color: #4fc3f7;
 }
 
 .rating-medium {
   background-color: rgba(255, 170, 0, 0.2);
-  color: #986f0b;
+  color: #ffc107;
 }
 
 .rating-low {
   background-color: rgba(232, 17, 35, 0.2);
-  color: #e81123;
+  color: #ff6b6b;
 }
 
 .refresh-button {

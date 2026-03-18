@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: MockSDKConfig = {
  */
 export const createMockSDK = (config: Partial<MockSDKConfig> = {}) => {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
+  const messageHandlers: { [key: string]: Function } = {};
 
   return {
     init: (options: any) => {
@@ -43,16 +44,28 @@ export const createMockSDK = (config: Partial<MockSDKConfig> = {}) => {
     },
     getAppToken: () => {
       console.log('[Mock SDK] Returning mock token');
-      return finalConfig.token;
+      return Promise.resolve(finalConfig.token);
     },
     getConfiguration: () => ({
       witInputs: {
         theme: 'light',
       },
     }),
+    getWebContext: () => ({
+      project: {
+        id: 'mock-project-id',
+        name: localStorage.getItem('mock-project-name') || '',
+      },
+      team: { id: 'mock-team-id', name: 'mock-team' },
+      user: { id: finalConfig.userId, name: 'Local Dev User' },
+    }),
     getContributionId: () => 'velo.velo-hub',
     register: (id: string, service: any) => {
       console.log('[Mock SDK] Registered service:', id);
+      if (typeof service === 'function') {
+        messageHandlers[id] = service;
+      }
+      return true;
     },
   };
 };

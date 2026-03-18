@@ -50,15 +50,16 @@
   .status-badge {
     display: inline-block;
     padding: 4px 12px;
-    background-color: rgba(16, 124, 16, 0.2);
-    color: #107c10;
+    background-color: var(--card-background);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary-color);
     border-radius: 12px;
     font-size: 12px;
     font-weight: 600;
 
     &.auto-detected {
-      background-color: rgba(0, 120, 212, 0.2);
-      color: #0078d4;
+      border-color: var(--primary-color);
+      color: var(--primary-color);
     }
   }
 }
@@ -248,12 +249,13 @@
 }
 
 .selection-info {
-  padding: 12px;
-  background-color: rgba(16, 124, 16, 0.1);
-  border-left: 3px solid #107c10;
-  border-radius: 2px;
-  color: #107c10;
-  font-size: 12px;
+padding: 12px;
+background-color: var(--card-background);
+border: 1px solid var(--card-border);
+border-left: 3px solid #107c10;
+border-radius: 2px;
+color: var(--text-primary-color);
+font-size: 12px;
 
   p {
     margin: 0;
@@ -278,25 +280,26 @@
 }
 
 .info-box {
-  background-color: rgba(0, 120, 212, 0.05);
-  border-left: 3px solid #0078d4;
-  padding: 12px;
-  border-radius: 2px;
-  margin-top: 16px;
+background-color: var(--card-background);
+border: 1px solid var(--card-border);
+border-left: 3px solid var(--primary-color);
+padding: 12px;
+border-radius: 2px;
+margin-top: 16px;
 
-  h4 {
-    color: #0078d4;
-    font-size: 13px;
-    margin-top: 0;
-    margin-bottom: 8px;
-  }
+h4 {
+  color: var(--primary-color);
+  font-size: 13px;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
 
-  ul {
-    margin: 0;
-    padding-left: 20px;
-    font-size: 12px;
-    color: var(--text-secondary-color);
-    line-height: 1.6;
+ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--text-primary-color);
+  line-height: 1.6;
 
     li {
       margin-bottom: 4px;

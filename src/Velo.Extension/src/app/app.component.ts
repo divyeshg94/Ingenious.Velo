@@ -222,23 +222,46 @@ export class AppComponent implements OnInit {
   }
 
   private detectTheme(): void {
-    const SDK = getSDK();
-    SDK.ready?.().then(() => {
-      const config = SDK.getConfiguration?.();
-      const hostTheme = config?.witInputs?.theme || 'light';
-      this.applyTheme(hostTheme);
+    // Primary detection: read the host page background colour.
+    // ADO dark themes use a dark background on the iframe's body.
+    const bg = window.getComputedStyle(document.body).backgroundColor;
+    const isDark = this.isColorDark(bg);
+    this.applyTheme(isDark ? 'dark' : 'light');
 
-      SDK.register?.(SDK.getContributionId?.(), {
-        themeChanged: (newTheme: any) => {
-          this.applyTheme(newTheme.id || 'light');
-        }
-      });
-    }).catch(() => {
-      this.applyTheme('light');
+    // Secondary: listen for runtime theme changes via ADO SDK.
+    try {
+      const SDK = getSDK();
+      const contributionId = SDK.getContributionId?.();
+      if (contributionId) {
+        SDK.register?.(contributionId, {
+          themeChanged: (newTheme: any) => {
+            const id = (newTheme?.id || newTheme?.name || '').toLowerCase();
+            this.applyTheme(id.includes('dark') || id.includes('night') ? 'dark' : 'light');
+          }
+        });
+      }
+    } catch { /* best-effort */ }
+
+    // Observe background changes (ADO may apply them after initial paint).
+    const observer = new MutationObserver(() => {
+      const newBg = window.getComputedStyle(document.body).backgroundColor;
+      const dark = this.isColorDark(newBg);
+      this.applyTheme(dark ? 'dark' : 'light');
     });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+
+  /** Parse an rgb/rgba string and decide if it is a dark colour. */
+  private isColorDark(bgColor: string): boolean {
+    const m = bgColor.match(/\d+/g);
+    if (!m || m.length < 3) return false;
+    const [r, g, b] = m.map(Number);
+    // Perceived luminance formula
+    return (r * 299 + g * 587 + b * 114) / 1000 < 128;
   }
 
   private applyTheme(themeId: string): void {
+    if (this.theme === themeId) return;          // no-op
     this.theme = themeId;
     document.documentElement.setAttribute('data-theme', themeId);
   }

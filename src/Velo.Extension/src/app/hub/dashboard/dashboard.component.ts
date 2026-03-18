@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
+import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
 
 @Component({
   selector: 'velo-dashboard',
@@ -18,14 +19,29 @@ export class DashboardComponent implements OnInit {
   constructor(private doraService: DoraMetricsService) {}
 
   ngOnInit(): void {
-    // Get selected project from sessionStorage (set by Connections component)
+    // 1. Try sessionStorage first (set by Connections component)
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
-    
+
+    // 2. In ADO, auto-detect the project from the SDK host context
+    if (!this.selectedProjectId && isRunningInADO()) {
+      try {
+        const SDK = getSDK();
+        const webContext = SDK.getWebContext?.();
+        if (webContext?.project?.name) {
+          this.selectedProjectId = webContext.project.name;
+          sessionStorage.setItem('selectedProjectId', this.selectedProjectId!);
+          console.log('[Dashboard] Auto-detected ADO project:', this.selectedProjectId);
+        }
+      } catch {
+        console.log('[Dashboard] Could not auto-detect project from ADO context');
+      }
+    }
+
     if (this.selectedProjectId) {
-      console.log('[Dashboard] ngOnInit: Project selected -', this.selectedProjectId);
+      console.log('[Dashboard] Loading metrics for project:', this.selectedProjectId);
       this.loadMetrics();
     } else {
-      console.log('[Dashboard] ngOnInit: No project selected yet');
+      console.log('[Dashboard] No project selected yet');
     }
   }
 

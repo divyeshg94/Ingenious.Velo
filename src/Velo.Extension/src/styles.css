@@ -21,22 +21,22 @@
 
 /* Dark theme overrides */
 [data-theme="dark"] {
-  --background-color: #1e1e1e;
-  --text-primary-color: #e0e0e0;
-  --text-secondary-color: #a6a6a6;
+  --background-color: #1b1a19;
+  --text-primary-color: #ffffff;
+  --text-secondary-color: #cccccc;
   --text-disabled-color: #6e6e6e;
   --header-background-color: #2d2d30;
   --header-foreground-color: #ffffff;
   --header-border-color: rgba(255, 255, 255, 0.1);
-  --primary-color: #60c5f1;
-  --primary-color-hover: #73cef5;
+  --primary-color: #4fc3f7;
+  --primary-color-hover: #81d4fa;
   --border-color: #3f3f46;
   --card-background: #252526;
   --card-border: #3f3f46;
   --card-shadow: 0 1.6px 3.6px 0 rgba(0,0,0,0.4), 0 0.3px 0.9px 0 rgba(0,0,0,0.3);
   --heading-color: #ffffff;
-  --link-color: #60c5f1;
-  --link-hover-color: #73cef5;
+  --link-color: #4fc3f7;
+  --link-hover-color: #81d4fa;
 }
 
 /* High contrast theme */

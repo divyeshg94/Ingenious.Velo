@@ -1,0 +1,953 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
+  :root {
+    --pipe-font-head: 'Barlow Condensed', sans-serif;
+    --pipe-font-data: 'JetBrains Mono', monospace;
+    --pipe-font-body: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .piq-shell {
+    font-family: var(--pipe-font-body);
+    display: flex;
+    min-height: 700px;
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    background: var(--color-background-primary);
+  }
+
+  .piq-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--color-background-secondary);
+    border-right: 0.5px solid var(--color-border-tertiary);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+  }
+
+  .piq-logo {
+    font-family: var(--pipe-font-head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0 16px 16px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .piq-logo span {
+    color: var(--color-text-info);
+  }
+
+  .piq-org {
+    font-family: var(--pipe-font-body);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: 8px 16px 0;
+    letter-spacing: 0.02em;
+  }
+
+  .piq-nav {
+    margin-top: 12px;
+    flex: 1;
+  }
+
+  .piq-nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--color-text-tertiary);
+    padding: 8px 16px 4px;
+    text-transform: uppercase;
+  }
+
+  .piq-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.1s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+
+  .piq-nav-item:hover { background: var(--color-background-primary); color: var(--color-text-primary); }
+  .piq-nav-item.active {
+    background: var(--color-background-primary);
+    color: var(--color-text-info);
+    font-weight: 500;
+    border-right: 2px solid var(--color-border-info);
+  }
+
+  .piq-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--color-background-warning);
+    flex-shrink: 0;
+  }
+  .piq-dot.ok { background: #22c55e; }
+  .piq-dot.warn { background: var(--color-background-warning); }
+  .piq-dot.crit { background: var(--color-background-danger); }
+
+  .piq-sidebar-footer {
+    padding: 12px 16px;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+  }
+
+  .piq-main { flex: 1; overflow: auto; }
+
+  .piq-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    background: var(--color-background-primary);
+  }
+
+  .piq-topbar-title {
+    font-family: var(--pipe-font-head);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--color-text-primary);
+  }
+
+  .piq-topbar-meta {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    font-family: var(--pipe-font-data);
+  }
+
+  .piq-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: var(--border-radius-md);
+    font-weight: 500;
+  }
+
+  .piq-badge.ok { background: #dcfce7; color: #166534; }
+  .piq-badge.warn { background: var(--color-background-warning); color: var(--color-text-warning); }
+  .piq-badge.info { background: var(--color-background-info); color: var(--color-text-info); }
+  .piq-badge.crit { background: var(--color-background-danger); color: var(--color-text-danger); }
+
+  .piq-content { padding: 20px 24px; }
+
+  .piq-section-title {
+    font-family: var(--pipe-font-head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin-bottom: 12px;
+  }
+
+  .piq-grid { display: grid; gap: 12px; margin-bottom: 20px; }
+  .piq-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .piq-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .piq-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .piq-card {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-lg);
+    border: 0.5px solid var(--color-border-tertiary);
+    padding: 14px 16px;
+  }
+
+  .piq-card.white {
+    background: var(--color-background-primary);
+  }
+
+  .piq-metric-label {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+
+  .piq-metric-val {
+    font-family: var(--pipe-font-data);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    line-height: 1;
+  }
+
+  .piq-metric-sub {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
+    font-family: var(--pipe-font-data);
+  }
+
+  .piq-trend-up { color: #16a34a; }
+  .piq-trend-down { color: #dc2626; }
+  .piq-trend-neutral { color: var(--color-text-secondary); }
+
+  .piq-sparkline {
+    height: 36px;
+    margin-top: 10px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .piq-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    background: var(--color-border-secondary);
+    min-height: 4px;
+    transition: background 0.1s;
+  }
+
+  .piq-bar.hi { background: #378ADD; }
+  .piq-bar.ok2 { background: #22c55e; }
+  .piq-bar.warn2 { background: #f59e0b; }
+  .piq-bar.crit2 { background: #dc2626; }
+
+  .piq-divider { height: 0.5px; background: var(--color-border-tertiary); margin: 16px 0; }
+
+  .piq-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .piq-table th { 
+    font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; 
+    color: var(--color-text-tertiary); font-weight: 500;
+    padding: 0 0 8px; text-align: left; border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  .piq-table td { 
+    padding: 9px 0; border-bottom: 0.5px solid var(--color-border-tertiary);
+    color: var(--color-text-primary);
+  }
+  .piq-table tr:last-child td { border-bottom: none; }
+  .piq-table td.mono { font-family: var(--pipe-font-data); font-size: 12px; }
+  .piq-table td.muted { color: var(--color-text-secondary); }
+
+  .piq-progress-bar {
+    height: 4px;
+    background: var(--color-border-tertiary);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .piq-progress-fill { height: 100%; border-radius: 2px; background: #378ADD; }
+  .piq-progress-fill.ok2 { background: #22c55e; }
+  .piq-progress-fill.warn2 { background: #f59e0b; }
+
+  .piq-chat-area { 
+    height: 320px; 
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .piq-msg {
+    max-width: 85%;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 10px 14px;
+    border-radius: var(--border-radius-lg);
+  }
+
+  .piq-msg.user {
+    align-self: flex-end;
+    background: #E6F1FB;
+    color: #0C447C;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 4px var(--border-radius-lg);
+  }
+
+  .piq-msg.agent {
+    align-self: flex-start;
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    color: var(--color-text-primary);
+    border-radius: 4px var(--border-radius-lg) var(--border-radius-lg) var(--border-radius-lg);
+  }
+
+  .piq-msg.agent .agent-label {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-info);
+    font-weight: 500;
+    margin-bottom: 4px;
+    font-family: var(--pipe-font-data);
+  }
+
+  .piq-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 0.5px solid var(--color-border-tertiary);
+  }
+
+  .piq-input-row input {
+    flex: 1;
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .piq-btn {
+    font-size: 12px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-family: var(--pipe-font-body);
+    border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-secondary);
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .piq-btn:hover { background: var(--color-background-secondary); }
+
+  .piq-btn.primary {
+    background: #185FA5;
+    color: white;
+    border-color: #185FA5;
+  }
+
+  .piq-btn.primary:hover { background: #0C447C; }
+
+  .piq-chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  .piq-chip {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 0.5px solid var(--color-border-secondary);
+    color: var(--color-text-secondary);
+    background: var(--color-background-secondary);
+    cursor: pointer;
+  }
+
+  .piq-chip.active { 
+    background: #E6F1FB; 
+    color: #185FA5; 
+    border-color: #85B7EB; 
+  }
+
+  .piq-conn-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    margin-bottom: 10px;
+    background: var(--color-background-primary);
+  }
+
+  .piq-conn-icon {
+    width: 36px; height: 36px; 
+    border-radius: var(--border-radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: var(--color-background-secondary);
+  }
+
+  .piq-conn-info { flex: 1; }
+  .piq-conn-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+  .piq-conn-meta { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--pipe-font-data); margin-top: 2px; }
+
+  .piq-gauge {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .piq-gauge-label { font-size: 12px; color: var(--color-text-secondary); width: 120px; flex-shrink: 0; }
+  .piq-gauge-bar { flex: 1; }
+  .piq-gauge-val { font-family: var(--pipe-font-data); font-size: 12px; color: var(--color-text-primary); width: 36px; text-align: right; }
+
+  .piq-insight {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--border-radius-md);
+    border-left: 3px solid transparent;
+    background: var(--color-background-secondary);
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+  }
+  .piq-insight.warn { border-left-color: #f59e0b; }
+  .piq-insight.ok2 { border-left-color: #22c55e; }
+  .piq-insight.info { border-left-color: #378ADD; }
+  .piq-insight-icon { font-size: 13px; margin-top: 1px; }
+
+  .piq-tab-row { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 16px; }
+  .piq-tab {
+    font-size: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px;
+    font-family: var(--pipe-font-body);
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .piq-tab.active { color: var(--color-text-info); border-bottom-color: var(--color-border-info); font-weight: 500; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+
+<div class="piq-shell">
+  <div class="piq-sidebar">
+    <div class="piq-logo">Pipe<span>IQ</span></div>
+    <div class="piq-org">Cloud Assert / PipelineTeam</div>
+
+    <nav class="piq-nav">
+      <div class="piq-nav-label">Analytics</div>
+      <button class="piq-nav-item active" onclick="showScreen('dashboard', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/><rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/><rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/><rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor" opacity="0.7"/></svg>
+        Dashboard
+      </button>
+      <button class="piq-nav-item" onclick="showScreen('dora', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="1,11 4,7 7,9 10,4 13,2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        DORA Metrics
+      </button>
+      <button class="piq-nav-item" onclick="showScreen('health', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><polyline points="4,7 6,9 10,5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        Team Health
+      </button>
+
+      <div class="piq-nav-label" style="margin-top:8px">Intelligence</div>
+      <button class="piq-nav-item" onclick="showScreen('agent', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="4,6.5 6.5,6.5 6.5,4" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="9.5" cy="6.5" r="1" fill="currentColor"/></svg>
+        Pipeline Agent
+        <span class="piq-badge info" style="margin-left:auto;font-size:9px;padding:1px 5px;">AI</span>
+      </button>
+      <button class="piq-nav-item" onclick="showScreen('pipelines', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="2" y1="4" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Pipelines
+        <div class="piq-dot warn" style="margin-left:auto"></div>
+      </button>
+
+      <div class="piq-nav-label" style="margin-top:8px">System</div>
+      <button class="piq-nav-item" onclick="showScreen('connections', this)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="7" r="2" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="1.5"/></svg>
+        Connections
+      </button>
+    </nav>
+
+    <div class="piq-sidebar-footer">
+      <div style="margin-bottom:4px;font-family:var(--pipe-font-data)">v0.2.1-alpha</div>
+      <div>Foundry Agent: Active</div>
+    </div>
+  </div>
+
+  <div class="piq-main">
+
+    <div id="screen-dashboard" class="screen active">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">Engineering Dashboard</div>
+          <div class="piq-topbar-meta">Last 30 days &nbsp;·&nbsp; Azure DevOps: CloudAssert/platform-services</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="piq-badge ok">All Systems Healthy</span>
+          <button class="piq-btn" style="font-size:11px">Refresh</button>
+        </div>
+      </div>
+
+      <div class="piq-content">
+        <div class="piq-section-title">DORA Metrics &mdash; 5-Metric Suite (2026)</div>
+        <div class="piq-grid piq-grid-4" style="margin-bottom:20px">
+          <div class="piq-card">
+            <div class="piq-metric-label">Deployment Frequency</div>
+            <div class="piq-metric-val">4.2<span style="font-size:14px;color:var(--color-text-secondary)">/wk</span></div>
+            <div class="piq-metric-sub piq-trend-up">+12% vs prev</div>
+            <div class="piq-sparkline">
+              <div class="piq-bar hi" style="height:55%"></div><div class="piq-bar hi" style="height:70%"></div><div class="piq-bar hi" style="height:60%"></div><div class="piq-bar hi" style="height:85%"></div><div class="piq-bar hi" style="height:75%"></div><div class="piq-bar hi" style="height:90%"></div><div class="piq-bar hi" style="height:100%"></div>
+            </div>
+          </div>
+          <div class="piq-card">
+            <div class="piq-metric-label">Lead Time for Changes</div>
+            <div class="piq-metric-val">1.8<span style="font-size:14px;color:var(--color-text-secondary)">d</span></div>
+            <div class="piq-metric-sub piq-trend-up">-0.3d vs prev</div>
+            <div class="piq-sparkline">
+              <div class="piq-bar ok2" style="height:90%"></div><div class="piq-bar ok2" style="height:80%"></div><div class="piq-bar ok2" style="height:95%"></div><div class="piq-bar ok2" style="height:70%"></div><div class="piq-bar ok2" style="height:85%"></div><div class="piq-bar ok2" style="height:75%"></div><div class="piq-bar ok2" style="height:65%"></div>
+            </div>
+          </div>
+          <div class="piq-card">
+            <div class="piq-metric-label">Change Failure Rate</div>
+            <div class="piq-metric-val">3.1<span style="font-size:14px;color:var(--color-text-secondary)">%</span></div>
+            <div class="piq-metric-sub piq-trend-up">-0.8% vs prev</div>
+            <div class="piq-sparkline">
+              <div class="piq-bar ok2" style="height:50%"></div><div class="piq-bar ok2" style="height:60%"></div><div class="piq-bar warn2" style="height:80%"></div><div class="piq-bar ok2" style="height:55%"></div><div class="piq-bar ok2" style="height:45%"></div><div class="piq-bar ok2" style="height:40%"></div><div class="piq-bar ok2" style="height:35%"></div>
+            </div>
+          </div>
+          <div class="piq-card">
+            <div class="piq-metric-label">Recovery Time</div>
+            <div class="piq-metric-val">47<span style="font-size:14px;color:var(--color-text-secondary)">min</span></div>
+            <div class="piq-metric-sub piq-trend-down">+8min vs prev</div>
+            <div class="piq-sparkline">
+              <div class="piq-bar ok2" style="height:40%"></div><div class="piq-bar ok2" style="height:50%"></div><div class="piq-bar ok2" style="height:45%"></div><div class="piq-bar warn2" style="height:70%"></div><div class="piq-bar ok2" style="height:55%"></div><div class="piq-bar ok2" style="height:60%"></div><div class="piq-bar warn2" style="height:75%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="piq-card" style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Rework Rate <span class="piq-badge info" style="margin-left:6px">New in 2026</span></span>
+            <span style="font-family:var(--pipe-font-data);font-size:18px;font-weight:500;color:var(--color-text-primary)">8.4%</span>
+          </div>
+          <div class="piq-progress-bar"><div class="piq-progress-fill warn2" style="width:8.4%"></div></div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px">8.4% of merged code was reverted or hotfixed within 48h &nbsp;&middot;&nbsp; Target: under 5%</div>
+        </div>
+
+        <div class="piq-grid piq-grid-2">
+          <div>
+            <div class="piq-section-title">Active Pipeline Runs</div>
+            <div class="piq-card white">
+              <table class="piq-table">
+                <thead>
+                  <tr><th>Pipeline</th><th>Branch</th><th>Duration</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>platform-api-ci</td><td class="mono">main</td><td class="mono">4m 12s</td><td><span class="piq-badge ok">Passed</span></td></tr>
+                  <tr><td>auth-service-cd</td><td class="mono">release/2.1</td><td class="mono">7m 04s</td><td><span class="piq-badge info">Running</span></td></tr>
+                  <tr><td>frontend-build</td><td class="mono">feat/ai-panel</td><td class="mono">2m 38s</td><td><span class="piq-badge warn">Slow</span></td></tr>
+                  <tr><td>infra-terraform</td><td class="mono">main</td><td class="mono">9m 51s</td><td><span class="piq-badge ok">Passed</span></td></tr>
+                  <tr><td>data-ingestion</td><td class="mono">main</td><td class="mono">&mdash;</td><td><span class="piq-badge crit">Failed</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <div class="piq-section-title">AI Agent Insights</div>
+            <div class="piq-insight warn">
+              <span class="piq-insight-icon">!</span>
+              <div><strong>frontend-build</strong> is 2.3x slower than the 30-day average. Likely cause: npm install not cached. Enabling PNPM store caching could save ~3 min per run.</div>
+            </div>
+            <div class="piq-insight info">
+              <span class="piq-insight-icon">i</span>
+              <div>Deployment frequency increased 12% this week. Trunk-based development adoption is correlating with shorter lead times across 3 of 4 services.</div>
+            </div>
+            <div class="piq-insight ok2">
+              <span class="piq-insight-icon">&#10003;</span>
+              <div>Change failure rate at 3.1% &mdash; within Elite performer range. OWASP scan passing on all production pipelines.</div>
+            </div>
+            <div class="piq-insight warn">
+              <span class="piq-insight-icon">!</span>
+              <div><strong>data-ingestion</strong> pipeline failed at stage Deploy-Staging. Azure SQL connection timeout detected. Check App Service outbound connectivity.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-dora" class="screen">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">DORA Metrics &mdash; Detailed View</div>
+          <div class="piq-topbar-meta">30-day window &nbsp;·&nbsp; All pipelines &nbsp;·&nbsp; Auto-detected deployment events</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="piq-btn" style="font-size:11px">7d</button>
+          <button class="piq-btn primary" style="font-size:11px">30d</button>
+          <button class="piq-btn" style="font-size:11px">90d</button>
+        </div>
+      </div>
+
+      <div class="piq-content">
+        <div class="piq-chip-row">
+          <span class="piq-chip active">All teams</span>
+          <span class="piq-chip">platform-services</span>
+          <span class="piq-chip">auth-service</span>
+          <span class="piq-chip">data-ingestion</span>
+          <span class="piq-chip">frontend</span>
+        </div>
+
+        <div class="piq-grid" style="grid-template-columns:repeat(5, minmax(0,1fr));margin-bottom:20px">
+          <div class="piq-card" style="text-align:center">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px">Deploy Freq</div>
+            <div style="font-family:var(--pipe-font-data);font-size:28px;font-weight:500;color:#185FA5">4.2</div>
+            <div style="font-size:10px;color:var(--color-text-secondary);margin:4px 0">/week</div>
+            <span class="piq-badge ok" style="font-size:9px">Elite</span>
+          </div>
+          <div class="piq-card" style="text-align:center">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px">Lead Time</div>
+            <div style="font-family:var(--pipe-font-data);font-size:28px;font-weight:500;color:#185FA5">1.8</div>
+            <div style="font-size:10px;color:var(--color-text-secondary);margin:4px 0">days</div>
+            <span class="piq-badge ok" style="font-size:9px">Elite</span>
+          </div>
+          <div class="piq-card" style="text-align:center">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px">CFR</div>
+            <div style="font-family:var(--pipe-font-data);font-size:28px;font-weight:500;color:#22c55e">3.1</div>
+            <div style="font-size:10px;color:var(--color-text-secondary);margin:4px 0">percent</div>
+            <span class="piq-badge ok" style="font-size:9px">Elite</span>
+          </div>
+          <div class="piq-card" style="text-align:center">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px">Recovery</div>
+            <div style="font-family:var(--pipe-font-data);font-size:28px;font-weight:500;color:#f59e0b">47</div>
+            <div style="font-size:10px;color:var(--color-text-secondary);margin:4px 0">minutes</div>
+            <span class="piq-badge warn" style="font-size:9px">High</span>
+          </div>
+          <div class="piq-card" style="text-align:center">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px">Rework Rate</div>
+            <div style="font-family:var(--pipe-font-data);font-size:28px;font-weight:500;color:#f59e0b">8.4</div>
+            <div style="font-size:10px;color:var(--color-text-secondary);margin:4px 0">percent</div>
+            <span class="piq-badge warn" style="font-size:9px">Medium</span>
+          </div>
+        </div>
+
+        <div class="piq-section-title">Lead Time Breakdown &mdash; Cycle Time by Stage</div>
+        <div class="piq-card white" style="margin-bottom:20px">
+          <div style="display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--color-text-secondary)">Coding time</span>
+            <div class="piq-progress-bar" style="height:8px;margin:0"><div class="piq-progress-fill hi" style="width:52%;background:#185FA5;height:8px"></div></div>
+            <span style="font-family:var(--pipe-font-data);font-size:11px;text-align:right">0.9d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--color-text-secondary)">PR pickup</span>
+            <div class="piq-progress-bar" style="height:8px;margin:0"><div class="piq-progress-fill" style="width:20%;height:8px"></div></div>
+            <span style="font-family:var(--pipe-font-data);font-size:11px;text-align:right">0.35d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--color-text-secondary)">Review time</span>
+            <div class="piq-progress-bar" style="height:8px;margin:0"><div class="piq-progress-fill warn2" style="width:25%;height:8px"></div></div>
+            <span style="font-family:var(--pipe-font-data);font-size:11px;text-align:right">0.45d</span>
+          </div>
+          <div style="display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center">
+            <span style="font-size:11px;color:var(--color-text-secondary)">Deploy time</span>
+            <div class="piq-progress-bar" style="height:8px;margin:0"><div class="piq-progress-fill ok2" style="width:6%;height:8px"></div></div>
+            <span style="font-family:var(--pipe-font-data);font-size:11px;text-align:right">0.1d</span>
+          </div>
+        </div>
+
+        <div class="piq-section-title">DORA Band Classification</div>
+        <div class="piq-card white">
+          <table class="piq-table">
+            <thead><tr><th>Metric</th><th>Your Value</th><th>Elite</th><th>High</th><th>Medium</th><th>Low</th><th>Band</th></tr></thead>
+            <tbody>
+              <tr><td>Deploy Frequency</td><td class="mono">4.2/wk</td><td class="mono">Daily+</td><td class="mono">Weekly</td><td class="mono">Monthly</td><td class="mono">6mo+</td><td><span class="piq-badge ok">Elite</span></td></tr>
+              <tr><td>Lead Time</td><td class="mono">1.8d</td><td class="mono">&lt;1d</td><td class="mono">1wk</td><td class="mono">1mo</td><td class="mono">6mo</td><td><span class="piq-badge ok">Elite</span></td></tr>
+              <tr><td>Change Fail Rate</td><td class="mono">3.1%</td><td class="mono">0-5%</td><td class="mono">5-10%</td><td class="mono">10-15%</td><td class="mono">15%+</td><td><span class="piq-badge ok">Elite</span></td></tr>
+              <tr><td>Recovery Time</td><td class="mono">47min</td><td class="mono">&lt;1hr</td><td class="mono">&lt;1d</td><td class="mono">&lt;1wk</td><td class="mono">1wk+</td><td><span class="piq-badge warn">High</span></td></tr>
+              <tr><td>Rework Rate</td><td class="mono">8.4%</td><td class="mono">0-5%</td><td class="mono">5-10%</td><td class="mono">10-20%</td><td class="mono">20%+</td><td><span class="piq-badge warn">High</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-health" class="screen">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">Team Health Dashboard</div>
+          <div class="piq-topbar-meta">PR quality &nbsp;·&nbsp; Test stability &nbsp;·&nbsp; Cycle time &nbsp;·&nbsp; Risk indicators</div>
+        </div>
+        <span class="piq-badge ok">Overall: Healthy</span>
+      </div>
+
+      <div class="piq-content">
+        <div class="piq-grid piq-grid-3" style="margin-bottom:20px">
+          <div class="piq-card">
+            <div class="piq-metric-label">PR Review SLA Met</div>
+            <div class="piq-metric-val">78<span style="font-size:16px;color:var(--color-text-secondary)">%</span></div>
+            <div class="piq-progress-bar" style="margin-top:8px"><div class="piq-progress-fill warn2" style="width:78%"></div></div>
+            <div class="piq-metric-sub piq-trend-down">-5% target was 85%</div>
+          </div>
+          <div class="piq-card">
+            <div class="piq-metric-label">Test Pass Rate (30d)</div>
+            <div class="piq-metric-val">96.2<span style="font-size:16px;color:var(--color-text-secondary)">%</span></div>
+            <div class="piq-progress-bar" style="margin-top:8px"><div class="piq-progress-fill ok2" style="width:96%"></div></div>
+            <div class="piq-metric-sub piq-trend-up">+1.4% vs prev</div>
+          </div>
+          <div class="piq-card">
+            <div class="piq-metric-label">Avg PR Size (LOC)</div>
+            <div class="piq-metric-val">284</div>
+            <div class="piq-progress-bar" style="margin-top:8px"><div class="piq-progress-fill warn2" style="width:56%"></div></div>
+            <div class="piq-metric-sub piq-trend-neutral">Target: &lt;200 LOC</div>
+          </div>
+        </div>
+
+        <div class="piq-grid piq-grid-2">
+          <div>
+            <div class="piq-section-title">Test Stability by Service</div>
+            <div class="piq-card white">
+              <div class="piq-gauge">
+                <div class="piq-gauge-label">platform-api</div>
+                <div class="piq-gauge-bar"><div class="piq-progress-bar" style="margin:0"><div class="piq-progress-fill ok2" style="width:98%"></div></div></div>
+                <div class="piq-gauge-val">98%</div>
+              </div>
+              <div class="piq-gauge">
+                <div class="piq-gauge-label">auth-service</div>
+                <div class="piq-gauge-bar"><div class="piq-progress-bar" style="margin:0"><div class="piq-progress-fill ok2" style="width:97%"></div></div></div>
+                <div class="piq-gauge-val">97%</div>
+              </div>
+              <div class="piq-gauge">
+                <div class="piq-gauge-label">frontend</div>
+                <div class="piq-gauge-bar"><div class="piq-progress-bar" style="margin:0"><div class="piq-progress-fill warn2" style="width:88%"></div></div></div>
+                <div class="piq-gauge-val">88%</div>
+              </div>
+              <div class="piq-gauge">
+                <div class="piq-gauge-label">data-ingestion</div>
+                <div class="piq-gauge-bar"><div class="piq-progress-bar" style="margin:0"><div class="piq-progress-fill" style="width:72%"></div></div></div>
+                <div class="piq-gauge-val">72%</div>
+              </div>
+              <div class="piq-gauge">
+                <div class="piq-gauge-label">infra-terraform</div>
+                <div class="piq-gauge-bar"><div class="piq-progress-bar" style="margin:0"><div class="piq-progress-fill ok2" style="width:100%"></div></div></div>
+                <div class="piq-gauge-val">100%</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="piq-section-title">Deployment Risk Indicators</div>
+            <div class="piq-card white">
+              <table class="piq-table">
+                <thead><tr><th>Indicator</th><th>Value</th><th>Risk</th></tr></thead>
+                <tbody>
+                  <tr><td>Large PRs (&gt;400 LOC)</td><td class="mono">12%</td><td><span class="piq-badge warn">Medium</span></td></tr>
+                  <tr><td>Hotfix rate</td><td class="mono">2.1%</td><td><span class="piq-badge ok">Low</span></td></tr>
+                  <tr><td>Stale branches</td><td class="mono">7</td><td><span class="piq-badge warn">Medium</span></td></tr>
+                  <tr><td>Test coverage</td><td class="mono">81%</td><td><span class="piq-badge ok">Good</span></td></tr>
+                  <tr><td>Security scan</td><td class="mono">0 crit</td><td><span class="piq-badge ok">Passing</span></td></tr>
+                  <tr><td>Failed deployments</td><td class="mono">1 / 7d</td><td><span class="piq-badge ok">Low</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-agent" class="screen">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">Pipeline Intelligence Agent</div>
+          <div class="piq-topbar-meta">Microsoft Foundry Agent Framework &nbsp;·&nbsp; RAG grounded on Azure DevOps docs</div>
+        </div>
+        <span class="piq-badge ok">Foundry: Connected</span>
+      </div>
+
+      <div class="piq-content">
+        <div class="piq-grid piq-grid-3" style="margin-bottom:16px">
+          <div class="piq-card" style="cursor:pointer" onclick="addPrompt('Why is frontend-build so slow?')">
+            <div style="font-size:11px;color:var(--color-text-info);margin-bottom:4px;font-family:var(--pipe-font-data)">Suggested</div>
+            <div style="font-size:12px;color:var(--color-text-primary)">Why is frontend-build so slow?</div>
+          </div>
+          <div class="piq-card" style="cursor:pointer" onclick="addPrompt('How can I reduce rework rate below 5%?')">
+            <div style="font-size:11px;color:var(--color-text-info);margin-bottom:4px;font-family:var(--pipe-font-data)">Suggested</div>
+            <div style="font-size:12px;color:var(--color-text-primary)">How can I reduce rework rate below 5%?</div>
+          </div>
+          <div class="piq-card" style="cursor:pointer" onclick="addPrompt('Analyze data-ingestion failure and suggest a fix')">
+            <div style="font-size:11px;color:var(--color-text-info);margin-bottom:4px;font-family:var(--pipe-font-data)">Suggested</div>
+            <div style="font-size:12px;color:var(--color-text-primary)">Analyze data-ingestion failure and suggest a fix</div>
+          </div>
+        </div>
+
+        <div class="piq-card white" style="padding:0">
+          <div class="piq-tab-row" style="padding:0 12px;margin-bottom:0">
+            <button class="piq-tab active">Chat</button>
+            <button class="piq-tab">Pipeline Analysis</button>
+            <button class="piq-tab">Recommendations</button>
+            <button class="piq-tab">Logs</button>
+          </div>
+
+          <div class="piq-chat-area" id="chat-area">
+            <div class="piq-msg agent">
+              <div class="agent-label">PipeIQ Agent &middot; Foundry</div>
+              Connected to Azure DevOps project <strong>CloudAssert/platform-services</strong>. I have access to your pipeline YAML definitions, build history (last 90 days), test results, and work item data. What would you like to analyze?
+            </div>
+            <div class="piq-msg user">
+              Why is the frontend-build pipeline running slow this week?
+            </div>
+            <div class="piq-msg agent">
+              <div class="agent-label">PipeIQ Agent &middot; Foundry</div>
+              I analyzed 14 recent runs of <strong>frontend-build</strong>. The average duration this week is 9m 42s vs. 4m 18s over the prior 30 days. Root cause identified:<br><br>
+              1. The <code>npm ci</code> step is not using a pipeline cache. Each run re-downloads ~340 packages from the registry. Adding a <code>Cache@2</code> task keyed on <code>package-lock.json</code> hash would save approximately 3-4 minutes per run.<br><br>
+              2. The ESLint step is scanning <code>node_modules/</code>. Add <code>.eslintignore</code> to exclude it.<br><br>
+              Estimated savings: <strong>65% reduction</strong> in build time. Want me to generate the updated YAML?
+            </div>
+          </div>
+
+          <div class="piq-input-row">
+            <input type="text" id="agent-input" placeholder="Ask about your pipelines, metrics, or request YAML optimizations..." />
+            <button class="piq-btn primary" onclick="sendAgentMsg()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-pipelines" class="screen">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">All Pipelines</div>
+          <div class="piq-topbar-meta">5 pipelines monitored &nbsp;·&nbsp; 1 alert</div>
+        </div>
+        <span class="piq-badge crit">1 Failed</span>
+      </div>
+      <div class="piq-content">
+        <div class="piq-card white">
+          <table class="piq-table">
+            <thead><tr><th>Pipeline</th><th>Type</th><th>Last Run</th><th>Avg Duration</th><th>Success Rate</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>platform-api-ci</strong></td><td class="muted">CI / CD</td>
+                <td class="mono">5min ago</td><td class="mono">4m 12s</td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="piq-progress-bar" style="width:80px;margin:0"><div class="piq-progress-fill ok2" style="width:98%"></div></div><span class="mono" style="font-size:11px">98%</span></div></td>
+                <td><span class="piq-badge ok">Passed</span></td>
+              </tr>
+              <tr>
+                <td><strong>auth-service-cd</strong></td><td class="muted">CD</td>
+                <td class="mono">12min ago</td><td class="mono">7m 04s</td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="piq-progress-bar" style="width:80px;margin:0"><div class="piq-progress-fill ok2" style="width:96%"></div></div><span class="mono" style="font-size:11px">96%</span></div></td>
+                <td><span class="piq-badge info">Running</span></td>
+              </tr>
+              <tr>
+                <td><strong>frontend-build</strong></td><td class="muted">CI</td>
+                <td class="mono">22min ago</td><td class="mono">9m 42s</td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="piq-progress-bar" style="width:80px;margin:0"><div class="piq-progress-fill warn2" style="width:88%"></div></div><span class="mono" style="font-size:11px">88%</span></div></td>
+                <td><span class="piq-badge warn">Slow</span></td>
+              </tr>
+              <tr>
+                <td><strong>infra-terraform</strong></td><td class="muted">IaC</td>
+                <td class="mono">1h ago</td><td class="mono">9m 51s</td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="piq-progress-bar" style="width:80px;margin:0"><div class="piq-progress-fill ok2" style="width:100%"></div></div><span class="mono" style="font-size:11px">100%</span></div></td>
+                <td><span class="piq-badge ok">Passed</span></td>
+              </tr>
+              <tr>
+                <td><strong>data-ingestion</strong></td><td class="muted">Functions</td>
+                <td class="mono">2h ago</td><td class="mono">3m 20s</td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="piq-progress-bar" style="width:80px;margin:0"><div class="piq-progress-fill" style="width:72%"></div></div><span class="mono" style="font-size:11px">72%</span></div></td>
+                <td><span class="piq-badge crit">Failed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-connections" class="screen">
+      <div class="piq-topbar">
+        <div>
+          <div class="piq-topbar-title">Connections &amp; Integrations</div>
+          <div class="piq-topbar-meta">Manage Azure DevOps org connections and Foundry configuration</div>
+        </div>
+        <button class="piq-btn primary" style="font-size:11px">+ Add Connection</button>
+      </div>
+
+      <div class="piq-content">
+        <div class="piq-section-title">Active Connections</div>
+        <div class="piq-conn-card">
+          <div class="piq-conn-icon">&#9729;</div>
+          <div class="piq-conn-info">
+            <div class="piq-conn-name">Azure DevOps &mdash; CloudAssert Org</div>
+            <div class="piq-conn-meta">dev.azure.com/cloudassert &nbsp;·&nbsp; 5 projects &nbsp;·&nbsp; Service hooks: Active</div>
+          </div>
+          <span class="piq-badge ok">Connected</span>
+        </div>
+        <div class="piq-conn-card">
+          <div class="piq-conn-icon" style="font-size:13px;font-family:var(--pipe-font-data);color:var(--color-text-info)">AI</div>
+          <div class="piq-conn-info">
+            <div class="piq-conn-name">Microsoft Foundry Agent</div>
+            <div class="piq-conn-meta">Foundry endpoint: westus2 &nbsp;·&nbsp; Model: GPT-4o &nbsp;·&nbsp; RAG: Azure DevOps Docs v2026</div>
+          </div>
+          <span class="piq-badge ok">Active</span>
+        </div>
+        <div class="piq-conn-card">
+          <div class="piq-conn-icon">&#128197;</div>
+          <div class="piq-conn-info">
+            <div class="piq-conn-name">Azure SQL &mdash; PipeIQ Metrics DB</div>
+            <div class="piq-conn-meta">pipeiq-db.database.windows.net &nbsp;·&nbsp; Managed Identity auth</div>
+          </div>
+          <span class="piq-badge ok">Connected</span>
+        </div>
+
+        <div class="piq-divider"></div>
+        <div class="piq-section-title">Available Integrations</div>
+        <div class="piq-conn-card" style="opacity:0.7">
+          <div class="piq-conn-icon">&#128295;</div>
+          <div class="piq-conn-info">
+            <div class="piq-conn-name">HashiCorp Terraform Cloud</div>
+            <div class="piq-conn-meta">IaC pipeline intelligence &nbsp;·&nbsp; Drift detection &nbsp;·&nbsp; Plan analysis</div>
+          </div>
+          <button class="piq-btn" style="font-size:11px">Connect</button>
+        </div>
+        <div class="piq-conn-card" style="opacity:0.7">
+          <div class="piq-conn-icon">&#128202;</div>
+          <div class="piq-conn-info">
+            <div class="piq-conn-name">Azure Monitor &amp; App Insights</div>
+            <div class="piq-conn-meta">Correlate deployment events with application health signals</div>
+          </div>
+          <button class="piq-btn" style="font-size:11px">Connect</button>
+        </div>
+
+        <div class="piq-divider"></div>
+        <div class="piq-section-title">Service Hook Configuration</div>
+        <div class="piq-card white">
+          <table class="piq-table">
+            <thead><tr><th>Event</th><th>Target</th><th>Last Triggered</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Pipeline run completed</td><td class="mono">PipeIQ ingest fn</td><td class="mono">5min ago</td><td><span class="piq-badge ok">Active</span></td></tr>
+              <tr><td>Pull request merged</td><td class="mono">PipeIQ ingest fn</td><td class="mono">22min ago</td><td><span class="piq-badge ok">Active</span></td></tr>
+              <tr><td>Work item state changed</td><td class="mono">PipeIQ ingest fn</td><td class="mono">1h ago</td><td><span class="piq-badge ok">Active</span></td></tr>
+              <tr><td>Build failed</td><td class="mono">PipeIQ ingest fn</td><td class="mono">2h ago</td><td><span class="piq-badge ok">Active</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function showScreen(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.piq-nav-item').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addPrompt(text) {
+  showScreen('agent', document.querySelectorAll('.piq-nav-item')[3]);
+  document.getElementById('agent-input').value = text;
+}
+
+function sendAgentMsg() {
+  const input = document.getElementById('agent-input');
+  const val = input.value.trim();
+  if (!val) return;
+  const area = document.getElementById('chat-area');
+  const userMsg = document.createElement('div');
+  userMsg.className = 'piq-msg user';
+  userMsg.textContent = val;
+  area.appendChild(userMsg);
+  input.value = '';
+  setTimeout(() => {
+    const agentMsg = document.createElement('div');
+    agentMsg.className = 'piq-msg agent';
+    agentMsg.innerHTML = '<div class="agent-label">PipeIQ Agent &middot; Foundry</div>Analyzing your pipelines and metrics... This would route to the Foundry Agent with RAG grounding on your Azure DevOps data. In production, the agent would query pipeline history, YAML definitions, and test results to produce a specific recommendation.';
+    area.appendChild(agentMsg);
+    area.scrollTop = area.scrollHeight;
+  }, 800);
+  area.scrollTop = area.scrollHeight;
+}
+</script>
