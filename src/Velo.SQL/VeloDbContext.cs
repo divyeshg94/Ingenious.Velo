@@ -13,6 +13,7 @@ public class VeloDbContext : DbContext
     public DbSet<DoraMetrics> DoraMetrics { get; set; } = null!;
     public DbSet<OrgContext> Organizations { get; set; } = null!;
     public DbSet<TeamHealth> TeamHealth { get; set; } = null!;
+    public DbSet<LogEvent> LogEvents { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +85,38 @@ public class VeloDbContext : DbContext
             .HasIndex(h => h.ComputedAt)
             .IsDescending(true)
             .HasDatabaseName("IX_TeamHealth_ComputedAt_DESC");
+
+        // LogEvents — no tenant filter (logs are cross-org for ops/audit)
+        // Table name matches Serilog MSSqlServer sink tableName in appsettings.json
+        modelBuilder.Entity<LogEvent>(eb =>
+        {
+            eb.ToTable("log_events");
+            eb.HasKey(e => e.Id);
+            eb.Property(e => e.Message).HasMaxLength(4000);
+            eb.Property(e => e.MessageTemplate).HasMaxLength(4000).IsRequired();
+            eb.Property(e => e.Level).HasMaxLength(128).IsRequired();
+            eb.Property(e => e.TimeStamp).HasDefaultValueSql("SYSUTCDATETIME()");
+            eb.Property(e => e.OrgId).HasMaxLength(256);
+            eb.Property(e => e.UserId).HasMaxLength(256);
+            eb.Property(e => e.CorrelationId).HasMaxLength(128);
+            eb.Property(e => e.RequestPath).HasMaxLength(1024);
+            eb.Property(e => e.RequestMethod).HasMaxLength(10);
+
+            eb.HasIndex(e => e.TimeStamp)
+              .IsDescending(true)
+              .HasDatabaseName("IX_log_events_TimeStamp_DESC");
+
+            eb.HasIndex(e => new { e.Level, e.TimeStamp })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_log_events_Level_TimeStamp");
+
+            eb.HasIndex(e => new { e.OrgId, e.TimeStamp })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_log_events_OrgId_TimeStamp");
+
+            eb.HasIndex(e => e.CorrelationId)
+              .HasDatabaseName("IX_log_events_CorrelationId");
+        });
 
         base.OnModelCreating(modelBuilder);
     }

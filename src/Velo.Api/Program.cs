@@ -1,5 +1,6 @@
 using Serilog;
 using Serilog.Events;
+using System.Text.RegularExpressions;
 using Velo.Api.Middleware;
 using Velo.Api.Services;
 using Velo.Shared.Contracts;
@@ -42,21 +43,44 @@ try
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration
     // so they can be overridden per environment without a code change.
-    var allowedOrigins = builder.Configuration
+    //
+    // Normalisation rules applied to every configured origin:
+    //   • Trailing slashes are stripped  (browsers never send them in Origin headers)
+    //   • https://*.example.com  matches any single-level subdomain
+    var allowedOrigins = (builder.Configuration
         .GetSection("Cors:AllowedOrigins")
-        .Get<string[]>() ?? [];
+        .Get<string[]>() ?? [])
+        .Select(o => o.TrimEnd('/'))
+        .ToArray();
 
     var exposedHeaders = builder.Configuration
         .GetSection("Cors:ExposedHeaders")
         .Get<string[]>() ?? [];
+
+    // Pre-compile wildcard patterns once at startup.
+    var wildcardPatterns = allowedOrigins
+        .Where(o => o.Contains('*'))
+        .Select(o => new Regex(
+            "^" + Regex.Escape(o).Replace("\\*", "[^.]+") + "$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled))
+        .ToArray();
 
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AdoExtension", policy =>
         {
             policy
-                .WithOrigins(allowedOrigins)
-                .SetIsOriginAllowedToAllowWildcardSubdomains()   // enables the *.xxx.com patterns
+                .SetIsOriginAllowed(origin =>
+                {
+                    var normalised = origin.TrimEnd('/');
+
+                    // Exact match
+                    if (allowedOrigins.Contains(normalised, StringComparer.OrdinalIgnoreCase))
+                        return true;
+
+                    // Wildcard match  e.g. https://*.gallerycdn.vsassets.io
+                    return wildcardPatterns.Any(p => p.IsMatch(normalised));
+                })
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .WithExposedHeaders(exposedHeaders);

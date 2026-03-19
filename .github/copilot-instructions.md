@@ -297,6 +297,7 @@ export class DashboardComponent { }
 - Always use `async` EF methods: `ToListAsync`, `FirstOrDefaultAsync`, `SaveChangesAsync`.
 - Never use `DbContext` directly in controllers — only in services or repositories.
 - Global query filters on `VeloDbContext` handle RLS at the application layer automatically — do not add manual `Where(r => r.OrgId == orgId)` clauses; they are redundant and misleading.
+- **Always use EF Core migrations (Add-Migration)** for all database schema changes. Never create raw `.sql` migration files for table creation.
 
 ### Raw SQL (Dapper)
 
