@@ -40,14 +40,26 @@ try
     builder.Services.AddScoped<IMetricsRepository, MetricsRepository>();
     builder.Services.AddScoped<IProjectService, ProjectService>();
 
-    // CORS for ADO extension iframe
+    // CORS for ADO extension iframe — origins and exposed headers come from configuration
+    // so they can be overridden per environment without a code change.
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
+    var exposedHeaders = builder.Configuration
+        .GetSection("Cors:ExposedHeaders")
+        .Get<string[]>() ?? [];
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AdoExtension", policy =>
         {
-            policy.WithOrigins("https://dev.azure.com", "https://*.visualstudio.com")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
+            policy
+                .WithOrigins(allowedOrigins)
+                .SetIsOriginAllowedToAllowWildcardSubdomains()   // enables the *.xxx.com patterns
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .WithExposedHeaders(exposedHeaders);
         });
     });
 
