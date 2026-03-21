@@ -25,7 +25,6 @@ namespace Velo.Api.Middleware;
 public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantResolutionMiddleware> logger)
 {
     private const string OrgIdHeader = "X-Azure-DevOps-OrgId";
-    private const string AzureAdOidClaim = "oid"; // Azure AD object ID (fallback)
 
     public async Task InvokeAsync(HttpContext context, VeloDbContext dbContext)
     {
@@ -38,21 +37,22 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             if (context.User?.Identity?.IsAuthenticated != true)
             {
                 logger.LogDebug(
-                    "TENANT: Skipping tenant resolution — user not authenticated. Path: {Path}, CorrelationId: {CorrelationId}",
+                    "TENANT: Skipping — user not authenticated. Path: {Path}, CorrelationId: {CorrelationId}",
                     context.Request.Path, correlationId);
                 await next(context);
                 return;
             }
 
-            // 1. Prefer explicit header from the ADO extension frontend
+            // 1. Prefer explicit header from the ADO extension frontend (SDK.getHost().name)
             var orgId = context.Request.Headers[OrgIdHeader].FirstOrDefault();
 
-            // 2. Fallback: JWT claims (Azure AD 'oid' or NameIdentifier)
+            // 2. VSSO token 'tid' claim — the Azure DevOps tenant/org GUID
             if (string.IsNullOrEmpty(orgId))
-            {
-                orgId = context.User.FindFirst(AzureAdOidClaim)?.Value
-                     ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            }
+                orgId = context.User.FindFirst("tid")?.Value;
+
+            // 3. Azure AD 'oid' claim (if Azure AD tokens are ever used)
+            if (string.IsNullOrEmpty(orgId))
+                orgId = context.User.FindFirst("oid")?.Value;
 
             if (string.IsNullOrEmpty(orgId))
             {
