@@ -114,8 +114,9 @@ try
     app.UseHttpsRedirection();
     app.UseCors("AdoExtension");
 
-    // Middleware order matters: correlation → tenant resolution → rate limit → auth
+    // Middleware order matters: correlation → authentication → tenant resolution → rate limit → authorization
     app.UseMiddleware<CorrelationIdMiddleware>();
+    app.UseAuthentication();
     app.UseMiddleware<TenantResolutionMiddleware>();
     app.UseMiddleware<RateLimitMiddleware>();
 
