@@ -2,7 +2,6 @@
   <Folder Name="/src/">
     <Project Path="src/Velo.Agent/Velo.Agent.csproj" />
     <Project Path="src/Velo.Api/Velo.Api.csproj" />
-    <Project Path="src/Velo.Functions/Velo.Functions.csproj" />
     <Project Path="src/Velo.Shared/Velo.Shared.csproj" />
   </Folder>
   <Project Path="src/Velo.SQL/Velo.SQL.csproj" Id="3f91efc3-1d0f-458f-a166-ef18bc61eca5" />
