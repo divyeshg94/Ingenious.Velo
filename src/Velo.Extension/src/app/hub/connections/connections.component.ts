@@ -22,10 +22,16 @@ export class ConnectionsComponent implements OnInit {
   isAutoDetected = false;
   isADO = true;
 
+  projectSearch = '';
   isLoading = false;
   isSyncing = false;
   isHookLoading = false;
   syncAttempted = false;
+
+  get filteredProjects(): string[] {
+    const q = this.projectSearch.trim().toLowerCase();
+    return q ? this.projects.filter(p => p.toLowerCase().includes(q)) : this.projects;
+  }
 
   errorMessage = '';
   updateErrorMessage = '';
@@ -91,13 +97,13 @@ export class ConnectionsComponent implements OnInit {
       next: (result: SyncResult) => {
         this.isSyncing = false;
         this.syncAttempted = true;
-        this.syncMessage = `✅ Sync complete — ${result.ingested} pipeline runs ingested.`;
+        this.syncMessage = `Sync complete — ${result.ingested} pipeline runs ingested.`;
         this.webhookStatus = result.webhook ?? null;
       },
       error: (err) => {
         this.isSyncing = false;
         this.syncAttempted = true;
-        this.syncError = err.error?.error || err.message || 'Sync failed. Check your permissions (vso.build scope required).';
+        this.syncError = err.error?.error || err.message || 'Sync failed — check your permissions (vso.build scope required).';
       }
     });
   }

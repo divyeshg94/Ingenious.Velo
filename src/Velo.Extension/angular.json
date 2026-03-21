@@ -62,6 +62,7 @@
               "aot": true
             },
             "development": {
+              "baseHref": "./",
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true,
