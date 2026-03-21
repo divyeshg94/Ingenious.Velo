@@ -5,6 +5,8 @@ using Velo.Shared.Models.Ado;
 using Velo.Api.Services;
 using Velo.Shared.Contracts;
 using Velo.Shared.Models;
+using Velo.SQL;
+using Microsoft.EntityFrameworkCore;
 
 namespace Velo.Api.Controllers;
 
@@ -18,6 +20,7 @@ namespace Velo.Api.Controllers;
 [AllowAnonymous]
 public class WebhookController(
     IMetricsRepository repo,
+    VeloDbContext dbContext,
     DoraComputeService doraService,
     IConfiguration config,
     ILogger<WebhookController> logger) : ControllerBase
@@ -76,6 +79,11 @@ public class WebhookController(
         logger.LogInformation(
             "WEBHOOK: build.complete received — org={Org}, project={Project}, build={Build}, result={Result}",
             orgName, projectName, resource.BuildNumber, resource.Result);
+
+        // ── Set tenant context (same as TenantResolutionMiddleware for normal requests) ──
+        // Without this, sp_set_session_context is never called and SQL Server RLS
+        // blocks the INSERT, causing the run to be silently discarded.
+        await SetTenantContextAsync(orgName, cancellationToken);
 
         // ── Deduplicate ───────────────────────────────────────────────────────────
         var definitionId = resource.Definition?.Id ?? 0;
@@ -140,5 +148,33 @@ public class WebhookController(
     {
         var n = (name ?? string.Empty).ToLowerInvariant();
         return n.Contains("deploy") || n.Contains("release") || n.Contains("prod");
+    }
+
+    /// <summary>
+    /// Sets CurrentOrgId on the DbContext and calls sp_set_session_context so that
+    /// SQL Server RLS policies allow the INSERT — mirrors what TenantResolutionMiddleware
+    /// does for authenticated requests.
+    /// </summary>
+    private async Task SetTenantContextAsync(string orgId, CancellationToken cancellationToken)
+    {
+        dbContext.CurrentOrgId = orgId;
+
+        var connection = dbContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
+        cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
+
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", orgId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "WEBHOOK: Failed to set SQL session context for OrgId={OrgId}", orgId);
+        }
     }
 }

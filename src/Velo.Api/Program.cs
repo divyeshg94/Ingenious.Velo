@@ -12,23 +12,29 @@ using Velo.SQL;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
-// Configure Serilog BEFORE building the host
+// Bootstrap logger — console only, used until the host is built and
+// the full configuration (including MSSqlServer sink) is loaded.
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("System", LogEventLevel.Warning)
-    .Enrich.FromLogContext()
-    .Enrich.WithProperty("Application", "Velo.Api")
-    .Enrich.WithThreadId()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-    .CreateLogger();
+    .CreateBootstrapLogger();
 
 try
 {
     Log.Information("Starting Velo API application");
     
     var builder = WebApplication.CreateBuilder(args);
-    builder.Host.UseSerilog(Log.Logger);
+
+    // Replace bootstrap logger with the full logger read from appsettings.json.
+    // This picks up the MSSqlServer sink, enrichers, and level overrides
+    // configured there — the pre-built logger above is discarded after host build.
+    builder.Host.UseSerilog((ctx, services, lc) => lc
+        .ReadFrom.Configuration(ctx.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "Velo.Api")
+        .Enrich.WithThreadId());
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
@@ -138,12 +144,15 @@ try
                         var handler = new JsonWebTokenHandler();
                         var jwt = handler.ReadJsonWebToken(raw);
 
+                        // Log structural facts at Information; full claims only at Debug
+                        // so they are NOT written to the DB log table in production.
                         log.LogInformation(
-                            "AUTH: Token decoded — Issuer={Issuer}, Audiences={Audiences}, Expiry={ValidTo}, " +
-                            "Claims=[{Claims}]",
-                            jwt.Issuer,
+                            "AUTH: Token accepted — Issuer={Issuer}, Expiry={ValidTo}",
+                            jwt.Issuer, jwt.ValidTo);
+
+                        log.LogDebug(
+                            "AUTH: Token claims — Audiences={Audiences}, Claims=[{Claims}]",
                             string.Join(", ", jwt.Audiences),
-                            jwt.ValidTo,
                             string.Join(", ", jwt.Claims.Select(c => $"{c.Type}={c.Value}")));
 
                         // Basic expiry check (with 5-minute skew)

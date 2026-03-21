@@ -63,6 +63,8 @@ export class ConnectionsComponent implements OnInit {
       next: (projects) => {
         this.projects = projects;
         this.isLoading = false;
+        // Auto-load webhook status when a project was already selected (e.g. page reload)
+        if (this.selectedProjectId) this.loadHookStatus();
       },
       error: () => {
         this.errorMessage = 'Failed to load projects';
@@ -106,8 +108,17 @@ export class ConnectionsComponent implements OnInit {
     this.webhookError = '';
 
     this.syncService.getHookStatus(this.selectedProjectId).subscribe({
-      next: (status) => { this.webhookStatus = status; this.isHookLoading = false; },
-      error: () => { this.isHookLoading = false; }
+      next: (status) => {
+        this.webhookStatus = status;
+        this.syncAttempted = true;
+        this.isHookLoading = false;
+      },
+      error: () => {
+        // Status check failed — mark as attempted so the template shows
+        // "Check Status Manually" instead of "Click Sync first"
+        this.syncAttempted = true;
+        this.isHookLoading = false;
+      }
     });
   }
 
