@@ -1,8 +1,6 @@
 # GitHub Copilot Instructions — Velo
 
-Velo is an open-source, AI-powered engineering intelligence platform built natively for Azure DevOps.
-It computes all five 2026 DORA metrics from pipeline data and provides a Foundry AI agent for pipeline optimization.
-The product is delivered as a native Azure DevOps extension on the Visual Studio Marketplace.
+Velo is an open-source, AI-powered engineering intelligence platform built natively for Azure DevOps. It computes all five 2026 DORA metrics from pipeline data and provides a Foundry AI agent for pipeline optimization. The product is delivered as a native Azure DevOps extension on the Visual Studio Marketplace.
 
 ---
 
@@ -223,6 +221,8 @@ The correct middleware order is:
 2. `UseCors("AdoExtension")`
 3. `UseMiddleware<TenantResolutionMiddleware>` — must come before auth to set org context
 4. `UseMiddleware<RateLimitMiddleware>` — checks token budget on `/api/agent/*`
+5. `UseAuthorization`
+6. `MapControllers`
 5. `UseAuthorization`
 6. `MapControllers`
 

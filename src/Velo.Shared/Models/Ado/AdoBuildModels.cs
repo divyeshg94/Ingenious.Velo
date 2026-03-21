@@ -39,9 +39,15 @@ public record AdoBuildResource(
     string? Url,
     AdoDefinition? Definition,
     AdoProject? Project,
-    AdoIdentity? RequestedBy);
+    AdoIdentity? RequestedBy,
+    AdoBuildRequest[]? Requests);
 
-public record AdoDefinition(int Id, string? Name);
+/// <summary>
+/// Entry in the build.complete resource.requests array (legacy XAML build format).
+/// Modern YAML builds populate resource.requestedBy at the top level instead.
+/// </summary>
+public record AdoBuildRequest(int Id, AdoIdentity? RequestedFor);
+public record AdoDefinition(int Id, string? Name, string? Url);
 public record AdoProject(string? Id, string? Name);
 public record AdoIdentity(string? DisplayName);
 public record AdoResourceContainers(AdoAccount? Account, AdoAccount? Collection, AdoAccount? Project);

@@ -105,28 +105,59 @@ public class WebhookController(
             return Ok();
         }
 
-        // Extract org name from resourceContainers (try account first, fall back to collection)
+        // Org: modern payloads include baseUrl in resourceContainers; legacy ones only have id.
+        // Fall back to parsing org directly from resource.Url when baseUrl is absent.
         var baseUrl = evt.ResourceContainers?.Account?.BaseUrl
                    ?? evt.ResourceContainers?.Collection?.BaseUrl
                    ?? string.Empty;
 
         var orgName = ParseOrgName(baseUrl);
+        if (string.IsNullOrEmpty(orgName))
+            orgName = ParseOrgName(resource.Url ?? string.Empty);
+
+        // Project: full fallback chain
+        //   1. resource.project.name              — modern YAML builds
+        //   2. project segment of resource.url    — dev.azure.com & visualstudio.com
+        //   3. project segment of definition.url  — same URL shape, secondary chance
+        //   4. resourceContainers.project.id      — GUID, present in all ADO service hook formats
         var projectName = resource.Project?.Name
                        ?? ParseProjectFromUrl(resource.Url)
+                       ?? ParseProjectFromUrl(resource.Definition?.Url)
+                       ?? evt.ResourceContainers?.Project?.Id
                        ?? string.Empty;
 
+        // Result: legacy XAML builds omit resource.result; resource.status carries the outcome
+        var result = resource.Result
+                  ?? MapStatusToResult(resource.Status)
+                  ?? "unknown";
+
+        // TriggeredBy: modern YAML builds use resource.requestedBy;
+        // legacy XAML builds put the identity in resource.requests[].requestedFor
+        var triggeredBy = resource.RequestedBy?.DisplayName
+                       ?? resource.Requests?.FirstOrDefault()?.RequestedFor?.DisplayName;
+
         logger.LogInformation(
-            "WEBHOOK: Context -- OrgName={OrgName}, ProjectName={ProjectName}, BaseUrl={BaseUrl}",
+            "WEBHOOK: Context -- OrgName={OrgName}, ProjectName={ProjectName}, " +
+            "BaseUrl={BaseUrl}, ResourceUrl={ResourceUrl}",
             orgName.Length > 0 ? orgName : "(empty)",
             projectName.Length > 0 ? projectName : "(empty)",
-            baseUrl);
+            baseUrl.Length > 0 ? baseUrl : "(empty)",
+            resource.Url ?? "(null)");
 
         if (string.IsNullOrEmpty(orgName) || string.IsNullOrEmpty(projectName))
         {
             logger.LogWarning(
-                "WEBHOOK: Could not extract org or project. BaseUrl={BaseUrl}, " +
+                "WEBHOOK: Could not extract org or project. " +
+                "OrgName={OrgName}, ProjectName={ProjectName}, " +
+                "BaseUrl={BaseUrl}, ResourceUrl={ResourceUrl}, " +
+                "ResourceProjectName={ResourceProjectName}, ContainerProjectId={ContainerProjectId}, " +
                 "AccountNull={AccountNull}, CollectionNull={CollectionNull}",
-                baseUrl,
+                orgName.Length > 0 ? orgName : "(empty)",
+                projectName.Length > 0 ? projectName : "(empty)",
+                baseUrl.Length > 0 ? baseUrl : "(empty)",
+                resource.Url ?? "(null)",
+                resource.Project?.Name ?? "(null)",
+                evt.ResourceContainers?.Project?.Id ?? "(null)",
                 evt.ResourceContainers?.Account == null,
                 evt.ResourceContainers?.Collection == null);
             return Ok();
@@ -156,14 +187,14 @@ public class WebhookController(
             AdoPipelineId = definitionId,
             PipelineName = resource.Definition?.Name ?? "Unknown",
             RunNumber = runNumber,
-            Result = resource.Result ?? "unknown",
+            Result = result,
             StartTime = resource.StartTime.Value,
             FinishTime = resource.FinishTime,
             DurationMs = resource.FinishTime.HasValue
                 ? (long)(resource.FinishTime.Value - resource.StartTime.Value).TotalMilliseconds
                 : null,
             IsDeployment = IsDeploymentPipeline(resource.Definition?.Name),
-            TriggeredBy = resource.RequestedBy?.DisplayName,
+            TriggeredBy = triggeredBy,
             IngestedAt = DateTimeOffset.UtcNow
         };
 
@@ -219,24 +250,50 @@ public class WebhookController(
     }
 
     /// <summary>
-    /// Extracts the project name from a build resource URL.
-    /// dev.azure.com format: https://dev.azure.com/{org}/{project}/_apis/build/builds/{id}
+    /// Extracts the project name/id from a build or definition resource URL.
+    /// dev.azure.com : https://dev.azure.com/{org}/{project}/_apis/...
+    /// visualstudio  : https://{org}.visualstudio.com/DefaultCollection/{projectGuid}/_apis/...
+    ///                 https://{org}.visualstudio.com/{project}/_apis/...
     /// </summary>
     private static string? ParseProjectFromUrl(string? resourceUrl)
     {
         if (string.IsNullOrEmpty(resourceUrl)) return null;
 
-        // https://dev.azure.com/myorg/myproject/_apis/build/builds/123
+        var parts = resourceUrl.Split('/');
+
         if (resourceUrl.Contains("dev.azure.com"))
         {
-            var parts = resourceUrl.Split('/');
             // [0]=https: [1]='' [2]=dev.azure.com [3]=org [4]=project
             var project = parts.Length >= 5 ? parts[4] : null;
-            return string.IsNullOrEmpty(project) ? null : project;
+            return string.IsNullOrEmpty(project) || project.StartsWith('_') ? null : project;
+        }
+
+        if (resourceUrl.Contains(".visualstudio.com"))
+        {
+            // With DefaultCollection: .../DefaultCollection/{project-name-or-guid}/...
+            if (parts.Length >= 5 &&
+                string.Equals(parts[3], "DefaultCollection", StringComparison.OrdinalIgnoreCase))
+                return string.IsNullOrEmpty(parts[4]) ? null : parts[4];
+
+            // Without collection segment: .../{project}/...
+            return parts.Length >= 4 && !string.IsNullOrEmpty(parts[3]) ? parts[3] : null;
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Maps build status to a result string for legacy XAML builds that
+    /// omit the separate result field and use status for both.
+    /// </summary>
+    private static string? MapStatusToResult(string? status) => status switch
+    {
+        "succeeded" => "succeeded",
+        "failed" => "failed",
+        "canceled" => "canceled",
+        "partiallySucceeded" => "partiallySucceeded",
+        _ => null
+    };
 
     private static bool IsDeploymentPipeline(string? name)
     {
