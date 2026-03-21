@@ -352,3 +352,94 @@ ul {
   font-size: 13px;
   color: #e81123;
 }
+
+// ── Webhook status card ────────────────────────────────────────────────────────
+
+.webhook-card {
+  h3 { margin-top: 0; color: var(--heading-color); font-size: 14px; }
+}
+
+.hook-loading {
+  font-size: 13px;
+  color: var(--text-secondary-color);
+  padding: 8px 0;
+}
+
+.hook-status-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hook-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+
+  &.active   { background: rgba(16,124,16,.12); color: #107c10; }
+  &.inactive { background: rgba(232,17,35,.1);  color: #e81123; }
+}
+
+.hook-note {
+  font-size: 12px;
+  color: var(--text-secondary-color);
+}
+
+.hook-detail {
+  font-size: 12px;
+  margin-bottom: 6px;
+  .label { font-weight: 600; margin-right: 6px; }
+  code { font-size: 11px; background: var(--card-background); padding: 1px 4px; border-radius: 2px; word-break: break-all; }
+}
+
+.hook-error-detail {
+  font-size: 12px;
+  background: rgba(232,17,35,.06);
+  border-left: 3px solid #e81123;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  color: var(--text-primary-color);
+  line-height: 1.5;
+}
+
+.hook-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.hook-manual-steps {
+  font-size: 12px;
+  background: var(--card-background);
+  border: 1px solid var(--card-border);
+  padding: 10px 12px;
+  border-radius: 2px;
+  line-height: 1.7;
+
+  ol { margin: 6px 0 0 16px; padding: 0; }
+  code { font-size: 11px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 2px; word-break: break-all; }
+  a { color: var(--primary-color); }
+}
+
+.hook-no-status {
+  font-size: 13px;
+  color: var(--text-secondary-color);
+}
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid #e81123;
+  color: #e81123;
+  padding: 5px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 10px;
+
+  &:hover:not(:disabled) { background: rgba(232,17,35,.08); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}

@@ -101,6 +101,68 @@
     <div *ngIf="syncError" class="sync-error">❌ {{ syncError }}</div>
   </div>
 
+  <!-- Webhook Status Card -->
+  <div *ngIf="selectedProjectId" class="card webhook-card">
+    <h3>🔔 Automatic Pipeline Ingestion (Webhook)</h3>
+
+    <!-- Loading -->
+    <div *ngIf="isHookLoading" class="hook-loading">⏳ Checking webhook status...</div>
+
+    <!-- Active -->
+    <div *ngIf="!isHookLoading && webhookStatus?.isRegistered" class="hook-status hook-active">
+      <div class="hook-status-header">
+        <span class="hook-badge active">🟢 Active</span>
+        <span class="hook-note">Builds are being ingested automatically</span>
+      </div>
+      <div class="hook-detail"><span class="label">Subscription ID:</span> <code>{{ webhookStatus?.subscriptionId }}</code></div>
+      <div class="hook-detail" *ngIf="webhookStatus?.webhookUrl"><span class="label">Endpoint:</span> <code>{{ webhookStatus?.webhookUrl }}</code></div>
+      <div class="hook-detail" *ngIf="webhookStatus?.createdDate"><span class="label">Registered:</span> {{ webhookStatus?.createdDate | date:'medium' }}</div>
+      <button class="btn btn-danger" (click)="removeHook()" [disabled]="isHookLoading">
+        🗑️ Remove Webhook
+      </button>
+    </div>
+
+    <!-- Not registered -->
+    <div *ngIf="!isHookLoading && webhookStatus && !webhookStatus.isRegistered" class="hook-status hook-inactive">
+      <div class="hook-status-header">
+        <span class="hook-badge inactive">🔴 Not registered</span>
+        <span class="hook-note">Runs will not be ingested automatically</span>
+      </div>
+
+      <!-- Registration error detail -->
+      <div *ngIf="webhookStatus.registrationError" class="hook-error-detail">
+        <strong>Reason:</strong> {{ webhookStatus.registrationError }}
+      </div>
+
+      <div class="hook-actions">
+        <button class="btn btn-primary" (click)="registerHook()" [disabled]="isHookLoading">
+          ⚡ Register Webhook
+        </button>
+        <a *ngIf="webhookStatus.manualSetupUrl" [href]="webhookStatus.manualSetupUrl"
+           target="_blank" class="btn btn-secondary">
+          ⚙️ Open ADO Service Hooks
+        </a>
+      </div>
+
+      <div class="hook-manual-steps">
+        <strong>Manual setup</strong> — if the button above fails due to permissions:
+        <ol>
+          <li>Open <a [href]="webhookStatus.manualSetupUrl" target="_blank">ADO → Project Settings → Service hooks</a></li>
+          <li>Create subscription → Web Hooks → <strong>Build completed</strong></li>
+          <li>URL: <code>{{ webhookStatus.webhookUrl }}</code></li>
+          <li>Add header: <code>X-Velo-Secret: &lt;your Webhook__Secret app setting&gt;</code></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- No status yet -->
+    <div *ngIf="!isHookLoading && !webhookStatus" class="hook-no-status">
+      <p>Sync your project first to check webhook status.</p>
+    </div>
+
+    <div *ngIf="webhookError" class="sync-error">❌ {{ webhookError }}</div>
+  </div>
+
   <!-- Info Box -->
   <div class="info-box">
     <h4>ℹ️ How It Works</h4>

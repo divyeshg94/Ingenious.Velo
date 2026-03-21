@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OrgConnectionService, OrgConnectionDto } from '../../shared/services/org-connection.service';
-import { SyncService, SyncResult } from '../../shared/services/sync.service';
+import { SyncService, SyncResult, WebhookStatus } from '../../shared/services/sync.service';
 import { isRunningInADO } from '../../shared/services/sdk-initializer.service';
 
 @Component({
@@ -21,12 +21,18 @@ export class ConnectionsComponent implements OnInit {
   editOrgUrl: string = '';
   isAutoDetected = false;
   isADO = true;
+
   isLoading = false;
   isSyncing = false;
+  isHookLoading = false;
+
   errorMessage = '';
   updateErrorMessage = '';
   syncMessage = '';
   syncError = '';
+
+  webhookStatus: WebhookStatus | null = null;
+  webhookError = '';
 
   constructor(
     private orgService: OrgConnectionService,
@@ -43,29 +49,93 @@ export class ConnectionsComponent implements OnInit {
     this.isLoading = true;
     this.orgService.getMyOrganization().subscribe({
       next: (org) => {
-        console.log('[Connections] ✅ Organization loaded:', org);
         this.currentOrg = org;
         this.isAutoDetected = false;
         this.loadProjects();
       },
-      error: (err) => {
-        console.log('[Connections] ℹ️ No organization connected yet');
-        this.isLoading = false;
-      }
+      error: () => { this.isLoading = false; }
     });
   }
 
   loadProjects(): void {
     this.orgService.getAvailableProjects().subscribe({
       next: (projects) => {
-        console.log('[Connections] ✅ Projects loaded:', projects.length);
         this.projects = projects;
         this.isLoading = false;
+        if (this.selectedProjectId) this.loadHookStatus();
       },
-      error: (err) => {
-        console.error('[Connections] ❌ Failed to load projects:', err);
+      error: () => {
         this.errorMessage = 'Failed to load projects';
         this.isLoading = false;
+      }
+    });
+  }
+
+  selectProject(projectId: string): void {
+    this.selectedProjectId = projectId;
+    sessionStorage.setItem('selectedProjectId', projectId);
+    this.webhookStatus = null;
+    this.syncNow();
+  }
+
+  syncNow(): void {
+    if (!this.selectedProjectId) { this.syncError = 'Select a project first.'; return; }
+    this.isSyncing = true;
+    this.syncMessage = '';
+    this.syncError = '';
+    this.webhookError = '';
+
+    this.syncService.syncProject(this.selectedProjectId).subscribe({
+      next: (result: SyncResult) => {
+        this.isSyncing = false;
+        this.syncMessage = `✅ Sync complete — ${result.ingested} pipeline runs ingested.`;
+        this.webhookStatus = result.webhook;
+      },
+      error: (err) => {
+        this.isSyncing = false;
+        this.syncError = err.message || 'Sync failed. Check your permissions (vso.build scope required).';
+      }
+    });
+  }
+
+  loadHookStatus(): void {
+    if (!this.selectedProjectId) return;
+    this.isHookLoading = true;
+    this.webhookError = '';
+
+    this.syncService.getHookStatus(this.selectedProjectId).subscribe({
+      next: (status) => { this.webhookStatus = status; this.isHookLoading = false; },
+      error: () => { this.isHookLoading = false; }
+    });
+  }
+
+  registerHook(): void {
+    if (!this.selectedProjectId) return;
+    this.isHookLoading = true;
+    this.webhookError = '';
+
+    this.syncService.registerHook(this.selectedProjectId).subscribe({
+      next: (status) => { this.webhookStatus = status; this.isHookLoading = false; },
+      error: (err) => {
+        this.webhookError = err.error?.registrationError || err.message || 'Failed to register webhook.';
+        this.isHookLoading = false;
+      }
+    });
+  }
+
+  removeHook(): void {
+    if (!this.webhookStatus?.subscriptionId) return;
+    this.isHookLoading = true;
+    this.webhookError = '';
+
+    this.syncService.removeHook(this.webhookStatus.subscriptionId).subscribe({
+      next: () => {
+        this.webhookStatus = { isRegistered: false, webhookUrl: this.webhookStatus?.webhookUrl, manualSetupUrl: this.webhookStatus?.manualSetupUrl };
+        this.isHookLoading = false;
+      },
+      error: (err) => {
+        this.webhookError = err.message || 'Failed to remove webhook.';
+        this.isHookLoading = false;
       }
     });
   }
@@ -75,51 +145,8 @@ export class ConnectionsComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
     this.orgService.connectOrganization(this.orgUrl).subscribe({
-      next: (org) => {
-        this.currentOrg = org;
-        this.isAutoDetected = false;
-        this.orgUrl = '';
-        this.loadProjects();
-      },
-      error: (err) => {
-        console.error('[Connections] ❌ Failed to connect organization:', err);
-        this.errorMessage = 'Failed to connect organization. Please check the URL and try again.';
-        this.isLoading = false;
-      }
-    });
-  }
-
-  selectProject(projectId: string): void {
-    this.selectedProjectId = projectId;
-    sessionStorage.setItem('selectedProjectId', projectId);
-    console.log('[Connections] 📁 Project selected and saved:', projectId);
-    // Auto-sync when a project is first selected
-    this.syncNow();
-  }
-
-  syncNow(): void {
-    if (!this.selectedProjectId) {
-      this.syncError = 'Select a project first.';
-      return;
-    }
-
-    this.isSyncing = true;
-    this.syncMessage = '';
-    this.syncError = '';
-
-    console.log('[Connections] 🔄 Syncing pipeline data for:', this.selectedProjectId);
-
-    this.syncService.syncProject(this.selectedProjectId).subscribe({
-      next: (result: SyncResult) => {
-        console.log('[Connections] ✅ Sync complete:', result);
-        this.isSyncing = false;
-        this.syncMessage = `✅ Sync complete — ${result.ingested} pipeline runs ingested. Dashboard is ready.`;
-      },
-      error: (err) => {
-        console.error('[Connections] ❌ Sync failed:', err);
-        this.isSyncing = false;
-        this.syncError = err.message || 'Sync failed. Check your permissions (vso.build scope required).';
-      }
+      next: (org) => { this.currentOrg = org; this.isAutoDetected = false; this.orgUrl = ''; this.loadProjects(); },
+      error: () => { this.errorMessage = 'Failed to connect organization.'; this.isLoading = false; }
     });
   }
 
@@ -134,17 +161,8 @@ export class ConnectionsComponent implements OnInit {
     this.isLoading = true;
     this.updateErrorMessage = '';
     this.orgService.connectOrganization(this.editOrgUrl).subscribe({
-      next: (org) => {
-        this.currentOrg = org;
-        this.isAutoDetected = false;
-        this.editingUrl = false;
-        this.editOrgUrl = '';
-        this.loadProjects();
-      },
-      error: (err) => {
-        this.updateErrorMessage = 'Failed to update organization URL.';
-        this.isLoading = false;
-      }
+      next: (org) => { this.currentOrg = org; this.isAutoDetected = false; this.editingUrl = false; this.editOrgUrl = ''; this.loadProjects(); },
+      error: () => { this.updateErrorMessage = 'Failed to update organization URL.'; this.isLoading = false; }
     });
   }
 }
