@@ -111,7 +111,9 @@ public class WebhookController(
                    ?? string.Empty;
 
         var orgName = ParseOrgName(baseUrl);
-        var projectName = resource.Project?.Name ?? string.Empty;
+        var projectName = resource.Project?.Name
+                       ?? ParseProjectFromUrl(resource.Url)
+                       ?? string.Empty;
 
         logger.LogInformation(
             "WEBHOOK: Context -- OrgName={OrgName}, ProjectName={ProjectName}, BaseUrl={BaseUrl}",
@@ -214,6 +216,26 @@ public class WebhookController(
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Extracts the project name from a build resource URL.
+    /// dev.azure.com format: https://dev.azure.com/{org}/{project}/_apis/build/builds/{id}
+    /// </summary>
+    private static string? ParseProjectFromUrl(string? resourceUrl)
+    {
+        if (string.IsNullOrEmpty(resourceUrl)) return null;
+
+        // https://dev.azure.com/myorg/myproject/_apis/build/builds/123
+        if (resourceUrl.Contains("dev.azure.com"))
+        {
+            var parts = resourceUrl.Split('/');
+            // [0]=https: [1]='' [2]=dev.azure.com [3]=org [4]=project
+            var project = parts.Length >= 5 ? parts[4] : null;
+            return string.IsNullOrEmpty(project) ? null : project;
+        }
+
+        return null;
     }
 
     private static bool IsDeploymentPipeline(string? name)

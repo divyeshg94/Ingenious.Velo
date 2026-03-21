@@ -24,6 +24,11 @@ public record AdoBuildCompleteEvent(
     AdoBuildResource? Resource,
     AdoResourceContainers? ResourceContainers);
 
+/// <summary>
+/// The Build object embedded in the build.complete service hook payload.
+/// Url is included as a reliable fallback for extracting project name when
+/// resource.project is absent (some ADO versions omit it from service hook payloads).
+/// </summary>
 public record AdoBuildResource(
     int Id,
     string? BuildNumber,
@@ -31,6 +36,7 @@ public record AdoBuildResource(
     string? Status,
     DateTimeOffset? StartTime,
     DateTimeOffset? FinishTime,
+    string? Url,
     AdoDefinition? Definition,
     AdoProject? Project,
     AdoIdentity? RequestedBy);
@@ -38,5 +44,5 @@ public record AdoBuildResource(
 public record AdoDefinition(int Id, string? Name);
 public record AdoProject(string? Id, string? Name);
 public record AdoIdentity(string? DisplayName);
-public record AdoResourceContainers(AdoAccount? Account, AdoAccount? Collection);
-public record AdoAccount(string? BaseUrl);
+public record AdoResourceContainers(AdoAccount? Account, AdoAccount? Collection, AdoAccount? Project);
+public record AdoAccount(string? Id, string? BaseUrl);
