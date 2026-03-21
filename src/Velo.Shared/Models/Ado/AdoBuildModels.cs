@@ -38,5 +38,5 @@ public record AdoBuildResource(
 public record AdoDefinition(int Id, string? Name);
 public record AdoProject(string? Id, string? Name);
 public record AdoIdentity(string? DisplayName);
-public record AdoResourceContainers(AdoAccount? Account);
+public record AdoResourceContainers(AdoAccount? Account, AdoAccount? Collection);
 public record AdoAccount(string? BaseUrl);

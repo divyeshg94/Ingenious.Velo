@@ -31,71 +31,121 @@ public class WebhookController(
     [HttpPost("ado")]
     public async Task<ActionResult> AdoBuildComplete(CancellationToken cancellationToken)
     {
-        // ── Verify shared secret ──────────────────────────────────────────────────
+        // Verify shared secret
         var expectedSecret = config["Webhook:Secret"] ?? "velo-webhook-secret";
         var incomingSecret = Request.Headers[SecretHeader].FirstOrDefault();
 
         if (!string.Equals(incomingSecret, expectedSecret, StringComparison.Ordinal))
         {
-            logger.LogWarning("WEBHOOK: Invalid or missing secret from {RemoteIp}", HttpContext.Connection.RemoteIpAddress);
+            logger.LogWarning("WEBHOOK: Invalid or missing secret from {RemoteIp}",
+                HttpContext.Connection.RemoteIpAddress);
             return Unauthorized(new { error = "Invalid webhook secret" });
         }
 
-        // ── Parse ADO service hook payload ────────────────────────────────────────
+        // Read raw body
         string body;
         using (var sr = new System.IO.StreamReader(Request.Body))
             body = await sr.ReadToEndAsync(cancellationToken);
 
+        // Log a preview so we can diagnose any JSON mapping issues
+        logger.LogDebug("WEBHOOK: Raw payload ({Length} bytes): {Preview}",
+            body.Length, body.Length > 800 ? body[..800] + "..." : body);
+
+        // Deserialize
         AdoBuildCompleteEvent? evt;
-        try { evt = JsonSerializer.Deserialize<AdoBuildCompleteEvent>(body, _json); }
+        try
+        {
+            evt = JsonSerializer.Deserialize<AdoBuildCompleteEvent>(body, _json);
+        }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "WEBHOOK: Failed to parse payload");
+            logger.LogWarning(ex, "WEBHOOK: Failed to deserialize payload (length={Length})", body.Length);
             return BadRequest(new { error = "Invalid payload" });
         }
 
+        // Log every field we care about so nothing is silently skipped
+        logger.LogInformation(
+            "WEBHOOK: Payload parsed -- EventType={EventType}, HasResource={HasResource}",
+            evt?.EventType ?? "(null)", evt?.Resource != null);
+
         if (evt?.EventType != "build.complete" || evt.Resource == null)
         {
-            logger.LogDebug("WEBHOOK: Ignoring event type {Type}", evt?.EventType);
-            return Ok(); // ADO expects 200 even for ignored events
+            logger.LogInformation(
+                "WEBHOOK: Skipping -- EventType={EventType} is not 'build.complete' or resource is null",
+                evt?.EventType ?? "(null)");
+            return Ok();
         }
 
         var resource = evt.Resource;
-        if (resource.Status != "completed" || resource.FinishTime == null || resource.StartTime == null)
-            return Ok();
 
-        // ── Extract org name from the account base URL ────────────────────────────
-        // e.g. "https://dev.azure.com/myorg/" → "myorg"
-        var baseUrl = evt.ResourceContainers?.Account?.BaseUrl ?? string.Empty;
+        logger.LogInformation(
+            "WEBHOOK: Resource -- Status={Status}, Result={Result}, BuildNumber={Build}, " +
+            "StartTime={Start}, FinishTime={Finish}",
+            resource.Status, resource.Result, resource.BuildNumber,
+            resource.StartTime, resource.FinishTime);
+
+        // Guard against builds still running
+        if (resource.FinishTime == null || resource.StartTime == null)
+        {
+            logger.LogInformation(
+                "WEBHOOK: Skipping -- StartTime or FinishTime is null. Status={Status}, Build={Build}",
+                resource.Status, resource.BuildNumber);
+            return Ok();
+        }
+
+        // ADO sends status="completed" for finished builds, but accept any finished-state string
+        // so older ADO versions that send the result string directly also work.
+        var finished = resource.Status is "completed" or "succeeded"
+                                       or "failed" or "partiallySucceeded" or "canceled";
+        if (!finished)
+        {
+            logger.LogInformation(
+                "WEBHOOK: Skipping -- build not in a finished state. Status={Status}, Build={Build}",
+                resource.Status, resource.BuildNumber);
+            return Ok();
+        }
+
+        // Extract org name from resourceContainers (try account first, fall back to collection)
+        var baseUrl = evt.ResourceContainers?.Account?.BaseUrl
+                   ?? evt.ResourceContainers?.Collection?.BaseUrl
+                   ?? string.Empty;
+
         var orgName = ParseOrgName(baseUrl);
         var projectName = resource.Project?.Name ?? string.Empty;
 
+        logger.LogInformation(
+            "WEBHOOK: Context -- OrgName={OrgName}, ProjectName={ProjectName}, BaseUrl={BaseUrl}",
+            orgName.Length > 0 ? orgName : "(empty)",
+            projectName.Length > 0 ? projectName : "(empty)",
+            baseUrl);
+
         if (string.IsNullOrEmpty(orgName) || string.IsNullOrEmpty(projectName))
         {
-            logger.LogWarning("WEBHOOK: Could not determine orgName or projectName from payload");
+            logger.LogWarning(
+                "WEBHOOK: Could not extract org or project. BaseUrl={BaseUrl}, " +
+                "AccountNull={AccountNull}, CollectionNull={CollectionNull}",
+                baseUrl,
+                evt.ResourceContainers?.Account == null,
+                evt.ResourceContainers?.Collection == null);
             return Ok();
         }
 
-        logger.LogInformation(
-            "WEBHOOK: build.complete received — org={Org}, project={Project}, build={Build}, result={Result}",
-            orgName, projectName, resource.BuildNumber, resource.Result);
-
-        // ── Set tenant context (same as TenantResolutionMiddleware for normal requests) ──
-        // Without this, sp_set_session_context is never called and SQL Server RLS
-        // blocks the INSERT, causing the run to be silently discarded.
+        // Set tenant context so EF query filters and SQL Server RLS work correctly
         await SetTenantContextAsync(orgName, cancellationToken);
 
-        // ── Deduplicate ───────────────────────────────────────────────────────────
         var definitionId = resource.Definition?.Id ?? 0;
         var runNumber = resource.BuildNumber ?? string.Empty;
 
+        // Deduplicate
         if (await repo.RunExistsAsync(orgName, projectName, definitionId, runNumber, cancellationToken))
         {
-            logger.LogDebug("WEBHOOK: Run {Run} already exists — skipping", runNumber);
+            logger.LogInformation(
+                "WEBHOOK: Run already exists -- skipping. Org={Org}, Project={Project}, Build={Build}",
+                orgName, projectName, runNumber);
             return Ok();
         }
 
-        // ── Store the pipeline run ────────────────────────────────────────────────
+        // Save the run
         var run = new PipelineRunDto
         {
             Id = Guid.NewGuid(),
@@ -115,32 +165,54 @@ public class WebhookController(
             IngestedAt = DateTimeOffset.UtcNow
         };
 
-        await repo.SaveRunAsync(run, cancellationToken);
+        try
+        {
+            await repo.SaveRunAsync(run, cancellationToken);
+            logger.LogInformation(
+                "WEBHOOK: Saved run -- Org={Org}, Project={Project}, Build={Build}, Result={Result}",
+                orgName, projectName, runNumber, run.Result);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "WEBHOOK: Failed to save run -- Org={Org}, Project={Project}, Build={Build}",
+                orgName, projectName, runNumber);
+            return StatusCode(500, new { error = "Failed to save pipeline run" });
+        }
 
-        // ── Recompute DORA metrics immediately ────────────────────────────────────
-        await doraService.ComputeAndSaveAsync(orgName, projectName, cancellationToken);
-
-        logger.LogInformation(
-            "WEBHOOK: Processed run {Build} — org={Org}, project={Project}",
-            runNumber, orgName, projectName);
+        // Recompute DORA metrics (non-fatal if this fails)
+        try
+        {
+            await doraService.ComputeAndSaveAsync(orgName, projectName, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "WEBHOOK: DORA recompute failed (run was saved). Org={Org}, Project={Project}",
+                orgName, projectName);
+        }
 
         return Ok();
     }
 
     private static string ParseOrgName(string baseUrl)
     {
-        // https://dev.azure.com/myorg/  →  myorg
-        // https://myorg.visualstudio.com/  →  myorg
+        if (string.IsNullOrEmpty(baseUrl)) return string.Empty;
+
+        // https://dev.azure.com/myorg/  ->  myorg
         if (baseUrl.Contains("dev.azure.com"))
         {
             var parts = baseUrl.TrimEnd('/').Split('/');
             return parts.Length >= 4 ? parts[3] : string.Empty;
         }
+
+        // https://myorg.visualstudio.com/  ->  myorg
         if (baseUrl.Contains(".visualstudio.com"))
         {
             var host = new Uri(baseUrl).Host;
             return host.Split('.')[0];
         }
+
         return string.Empty;
     }
 
@@ -152,8 +224,7 @@ public class WebhookController(
 
     /// <summary>
     /// Sets CurrentOrgId on the DbContext and calls sp_set_session_context so that
-    /// SQL Server RLS policies allow the INSERT — mirrors what TenantResolutionMiddleware
-    /// does for authenticated requests.
+    /// SQL Server RLS policies allow the INSERT -- mirrors TenantResolutionMiddleware.
     /// </summary>
     private async Task SetTenantContextAsync(string orgId, CancellationToken cancellationToken)
     {
@@ -174,7 +245,9 @@ public class WebhookController(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "WEBHOOK: Failed to set SQL session context for OrgId={OrgId}", orgId);
+            logger.LogWarning(ex,
+                "WEBHOOK: Failed to set SQL session context for OrgId={OrgId} -- continuing anyway",
+                orgId);
         }
     }
 }
