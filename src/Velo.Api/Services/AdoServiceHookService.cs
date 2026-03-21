@@ -88,20 +88,25 @@ public class AdoServiceHookService(
         var secret = config["Webhook:Secret"] ?? "velo-webhook-secret";
         var payload = new
         {
+            publisherId = "tfs",
+            eventType = "build.complete",
+            resourceVersion = "1.0",
             consumerId = "webHooks",
             consumerActionId = "httpRequest",
-            eventType = "build.complete",
-            publisherId = "tfs",
-            publisherInputs = new { projectId, definitionId = "", buildStatus = "" },
+            publisherInputs = new
+            {
+                projectId,       // project GUID — required
+                definitionName = "",  // empty = all pipeline definitions
+                buildStatus = ""      // empty = all statuses (succeeded, failed, etc.)
+            },
             consumerInputs = new
             {
                 url = webhookUrl,
                 httpHeaders = $"X-Velo-Secret:{secret}",
-                resourceDetailsToSend = "all",
-                messagesToSend = "none",
-                detailedMessagesToSend = "none"
-            },
-            scope = 1
+                resourceDetailsToSend = "All",   // capitalized — ADO API requirement
+                messagesToSend = "None",
+                detailedMessagesToSend = "None"
+            }
         };
 
         var body = new StringContent(JsonSerializer.Serialize(payload, _json), Encoding.UTF8, "application/json");

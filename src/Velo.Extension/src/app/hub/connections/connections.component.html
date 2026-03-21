@@ -156,8 +156,16 @@
       <p>Click <strong>Sync Pipeline Data Now</strong> above to check and register the webhook.</p>
     </div>
 
+    <!-- Sync succeeded but no webhook field (old backend) -->
+    <div *ngIf="!isHookLoading && syncAttempted && !webhookStatus && !syncError" class="hook-no-status">
+      <p>⚙️ Webhook status unavailable — deploy the latest API build, or check manually.</p>
+      <button class="btn btn-secondary" (click)="loadHookStatus()" [disabled]="isHookLoading">
+        🔍 Check Status Manually
+      </button>
+    </div>
+
     <!-- Sync failed -->
-    <div *ngIf="!isHookLoading && syncAttempted && !webhookStatus" class="hook-no-status hook-warning">
+    <div *ngIf="!isHookLoading && syncAttempted && !webhookStatus && syncError" class="hook-no-status hook-warning">
       <p>⚠️ Sync failed — webhook status could not be determined.</p>
       <button class="btn btn-secondary" (click)="loadHookStatus()" [disabled]="isHookLoading">
         🔍 Check Status Manually
