@@ -428,6 +428,14 @@ ul {
 .hook-no-status {
   font-size: 13px;
   color: var(--text-secondary-color);
+
+  &.hook-warning {
+    color: #b85c00;
+    background: rgba(184,92,0,.06);
+    border-left: 3px solid #b85c00;
+    padding: 8px 12px;
+    border-radius: 2px;
+  }
 }
 
 .btn-danger {

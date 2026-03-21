@@ -122,18 +122,15 @@
       </button>
     </div>
 
-    <!-- Not registered -->
-    <div *ngIf="!isHookLoading && webhookStatus && !webhookStatus.isRegistered" class="hook-status hook-inactive">
+    <!-- Not registered (after sync attempt) -->
+    <div *ngIf="!isHookLoading && syncAttempted && webhookStatus && !webhookStatus.isRegistered" class="hook-status hook-inactive">
       <div class="hook-status-header">
         <span class="hook-badge inactive">🔴 Not registered</span>
         <span class="hook-note">Runs will not be ingested automatically</span>
       </div>
-
-      <!-- Registration error detail -->
       <div *ngIf="webhookStatus.registrationError" class="hook-error-detail">
         <strong>Reason:</strong> {{ webhookStatus.registrationError }}
       </div>
-
       <div class="hook-actions">
         <button class="btn btn-primary" (click)="registerHook()" [disabled]="isHookLoading">
           ⚡ Register Webhook
@@ -143,7 +140,6 @@
           ⚙️ Open ADO Service Hooks
         </a>
       </div>
-
       <div class="hook-manual-steps">
         <strong>Manual setup</strong> — if the button above fails due to permissions:
         <ol>
@@ -155,9 +151,17 @@
       </div>
     </div>
 
-    <!-- No status yet -->
-    <div *ngIf="!isHookLoading && !webhookStatus" class="hook-no-status">
-      <p>Sync your project first to check webhook status.</p>
+    <!-- Sync not yet attempted -->
+    <div *ngIf="!isHookLoading && !syncAttempted" class="hook-no-status">
+      <p>Click <strong>Sync Pipeline Data Now</strong> above to check and register the webhook.</p>
+    </div>
+
+    <!-- Sync failed -->
+    <div *ngIf="!isHookLoading && syncAttempted && !webhookStatus" class="hook-no-status hook-warning">
+      <p>⚠️ Sync failed — webhook status could not be determined.</p>
+      <button class="btn btn-secondary" (click)="loadHookStatus()" [disabled]="isHookLoading">
+        🔍 Check Status Manually
+      </button>
     </div>
 
     <div *ngIf="webhookError" class="sync-error">❌ {{ webhookError }}</div>

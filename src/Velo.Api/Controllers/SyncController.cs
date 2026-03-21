@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Api.Services;
+using Velo.Shared.Models;
 
 namespace Velo.Api.Controllers;
 
@@ -35,8 +36,23 @@ public class SyncController(
             var ingested = await ingestService.IngestAsync(orgId, projectId, adoToken, cancellationToken);
             var metrics = await doraService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
 
+            // Hook registration is best-effort — never let it fail the sync response
             var webhookBase = $"{Request.Scheme}://{Request.Host}";
-            var hookStatus = await hookService.RegisterAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+            WebhookStatusDto hookStatus;
+            try
+            {
+                hookStatus = await hookService.RegisterAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "SYNC: Hook registration threw an exception — returning error status");
+                hookStatus = new WebhookStatusDto
+                {
+                    IsRegistered = false,
+                    RegistrationError = ex.Message,
+                    ManualSetupUrl = $"https://dev.azure.com/{orgId}/_settings/serviceHooks"
+                };
+            }
 
             logger.LogInformation(
                 "SYNC: Done — {Ingested} runs ingested, hook={Hook}, OrgId={OrgId}, ProjectId={ProjectId}",

@@ -25,6 +25,7 @@ export class ConnectionsComponent implements OnInit {
   isLoading = false;
   isSyncing = false;
   isHookLoading = false;
+  syncAttempted = false;
 
   errorMessage = '';
   updateErrorMessage = '';
@@ -62,7 +63,6 @@ export class ConnectionsComponent implements OnInit {
       next: (projects) => {
         this.projects = projects;
         this.isLoading = false;
-        if (this.selectedProjectId) this.loadHookStatus();
       },
       error: () => {
         this.errorMessage = 'Failed to load projects';
@@ -88,12 +88,14 @@ export class ConnectionsComponent implements OnInit {
     this.syncService.syncProject(this.selectedProjectId).subscribe({
       next: (result: SyncResult) => {
         this.isSyncing = false;
+        this.syncAttempted = true;
         this.syncMessage = `✅ Sync complete — ${result.ingested} pipeline runs ingested.`;
-        this.webhookStatus = result.webhook;
+        this.webhookStatus = result.webhook ?? null;
       },
       error: (err) => {
         this.isSyncing = false;
-        this.syncError = err.message || 'Sync failed. Check your permissions (vso.build scope required).';
+        this.syncAttempted = true;
+        this.syncError = err.error?.error || err.message || 'Sync failed. Check your permissions (vso.build scope required).';
       }
     });
   }
