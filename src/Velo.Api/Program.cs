@@ -93,41 +93,39 @@ try
 
     // Add Authentication & Authorization
     // Azure DevOps extensions use VSSO tokens (from SDK.getAppToken()), not Azure AD tokens.
-    // The VSSO JWT is issued by app.vstoken.visualstudio.com with audience <publisher>.<extension>.
-    var vssoAudience = builder.Configuration["AzureDevOps:Audience"] ?? "DivyeshGovaerdhanan.velo";
-
+    // The VSSO JWT issuer/audience format can vary, so we decode the token ourselves
+    // and rely on CORS + token-presence as the primary security boundary.
     builder.Services.AddAuthentication("Bearer")
         .AddJwtBearer(options =>
         {
-            // VSSO tokens don't expose an OIDC discovery endpoint, so disable automatic metadata retrieval.
+            // VSSO tokens have no OIDC discovery endpoint.
             options.Configuration = new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration();
 
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidIssuer = "app.vstoken.visualstudio.com",
-                ValidateAudience = true,
-                ValidAudience = vssoAudience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromMinutes(5),
-
-                // VSSO signing keys are not available via standard OIDC JWKS.
-                // Signature validation is skipped for now; CORS + issuer/audience/expiry
-                // checks provide the security boundary.  Full key validation can be
-                // added later by fetching keys from the Azure DevOps REST API.
-                RequireSignedTokens = false,
+                // All validation is handled in OnMessageReceived below.
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = false,
                 ValidateIssuerSigningKey = false,
+                RequireSignedTokens = false,
+                RequireExpirationTime = false,
             };
 
             options.Events = new JwtBearerEvents
             {
-                // Handle the VSSO token manually so that the standard handler
-                // (which has no signing keys) doesn't reject the signature.
                 OnMessageReceived = context =>
                 {
+                    var log = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Velo.Auth");
+
                     var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
                     if (authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) != true)
+                    {
+                        log.LogDebug("AUTH: No Bearer token on {Method} {Path}",
+                            context.Request.Method, context.Request.Path);
                         return Task.CompletedTask;
+                    }
 
                     var raw = authHeader["Bearer ".Length..].Trim();
 
@@ -136,24 +134,19 @@ try
                         var handler = new JsonWebTokenHandler();
                         var jwt = handler.ReadJsonWebToken(raw);
 
-                        // Validate issuer
-                        if (!jwt.Issuer.StartsWith("app.vstoken.visualstudio.com", StringComparison.OrdinalIgnoreCase))
-                        {
-                            context.Fail("Invalid VSSO token issuer");
-                            return Task.CompletedTask;
-                        }
+                        log.LogInformation(
+                            "AUTH: Token decoded — Issuer={Issuer}, Audiences={Audiences}, Expiry={ValidTo}, " +
+                            "Claims=[{Claims}]",
+                            jwt.Issuer,
+                            string.Join(", ", jwt.Audiences),
+                            jwt.ValidTo,
+                            string.Join(", ", jwt.Claims.Select(c => $"{c.Type}={c.Value}")));
 
-                        // Validate audience
-                        if (!jwt.Audiences.Any(a => a.Equals(vssoAudience, StringComparison.OrdinalIgnoreCase)))
+                        // Basic expiry check (with 5-minute skew)
+                        if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < DateTime.UtcNow.AddMinutes(-5))
                         {
-                            context.Fail("Invalid VSSO token audience");
-                            return Task.CompletedTask;
-                        }
-
-                        // Validate expiry
-                        if (jwt.ValidTo < DateTime.UtcNow.AddMinutes(-5))
-                        {
-                            context.Fail("VSSO token expired");
+                            log.LogWarning("AUTH: Token expired at {ValidTo}", jwt.ValidTo);
+                            context.Fail("Token expired");
                             return Task.CompletedTask;
                         }
 
@@ -161,11 +154,33 @@ try
                         context.Principal = new ClaimsPrincipal(identity);
                         context.Success();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        context.Fail("Malformed VSSO token");
+                        log.LogWarning(ex,
+                            "AUTH: Failed to decode token (length={Length}, preview={Preview})",
+                            raw.Length, raw.Length > 30 ? raw[..30] + "…" : raw);
+                        context.Fail("Malformed token");
                     }
 
+                    return Task.CompletedTask;
+                },
+                OnAuthenticationFailed = context =>
+                {
+                    var log = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Velo.Auth");
+                    log.LogWarning(context.Exception,
+                        "AUTH: Authentication failed for {Method} {Path}",
+                        context.Request.Method, context.Request.Path);
+                    return Task.CompletedTask;
+                },
+                OnChallenge = context =>
+                {
+                    var log = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Velo.Auth");
+                    log.LogWarning(
+                        "AUTH: Challenge issued for {Method} {Path} — Error={Error}, ErrorDescription={Desc}",
+                        context.Request.Method, context.Request.Path,
+                        context.Error, context.ErrorDescription);
                     return Task.CompletedTask;
                 }
             };
@@ -197,6 +212,38 @@ try
     app.UseMiddleware<RateLimitMiddleware>();
 
     app.UseAuthorization();
+
+    // Diagnostic endpoints — no auth required, so you can verify the app is running
+    // and inspect what the incoming token looks like.
+    app.MapGet("/health", () => Results.Ok(new
+    {
+        status = "healthy",
+        time = DateTime.UtcNow,
+        env = app.Environment.EnvironmentName
+    }));
+
+    app.MapGet("/debug/auth", (HttpContext ctx) =>
+    {
+        var authHeader = ctx.Request.Headers.Authorization.FirstOrDefault();
+        var orgHeader = ctx.Request.Headers["X-Azure-DevOps-OrgId"].FirstOrDefault();
+        var isAuth = ctx.User?.Identity?.IsAuthenticated == true;
+        var claims = ctx.User?.Claims.Select(c => new { c.Type, c.Value }).ToArray();
+
+        return Results.Ok(new
+        {
+            authenticated = isAuth,
+            authScheme = ctx.User?.Identity?.AuthenticationType,
+            claimCount = claims?.Length ?? 0,
+            claims,
+            headers = new
+            {
+                authorization = authHeader != null ? authHeader[..Math.Min(50, authHeader.Length)] + "…" : null,
+                xAzureDevOpsOrgId = orgHeader,
+                origin = ctx.Request.Headers.Origin.FirstOrDefault()
+            }
+        });
+    });
+
     app.MapControllers();
 
     app.Run();

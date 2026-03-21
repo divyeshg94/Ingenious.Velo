@@ -33,23 +33,34 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
 
         try
         {
+            // If the user is not authenticated yet, skip tenant resolution entirely.
+            // The [Authorize] attribute on controllers will return the proper 401 challenge.
+            if (context.User?.Identity?.IsAuthenticated != true)
+            {
+                logger.LogDebug(
+                    "TENANT: Skipping tenant resolution — user not authenticated. Path: {Path}, CorrelationId: {CorrelationId}",
+                    context.Request.Path, correlationId);
+                await next(context);
+                return;
+            }
+
             // 1. Prefer explicit header from the ADO extension frontend
             var orgId = context.Request.Headers[OrgIdHeader].FirstOrDefault();
 
             // 2. Fallback: JWT claims (Azure AD 'oid' or NameIdentifier)
             if (string.IsNullOrEmpty(orgId))
             {
-                orgId = context.User?.FindFirst(AzureAdOidClaim)?.Value
-                     ?? context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                orgId = context.User.FindFirst(AzureAdOidClaim)?.Value
+                     ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             }
 
             if (string.IsNullOrEmpty(orgId))
             {
-                // SECURITY ALERT: Unauthorized access attempt
                 logger.LogWarning(
-                    "SECURITY: Unauthorized access attempt - missing org_id. " +
-                    "User: {User}, Path: {Path}, CorrelationId: {CorrelationId}",
-                    context.User?.Identity?.Name ?? "Anonymous",
+                    "TENANT: Authenticated user but no org_id found. " +
+                    "Header={Header}, Claims=[{Claims}], Path={Path}, CorrelationId={CorrelationId}",
+                    context.Request.Headers[OrgIdHeader].FirstOrDefault() ?? "(none)",
+                    string.Join(", ", context.User.Claims.Select(c => $"{c.Type}={c.Value}")),
                     context.Request.Path,
                     correlationId);
 
@@ -57,6 +68,10 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
                 await context.Response.WriteAsJsonAsync(new { error = "Organization context not found" });
                 return;
             }
+
+            logger.LogInformation(
+                "TENANT: Resolved OrgId={OrgId} for Path={Path}, CorrelationId={CorrelationId}",
+                orgId, context.Request.Path, correlationId);
 
             // Store org_id on HttpContext for use in controllers
             context.Items["OrgId"] = orgId;
