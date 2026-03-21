@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DORA Metrics Advisor - Stability &amp; Reliability</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#404752",
+              "on-primary": "#ffffff",
+              "inverse-on-surface": "#f1f0ef",
+              "tertiary-fixed-dim": "#ffb689",
+              "secondary-fixed": "#d1e4ff",
+              "surface": "#faf9f8",
+              "tertiary-container": "#bc5b00",
+              "surface-bright": "#faf9f8",
+              "on-primary-fixed": "#001c39",
+              "on-primary-container": "#ffffff",
+              "surface-container-low": "#f4f3f2",
+              "error": "#ba1a1a",
+              "surface-variant": "#e3e2e1",
+              "secondary-container": "#5badff",
+              "on-primary-fixed-variant": "#004883",
+              "on-tertiary-fixed-variant": "#743500",
+              "on-secondary-fixed-variant": "#00497d",
+              "on-secondary-fixed": "#001d36",
+              "error-container": "#ffdad6",
+              "on-error": "#ffffff",
+              "primary-container": "#0078d4",
+              "surface-container-high": "#e9e8e7",
+              "outline-variant": "#c0c7d4",
+              "surface-container": "#efeeed",
+              "on-background": "#1a1c1c",
+              "inverse-primary": "#a3c9ff",
+              "on-tertiary-container": "#ffffff",
+              "primary": "#005faa",
+              "outline": "#717783",
+              "tertiary": "#974700",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2f3130",
+              "surface-dim": "#dadad9",
+              "on-secondary-container": "#003f6d",
+              "surface-container-highest": "#e3e2e1",
+              "secondary-fixed-dim": "#9ecaff",
+              "secondary": "#0061a3",
+              "on-secondary": "#ffffff",
+              "tertiary-fixed": "#ffdbc8",
+              "background": "#faf9f8",
+              "surface-container-lowest": "#ffffff",
+              "on-surface": "#1a1c1c",
+              "surface-tint": "#0060ab",
+              "on-error-container": "#93000a",
+              "primary-fixed": "#d3e3ff",
+              "on-tertiary-fixed": "#311300",
+              "primary-fixed-dim": "#a3c9ff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-background antialiased overflow-x-hidden">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-between items-center w-full px-6 py-3 bg-[#faf9f8] dark:bg-slate-900 font-Inter antialiased tracking-tight transition-colors duration-150">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold text-[#1a1c1c] dark:text-slate-100">DORA Metrics Advisor</span>
+<nav class="hidden md:flex items-center gap-6 ml-8">
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Dashboard</a>
+<a class="text-[#005faa] dark:text-blue-300 border-b-2 border-[#005faa] pb-1 font-semibold" href="#">Analytics</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Team Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-[#e9e8e7] rounded-full transition-colors cursor-pointer" data-icon="search">search</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-[#e9e8e7] rounded-full transition-colors cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-[#e9e8e7] rounded-full transition-colors cursor-pointer" data-icon="settings">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-outline-variant">
+<img alt="User profile" data-alt="Professional user avatar in office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVlypA40-py0QEKhGRxDtr_vz_t8EeE6A4BXg4gzXeRk7IWfJEixOJNZh60X1Pg-Z_FueOZD5zrcK0GE1WsjPkTvrP0Zs94JgT1VlMUz2BZgSG050f7An2Ty36NXy-MApewQrsyQ_B0mfmmLD0G2Ut8aIWYJBI26pfQ8bNDpcbbbbC5F2yiR1EvFMqGeUi5pKT12t2Y1cUQHdQVsCJfJhyDzsmC-iIib_DZWpIeOnn46DXTiI2wvBqbjEkD2l2MKeIrQy6z6w4HoTr"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar Shell -->
+<aside class="flex flex-col fixed left-0 top-0 h-full z-40 bg-[#f4f3f2] dark:bg-slate-900 h-screen w-64 border-r-0 pt-20 transition-all duration-200">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div>
+<h2 class="text-lg font-semibold text-[#1a1c1c] dark:text-white leading-tight">Project Alpha</h2>
+<p class="text-xs text-on-surface-variant">Production Environment</p>
+</div>
+</div>
+</div>
+<nav class="flex-1">
+<ul class="space-y-1">
+<li>
+<a class="text-[#404752] dark:text-slate-400 px-6 py-3 flex items-center gap-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200" data-icon="speed">speed</span>
+<span class="font-Inter text-sm font-medium">Deployment Frequency</span>
+</a>
+</li>
+<li>
+<a class="text-[#404752] dark:text-slate-400 px-6 py-3 flex items-center gap-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200" data-icon="schedule">schedule</span>
+<span class="font-Inter text-sm font-medium">Lead Time for Changes</span>
+</a>
+</li>
+<li class="relative">
+<a class="bg-white dark:bg-slate-800 text-[#005faa] dark:text-blue-300 font-bold rounded-l-lg ml-2 px-4 py-3 flex items-center gap-3 shadow-sm" href="#">
+<span class="material-symbols-outlined" data-icon="error_outline">error_outline</span>
+<span class="font-Inter text-sm font-medium">Change Failure Rate</span>
+</a>
+</li>
+<li>
+<a class="text-[#404752] dark:text-slate-400 px-6 py-3 flex items-center gap-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200" data-icon="mending_machine">auto_fix</span>
+<span class="font-Inter text-sm font-medium">Failed Service Recovery</span>
+</a>
+</li>
+<li>
+<a class="text-[#404752] dark:text-slate-400 px-6 py-3 flex items-center gap-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 duration-200" data-icon="compare_arrows">compare_arrows</span>
+<span class="font-Inter text-sm font-medium">Comparison View</span>
+</a>
+</li>
+</ul>
+</nav>
+<div class="p-6 mt-auto border-t border-surface-variant bg-surface-container-low">
+<button class="w-full bg-gradient-to-br from-primary to-secondary-container text-on-primary py-2.5 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 mb-4">
+                Export Report
+            </button>
+<ul class="space-y-1">
+<li>
+<a class="text-on-surface-variant flex items-center gap-3 px-2 py-1 hover:text-primary transition-colors text-xs" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="help_outline">help_outline</span>
+                        Documentation
+                    </a>
+</li>
+<li>
+<a class="text-on-surface-variant flex items-center gap-3 px-2 py-1 hover:text-primary transition-colors text-xs" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="contact_support">contact_support</span>
+                        Support
+                    </a>
+</li>
+</ul>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-20 p-8 min-h-screen">
+<header class="mb-10">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-extrabold tracking-tight text-on-background mb-1">Stability &amp; Reliability</h1>
+<p class="text-on-surface-variant text-lg">Detailed correlation between deployments and system resilience.</p>
+</div>
+<div class="flex gap-3">
+<div class="bg-surface-container-low px-4 py-2 rounded-lg flex items-center gap-2 border-b-2 border-primary">
+<span class="text-sm font-semibold text-on-surface-variant uppercase tracking-wider">Status:</span>
+<span class="flex items-center gap-1.5 text-error font-bold">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                            At Risk
+                        </span>
+</div>
+</div>
+</div>
+</header>
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-error">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Change Failure Rate</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-on-background">12.4%</span>
+<span class="text-error flex items-center text-xs font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span> 2.1%
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant mt-2 opacity-70">Target: &lt; 5%</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-tertiary-container">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Mean Time to Recovery</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-on-background">42m</span>
+<span class="text-tertiary-container flex items-center text-xs font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="trending_down">trending_down</span> 8m
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant mt-2 opacity-70">Target: &lt; 30m</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-secondary">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Total Deployments (7d)</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-on-background">158</span>
+<span class="text-secondary flex items-center text-xs font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span> 14%
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant mt-2 opacity-70">Peak: 28/day</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-outline">
+<p class="text-on-surface-variant text-sm font-medium mb-1">Successful Fixes</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-on-background">92.1%</span>
+<span class="text-outline flex items-center text-xs font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="remove">remove</span> 0%
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant mt-2 opacity-70">Rollback efficiency</p>
+</div>
+</div>
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+<!-- Dual Axis Chart Placeholder -->
+<div class="bg-surface-container-low p-8 rounded-xl">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h3 class="text-xl font-bold text-on-background">Deployment vs. Failure Correlation</h3>
+<p class="text-sm text-on-surface-variant">Analyzing if volume impacts reliability</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="text-xs font-semibold text-on-surface-variant">Deployments</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-3 rounded-full bg-error"></span>
+<span class="text-xs font-semibold text-on-surface-variant">Failures</span>
+</div>
+</div>
+</div>
+<div class="h-64 flex items-end justify-between gap-4 px-2 relative">
+<!-- Vertical Grid Lines -->
+<div class="absolute inset-0 flex justify-between px-2 opacity-10 pointer-events-none">
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+<div class="w-px h-full bg-on-surface"></div>
+</div>
+<!-- Bars (Deployment Freq) and Dots (Failure Rate) -->
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-20 rounded-t h-40 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-40 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Mon</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-20 rounded-t h-48 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-32 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Tue</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-40 rounded-t h-60 group-hover:opacity-60 transition-all"></div>
+<div class="absolute bottom-56 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Wed</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-20 rounded-t h-32 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-24 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Thu</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-20 rounded-t h-36 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-36 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Fri</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-10 rounded-t h-16 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-12 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Sat</span>
+</div>
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-full bg-primary opacity-10 rounded-t h-12 group-hover:opacity-40 transition-all"></div>
+<div class="absolute bottom-8 w-3 h-3 bg-error rounded-full border-2 border-surface shadow-md"></div>
+<span class="text-[10px] text-on-surface-variant mt-4 font-bold">Sun</span>
+</div>
+</div>
+</div>
+<!-- MTTR Trend Chart Placeholder -->
+<div class="bg-surface-container-low p-8 rounded-xl">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h3 class="text-xl font-bold text-on-background">MTTR Trend</h3>
+<p class="text-sm text-on-surface-variant">Rolling 30-day recovery efficiency</p>
+</div>
+<div class="bg-surface-container-lowest px-3 py-1 rounded-full text-xs font-bold border border-outline-variant">
+                        AVG 38.4m
+                    </div>
+</div>
+<div class="h-64 relative flex items-center">
+<svg class="w-full h-full overflow-visible" viewbox="0 0 400 100">
+<path d="M 0 60 Q 40 40, 80 50 T 160 30 T 240 70 T 320 40 T 400 20" fill="none" stroke="#005faa" stroke-linecap="round" stroke-width="3"></path>
+<path class="fill-primary/5" d="M 0 60 Q 40 40, 80 50 T 160 30 T 240 70 T 320 40 T 400 20 V 100 H 0 Z"></path>
+<!-- Highlight dots -->
+<circle class="fill-primary border-2 border-white" cx="160" cy="30" r="5"></circle>
+<circle class="fill-error" cx="240" cy="70" r="5"></circle>
+</svg>
+<!-- Tooltip simulation -->
+<div class="absolute left-[40%] top-[10%] glass-panel p-2 rounded shadow-lg border border-outline-variant text-[10px]">
+<p class="font-bold">May 14</p>
+<p class="text-primary">MTTR: 28m</p>
+</div>
+</div>
+<div class="flex justify-between mt-4 px-2">
+<span class="text-[10px] text-on-surface-variant font-bold">MAY 01</span>
+<span class="text-[10px] text-on-surface-variant font-bold">MAY 15</span>
+<span class="text-[10px] text-on-surface-variant font-bold">TODAY</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+<!-- Recent Incidents & Triggering Deployments -->
+<div class="xl:col-span-2">
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<div class="p-6 bg-surface-container-low flex justify-between items-center">
+<h3 class="font-bold text-lg">Correlated Incidents</h3>
+<span class="text-xs font-bold text-on-surface-variant opacity-60">LAST 24 HOURS</span>
+</div>
+<div class="divide-y-0 p-4 space-y-3">
+<!-- Incident Row -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low transition-colors rounded-lg group">
+<div class="w-12 h-12 flex-shrink-0 bg-error-container rounded-lg flex items-center justify-center text-error">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-on-background text-sm">Auth-Service Timeout Cluster</h4>
+<div class="flex gap-4 mt-1">
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="history">history</span> 2h ago
+                                    </span>
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span> Duration: 18m
+                                    </span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-surface-container p-2 rounded border border-outline-variant inline-flex flex-col items-end">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-tighter">Triggered By</span>
+<span class="text-xs font-bold text-primary">v2.4.12-rc.2</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Incident Row -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low transition-colors rounded-lg group">
+<div class="w-12 h-12 flex-shrink-0 bg-error-container rounded-lg flex items-center justify-center text-error">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-on-background text-sm">DB Migration Locking Issue</h4>
+<div class="flex gap-4 mt-1">
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="history">history</span> 8h ago
+                                    </span>
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span> Duration: 4m
+                                    </span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-surface-container p-2 rounded border border-outline-variant inline-flex flex-col items-end">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-tighter">Triggered By</span>
+<span class="text-xs font-bold text-primary">sql-mig-782</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Incident Row (Warning) -->
+<div class="flex items-center gap-4 p-4 hover:bg-surface-container-low transition-colors rounded-lg group">
+<div class="w-12 h-12 flex-shrink-0 bg-tertiary-fixed-dim/30 rounded-lg flex items-center justify-center text-tertiary-container">
+<span class="material-symbols-outlined" data-icon="memory">memory</span>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-on-background text-sm">Memory Leak detected in Cache-Mgr</h4>
+<div class="flex gap-4 mt-1">
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="history">history</span> 14h ago
+                                    </span>
+<span class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="timer">timer</span> Ongoing
+                                    </span>
+</div>
+</div>
+<div class="text-right">
+<div class="bg-surface-container p-2 rounded border border-outline-variant inline-flex flex-col items-end">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-tighter">Triggered By</span>
+<span class="text-xs font-bold text-primary">v2.4.11-main</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Top Failing Services -->
+<div class="xl:col-span-1">
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-6 border-t-4 border-error h-full">
+<h3 class="font-bold text-lg mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="bar_chart">bar_chart</span>
+                        High-Risk Services
+                    </h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-sm font-bold text-on-background">Identity.Auth</span>
+<span class="text-xs font-black text-error">18.5% CFR</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-error h-full rounded-full" style="width: 75%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-sm font-bold text-on-background">Order.Processor</span>
+<span class="text-xs font-black text-tertiary-container">9.2% CFR</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="text-sm font-bold text-on-background">Email.Notification</span>
+<span class="text-xs font-black text-on-surface-variant">4.1% CFR</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-outline h-full rounded-full" style="width: 20%"></div>
+</div>
+</div>
+</div>
+<div class="mt-12">
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">Error Categories</h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full text-xs font-semibold">504 Gateway Timeout</span>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">401 Unauthorized</span>
+<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full text-xs font-semibold">DB Deadlock</span>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">K8s OOMKill</span>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">SSL Expired</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB (Hidden on this details view as per instructions) -->
+</body></html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lead Time for Changes - DORA Metrics Advisor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#404752",
+              "on-primary": "#ffffff",
+              "inverse-on-surface": "#f1f0ef",
+              "tertiary-fixed-dim": "#ffb689",
+              "secondary-fixed": "#d1e4ff",
+              "surface": "#faf9f8",
+              "tertiary-container": "#bc5b00",
+              "surface-bright": "#faf9f8",
+              "on-primary-fixed": "#001c39",
+              "on-primary-container": "#ffffff",
+              "surface-container-low": "#f4f3f2",
+              "error": "#ba1a1a",
+              "surface-variant": "#e3e2e1",
+              "secondary-container": "#5badff",
+              "on-primary-fixed-variant": "#004883",
+              "on-tertiary-fixed-variant": "#743500",
+              "on-secondary-fixed-variant": "#00497d",
+              "on-secondary-fixed": "#001d36",
+              "error-container": "#ffdad6",
+              "on-error": "#ffffff",
+              "primary-container": "#0078d4",
+              "surface-container-high": "#e9e8e7",
+              "outline-variant": "#c0c7d4",
+              "surface-container": "#efeeed",
+              "on-background": "#1a1c1c",
+              "inverse-primary": "#a3c9ff",
+              "on-tertiary-container": "#ffffff",
+              "primary": "#005faa",
+              "outline": "#717783",
+              "tertiary": "#974700",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2f3130",
+              "surface-dim": "#dadad9",
+              "on-secondary-container": "#003f6d",
+              "surface-container-highest": "#e3e2e1",
+              "secondary-fixed-dim": "#9ecaff",
+              "secondary": "#0061a3",
+              "on-secondary": "#ffffff",
+              "tertiary-fixed": "#ffdbc8",
+              "background": "#faf9f8",
+              "surface-container-lowest": "#ffffff",
+              "on-surface": "#1a1c1c",
+              "surface-tint": "#0060ab",
+              "on-error-container": "#93000a",
+              "primary-fixed": "#d3e3ff",
+              "on-tertiary-fixed": "#311300",
+              "primary-fixed-dim": "#a3c9ff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 z-50 w-full bg-[#faf9f8] dark:bg-slate-900 flex justify-between items-center px-6 py-3 font-Inter antialiased tracking-tight flat no shadows">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-[#1a1c1c] dark:text-slate-100">DORA Metrics Advisor</span>
+<nav class="hidden md:flex gap-6">
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Dashboard</a>
+<a class="text-[#005faa] dark:text-blue-300 border-b-2 border-[#005faa] pb-1 font-medium" href="#">Analytics</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Team Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="pl-10 pr-4 py-1.5 rounded-full bg-surface-container-low border-none text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search metrics..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">settings</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="Profile" data-alt="User profile avatar professionally dressed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzpVA7rTv5sJ1w3Hcg-FYoIfwCM3zIGFDFivdE0HdjHO9zaGS3GRbpkJatXNKi1P71M5_KwISfaJiSC-C5S-jsFfXIpr0sXFeDVcJ8FaQv4bcPGePTVWhM_s3PPwLgaEh_3s08fGzX9HSNpd1Yd-zk0siaP03PL3X6kIjqGopcn7UuoewecNW_MQikeHTLveb65TViu7_3z63uH3xfrpz0BA5olfNBG1RQWW1IMgKA6NPcdJPA0uTDMLAUjozuRAq83OD03A6eplRO"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="flex flex-col fixed left-0 top-0 h-full z-40 bg-[#f4f3f2] dark:bg-slate-900 font-Inter text-sm font-medium h-screen w-64 border-r-0 pt-20">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 bg-primary rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">deployed_code</span>
+</div>
+<div>
+<h2 class="text-lg font-semibold text-[#1a1c1c] dark:text-white leading-tight">Project Alpha</h2>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Production Environment</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">speed</span>
+<span>Deployment Frequency</span>
+</a>
+<a class="flex items-center gap-3 bg-white dark:bg-slate-800 text-[#005faa] dark:text-blue-300 font-bold rounded-l-lg ml-2 px-4 py-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">schedule</span>
+<span>Lead Time for Changes</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">error_outline</span>
+<span>Change Failure Rate</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">auto_fix</span>
+<span>Failed Service Recovery</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-all duration-200 border-b border-outline-variant/10 mb-2" href="#">
+<span class="material-symbols-outlined">compare_arrows</span>
+<span>Comparison View</span>
+</a>
+</nav>
+<div class="p-4 space-y-4">
+<button class="w-full py-2 bg-gradient-to-r from-primary to-secondary-container text-on-primary rounded-xl font-semibold text-sm shadow-sm hover:opacity-90 transition-opacity">
+                Export Report
+            </button>
+<div class="pt-4 border-t border-outline-variant/20">
+<a class="flex items-center gap-3 text-[#404752] px-2 py-2 text-xs hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">help_outline</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] px-2 py-2 text-xs hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">contact_support</span>
+<span>Support</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 pt-24 px-10 pb-12 min-h-screen">
+<!-- Header Section -->
+<header class="flex justify-between items-end mb-10">
+<div>
+<nav class="flex items-center gap-2 text-xs text-on-surface-variant mb-2">
+<span>Analytics</span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-primary font-medium">Lead Time for Changes</span>
+</nav>
+<h1 class="text-4xl font-extrabold tracking-tighter text-on-surface">Lead Time for Changes</h1>
+<p class="text-on-surface-variant mt-1">Average time from commit to production: <span class="text-primary font-bold">2.4 days</span></p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex bg-surface-container-low p-1 rounded-xl">
+<button class="px-4 py-1.5 text-xs font-semibold bg-white shadow-sm rounded-lg text-primary">7 Days</button>
+<button class="px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface">30 Days</button>
+<button class="px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface">Quarterly</button>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-xl text-sm font-medium hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+<span>Filters</span>
+</button>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Hero Metric: Process Flow Diagram -->
+<section class="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant/10">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-bold tracking-tight mb-1">Code-to-Cloud Journey</h3>
+<p class="text-sm text-on-surface-variant">Breakdown of duration per pipeline stage</p>
+</div>
+<div class="flex items-center gap-4 text-xs">
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-3 rounded-full bg-primary/20"></span>
+<span class="text-on-surface-variant">Active</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-3 rounded-full bg-error/20"></span>
+<span class="text-on-surface-variant">Idle/Queue</span>
+</div>
+</div>
+</div>
+<!-- Process Flow Visualization -->
+<div class="relative flex items-center justify-between">
+<!-- Stage 1: Coding -->
+<div class="flex-1 flex flex-col items-center group relative">
+<div class="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary text-3xl">terminal</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Coding</span>
+<span class="text-xl font-bold">14.2h</span>
+<div class="mt-4 w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 85%"></div>
+</div>
+</div>
+<div class="flex-none px-4 flex flex-col items-center">
+<span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+<span class="text-[10px] text-error font-bold mt-1">2.1h</span>
+</div>
+<!-- Stage 2: PR Review -->
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-16 h-16 rounded-full bg-tertiary-fixed-dim/20 flex items-center justify-center mb-4 group-hover:bg-tertiary-fixed-dim/40 transition-colors">
+<span class="material-symbols-outlined text-tertiary text-3xl">rate_review</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">PR Review</span>
+<span class="text-xl font-bold">22.8h</span>
+<div class="mt-4 w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-tertiary" style="width: 40%"></div>
+</div>
+</div>
+<div class="flex-none px-4 flex flex-col items-center">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'wght' 700;">priority_high</span>
+<span class="text-[10px] text-error font-bold mt-1">8.4h</span>
+</div>
+<!-- Stage 3: CI/CD -->
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-16 h-16 rounded-full bg-secondary-fixed/30 flex items-center justify-center mb-4 group-hover:bg-secondary-fixed/50 transition-colors">
+<span class="material-symbols-outlined text-secondary text-3xl">settings_backup_restore</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">CI / CD</span>
+<span class="text-xl font-bold">1.2h</span>
+<div class="mt-4 w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: 95%"></div>
+</div>
+</div>
+<div class="flex-none px-4 flex flex-col items-center">
+<span class="material-symbols-outlined text-outline-variant">arrow_forward</span>
+<span class="text-[10px] text-on-surface-variant font-bold mt-1">0.3h</span>
+</div>
+<!-- Stage 4: Release -->
+<div class="flex-1 flex flex-col items-center group">
+<div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 group-hover:bg-emerald-200 transition-colors">
+<span class="material-symbols-outlined text-emerald-600 text-3xl">rocket_launch</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Release</span>
+<span class="text-xl font-bold">4.5h</span>
+<div class="mt-4 w-full h-2 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500" style="width: 70%"></div>
+</div>
+</div>
+</div>
+<div class="mt-12 p-4 bg-error-container/20 rounded-xl flex items-center gap-4 border border-error/10">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">warning</span>
+<p class="text-sm text-on-error-container">
+<strong>Bottleneck Detected:</strong> PR Review idle time has increased by <span class="font-bold">18%</span> this week. Average wait for reviewer assignment is 8.4 hours.
+                    </p>
+<button class="ml-auto text-xs font-bold text-error uppercase tracking-wider hover:underline">View PRs</button>
+</div>
+</section>
+<!-- Secondary Metrics: Mini Stats -->
+<section class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col justify-between flex-1 border border-outline-variant/10">
+<h3 class="text-sm font-bold text-on-surface-variant uppercase tracking-widest">Efficiency Score</h3>
+<div class="mt-4 flex items-end gap-2">
+<span class="text-5xl font-black text-on-surface leading-none">84%</span>
+<span class="text-emerald-600 flex items-center text-sm font-bold mb-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> 4%
+                        </span>
+</div>
+<div class="mt-6">
+<div class="flex justify-between text-[10px] uppercase font-bold text-on-surface-variant mb-2">
+<span>vs Industry Target</span>
+<span>90%</span>
+</div>
+<div class="w-full h-3 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary-container" style="width: 84%"></div>
+</div>
+</div>
+</div>
+<div class="bg-inverse-surface text-inverse-on-surface rounded-xl p-6 shadow-xl flex-1 relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-sm font-bold opacity-70 uppercase tracking-widest">Team Performance</h3>
+<p class="text-2xl font-bold mt-2">Elite Status</p>
+<p class="text-xs opacity-60 mt-2">Consistent delivery within the top 10% of global DevOps organizations.</p>
+<button class="mt-6 text-xs font-bold text-primary-fixed hover:text-white transition-colors flex items-center gap-1">
+                            BENCHMARK DATA <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[120px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+</div>
+</section>
+<!-- Recent Work Items Table -->
+<section class="col-span-12 bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden">
+<div class="px-8 py-6 border-b border-surface-container flex justify-between items-center bg-surface-container-low/30">
+<div>
+<h3 class="text-lg font-bold tracking-tight">Recent Work Items</h3>
+<p class="text-sm text-on-surface-variant">Lead time analysis by individual user story and bug</p>
+</div>
+<div class="flex gap-2">
+<div class="relative">
+<select class="appearance-none bg-white border border-outline-variant/30 rounded-lg pl-4 pr-10 py-2 text-sm font-medium focus:ring-primary focus:border-primary">
+<option>All Branches</option>
+<option>main</option>
+<option>develop</option>
+<option>feature/auth-v2</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+<button class="bg-white border border-outline-variant/30 rounded-lg px-4 py-2 text-sm font-medium hover:bg-surface-container-low transition-colors">Developer</button>
+<button class="bg-white border border-outline-variant/30 rounded-lg px-4 py-2 text-sm font-medium hover:bg-surface-container-low transition-colors">Release Tag</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] uppercase tracking-widest text-on-surface-variant bg-surface-container-low/20">
+<th class="px-8 py-4 font-bold">Type</th>
+<th class="px-4 py-4 font-bold">ID / Title</th>
+<th class="px-4 py-4 font-bold">Lead Time</th>
+<th class="px-4 py-4 font-bold">Status</th>
+<th class="px-4 py-4 font-bold">Developer</th>
+<th class="px-8 py-4 font-bold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-8 py-4">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-xs font-bold text-on-surface-variant">STORY</span>
+</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">#4492 - Enhance MFA Provider</span>
+<span class="text-[10px] text-on-surface-variant">main • v2.4.1-rc</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">1.8d</span>
+<span class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500" style="width: 30%"></div>
+</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">DEPLOYED</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container overflow-hidden">
+<img alt="Dev" data-alt="Developer portrait with glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZYZ-rXXgt4DL8qnAEJQg5kZA9yxosFqNmAMD9klQBYWWBkhFBsTeZZe5TBfjs_U4bp7AhckKDnOejNCdXrdk2kNq0fn22S4Hx-tCNDGBOcK0Jwj3lelkr_XTO0SNpVY1ohg0FyYRgmpMQbWASr9xb5pJm_IwQEdXFjEjqlEBzPyVWkMS3oqmaQYyVoKsx8AR9Cv489NN_Hhlqpi5uwgzdFq0Gl5N5IBjgXTFmJoTIAR2e_sN4CC6vmDv5KKWcOKFNCpKmQVDwauJP"/>
+</div>
+<span class="text-xs font-medium">Alex Chen</span>
+</div>
+</td>
+<td class="px-8 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_horiz</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-8 py-4">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-lg" style="font-variation-settings: 'FILL' 1;">pest_control</span>
+<span class="text-xs font-bold text-on-surface-variant">BUG</span>
+</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">#4510 - Token expiration race condition</span>
+<span class="text-[10px] text-on-surface-variant">hotfix/auth • v2.4.1-patch</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold text-error">4.2d</span>
+<span class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-error" style="width: 85%"></div>
+</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-tertiary-fixed text-on-tertiary-fixed-variant">IN-REVIEW</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container overflow-hidden">
+<img alt="Dev" data-alt="Female developer smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOaoZwW8zb5-3tcSvOYq5pg-RuS_03L0P9URsdY2wBMZKqjN3rHBIZHCS5ZGr19jTZ5OLO_sF743gST9OZu85MbZ9lwylvmqUOkr4OQfqinxmRmFMefsp4kyPd9eMOu7wKrzDNPGjqTq2tYRG4xLnZQ_VC0u_rsYJZwfsCEy4xjZa1vLwMJ5YRJMSj9_45FrlCs17iGw0oVq0am7jRN-fh8-KyO8OChTIu_jyLjh5CUE5ouMB9pzZDOMJsRriDJ3_v7KY4Kqj2xZFl"/>
+</div>
+<span class="text-xs font-medium">Sarah Jenkins</span>
+</div>
+</td>
+<td class="px-8 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_horiz</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-8 py-4">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-xs font-bold text-on-surface-variant">STORY</span>
+</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-bold text-on-surface">#4488 - API Documentation Swagger Update</span>
+<span class="text-[10px] text-on-surface-variant">main • v2.4.1</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">2.1d</span>
+<span class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 45%"></div>
+</span>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">DEPLOYED</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container overflow-hidden">
+<img alt="Dev" data-alt="Developer with beard" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD58-OVQXlwkROxdmUrZFKKxRXwno09w2dVMKRAz-C5-t3yXyfCwgC_bTzleIG8udL8OO_VLVPrGFBPfYGxdt6_yTHyeJVCtsiBhvJ4E8D9ghUlSvmqfXLV56II-Epp5Cho6wVmojnJGtdMnD__rlzPKeb_hhS0-KgSp9zJw4hZ0qMdCWvmugpUCzUDz0xNfSqA9KZdRlmPJNBOBYgPNh1jicXxw9RbAO6kOKjq288DSWvc71HBCFGBbSsOoSJYkhuTUnhPfTS3llCf"/>
+</div>
+<span class="text-xs font-medium">Marcus Wright</span>
+</div>
+</td>
+<td class="px-8 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">more_horiz</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-8 py-4 border-t border-surface-container flex items-center justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-low/10">
+<span>Showing 1-12 of 48 items</span>
+<div class="flex gap-4">
+<button class="hover:text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">chevron_left</span> Previous
+                        </button>
+<button class="hover:text-primary flex items-center gap-1">
+                            Next <span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Contextual FAB (Suppressed on detail pages as per instructions, but kept as a guide if needed for the dashboard) -->
+<!-- Not rendered here per Shell Visibility & Relevance Filter -->
+</body></html>

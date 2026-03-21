@@ -223,8 +223,6 @@ The correct middleware order is:
 4. `UseMiddleware<RateLimitMiddleware>` — checks token budget on `/api/agent/*`
 5. `UseAuthorization`
 6. `MapControllers`
-5. `UseAuthorization`
-6. `MapControllers`
 
 ### CORS
 
@@ -288,6 +286,10 @@ Use standalone components (no `NgModule`):
 export class DashboardComponent { }
 ```
 
+### Template and Style Standards
+
+- **Never use `style="..."` static inline styles in Angular templates.** All styles belong in the component `.scss` file. For static layout variants, define named CSS utility classes in the SCSS and apply them with `class` or `[ngClass]`. For dynamic style values, use CSS custom property bindings: set the custom property via `[style.--my-var]="computedValue + '%'"` on the element, then read it in SCSS with `width: var(--my-var, 0%)`.
+
 ---
 
 ## Database Patterns
@@ -335,6 +337,7 @@ var result = await connection.QueryAsync<DoraMetricRow>(
 ## What NOT to Do
 
 - **Never** put secrets, connection strings, or PATs in any source file, `appsettings.json`, or `local.settings.json` that gets committed.
+- **Never** use inline `style="..."` attributes in Angular templates. Use component SCSS classes for static styles and CSS custom property bindings (`[style.--var]`) for dynamic values.
 - **Never** use `AllowAnyOrigin()` in CORS configuration.
 - **Never** call the Foundry agent without first checking the token budget and the response cache.
 - **Never** add a raw SQL query against a tenant table without `SESSION_CONTEXT` set first.
@@ -372,3 +375,10 @@ var result = await connection.QueryAsync<DoraMetricRow>(
 ## Azure DevOps Extension Hub Configuration
 
 - Configure the Velo extension hub to appear as its own top-level hub group in the Azure DevOps project sidebar, not nested under Pipelines or any other existing hub group.
+
+---
+
+## File Modification Instructions
+
+- When `replace_string_in_file` fails repeatedly, output the exact file content changes directly to the user so they can manually apply them.
+- Always ensure `oldString` matches the file exactly including whitespace, indentation, and line endings before attempting replace.

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Azure Meridian | DORA Metrics - Comparison View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface": "#1a1c1c",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#5badff",
+                        "inverse-surface": "#2f3130",
+                        "tertiary-container": "#bc5b00",
+                        "on-primary-fixed-variant": "#004883",
+                        "on-tertiary": "#ffffff",
+                        "primary": "#005faa",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#ffdbc8",
+                        "surface": "#faf9f8",
+                        "primary-fixed-dim": "#a3c9ff",
+                        "secondary-fixed-dim": "#9ecaff",
+                        "background": "#faf9f8",
+                        "primary-fixed": "#d3e3ff",
+                        "inverse-primary": "#a3c9ff",
+                        "on-secondary-fixed-variant": "#00497d",
+                        "on-background": "#1a1c1c",
+                        "on-primary-container": "#ffffff",
+                        "on-tertiary-container": "#ffffff",
+                        "outline": "#717783",
+                        "on-primary-fixed": "#001c39",
+                        "outline-variant": "#c0c7d4",
+                        "secondary-fixed": "#d1e4ff",
+                        "primary-container": "#0078d4",
+                        "secondary": "#0061a3",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "inverse-on-surface": "#f1f0ef",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e3e2e1",
+                        "surface-variant": "#e3e2e1",
+                        "on-surface-variant": "#404752",
+                        "tertiary-fixed-dim": "#ffb689",
+                        "on-secondary-container": "#003f6d",
+                        "surface-bright": "#faf9f8",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#974700",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f4f3f2",
+                        "surface-dim": "#dadad9",
+                        "surface-container-high": "#e9e8e7",
+                        "surface-container": "#efeeed",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#311300",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#0060ab",
+                        "on-secondary-fixed": "#001d36"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #005faa 0%, #5badff 100%);
+        }
+        .ghost-shadow {
+            box-shadow: 0 8px 32px rgba(26, 28, 28, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased flex min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 flex-shrink-0 bg-surface-container-low flex flex-col py-6 sticky top-0 hidden md:flex">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<h1 class="text-sm font-black text-primary uppercase tracking-widest leading-none">Azure DevOps</h1>
+<p class="text-[10px] text-on-surface-variant font-medium">DORA Analytics Engine</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-all group" href="#">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-medium text-sm">Organization</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 bg-surface-container-lowest text-primary rounded-l-xl ml-2 shadow-sm translate-x-1 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+<span class="font-medium text-sm">Projects</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+<span class="font-medium text-sm">Pipelines</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="package_2">package_2</span>
+<span class="font-medium text-sm">Releases</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-highest transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-medium text-sm">Analytics</span>
+</a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-gradient-primary text-white py-2.5 rounded-xl font-semibold text-sm shadow-md flex items-center justify-center gap-2 mb-6">
+<span class="material-symbols-outlined text-sm">compare_arrows</span>
+                Compare Projects
+            </button>
+<div class="space-y-1 pt-4 border-t border-outline-variant/20">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="description">description</span>
+                    Documentation
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="forum">forum</span>
+                    Feedback
+                </a>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+<!-- TopNavBar (Shared Component) -->
+<header class="w-full top-0 sticky z-30 bg-surface flex justify-between items-center px-6 py-3 max-w-full mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold text-on-surface tracking-tight">Azure Meridian | DORA Metrics</span>
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm" href="#">Dashboard</a>
+<a class="text-primary border-b-2 border-primary pb-1 font-semibold text-sm" href="#">Comparisons</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm" href="#">Reports</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm" href="#">Extensions</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+<input class="bg-surface-container-low border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary" placeholder="Search resources..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="ml-2 w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User Profile Avatar" data-alt="Corporate headshot of a software engineer profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAK7Zl4eix6hBhYh0TSyFIQUSv8cZOsjn66ROrDfMP-rda6ahyBvB6bwtHEPSZxLbTHw5L37_s1gArbpER9OpiIqxiZmqoQNJJbwF1FWRy9ORhP5U-hIaW05PqKUbJNIS-58GcYSzotNrKAVm7OmQoebxB0asIXiURlMsW_wSwzVXBC7Damgnq7wJQ7y9o2tZG2MYZtMK-k-REUwpbXeXSBvZBA_XwOpwsqoMKuZHkxG_4NFL4XT8TT14tE4L6KIfeRnb628tpY-ucq"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto p-8 space-y-10 max-w-[1600px] mx-auto w-full">
+<!-- Page Header & Filters -->
+<section class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+<div>
+<h2 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Comparison View</h2>
+<p class="text-on-surface-variant max-w-2xl font-medium">Analyzing DORA performance across key architectural boundaries. Compare efficiency, stability, and delivery velocity across active projects.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<div class="flex bg-surface-container-low p-1 rounded-xl">
+<button class="px-4 py-1.5 text-sm font-semibold bg-white rounded-lg shadow-sm text-primary">Last 30 days</button>
+<button class="px-4 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface">Last 90 days</button>
+</div>
+<button class="flex items-center gap-2 bg-surface-container-lowest px-4 py-2 rounded-xl text-sm font-semibold border border-outline-variant/10 ghost-shadow">
+<span class="material-symbols-outlined text-lg">filter_alt</span>
+                        Project Filters
+                    </button>
+<button class="flex items-center gap-2 bg-surface-container-lowest px-4 py-2 rounded-xl text-sm font-semibold border border-outline-variant/10 ghost-shadow">
+<span class="material-symbols-outlined text-lg">download</span>
+                        Export Report
+                    </button>
+</div>
+</section>
+<!-- Top Performers Bento Grid Section -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Top Performer Hero Card -->
+<div class="md:col-span-2 bg-gradient-primary rounded-full p-8 text-white relative overflow-hidden flex flex-col justify-between min-h-[240px]">
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-secondary-fixed">military_tech</span>
+<span class="uppercase tracking-widest text-xs font-black opacity-80">Elite Performer of the Month</span>
+</div>
+<h3 class="text-4xl font-black mb-2">Auth Service</h3>
+<p class="text-primary-fixed text-lg font-medium">99.9% Change Success Rate with daily deployments.</p>
+</div>
+<div class="relative z-10 flex gap-10 mt-6">
+<div>
+<p class="text-xs uppercase opacity-70 font-bold mb-1">Deployment Freq.</p>
+<p class="text-2xl font-black">2.4/day</p>
+</div>
+<div>
+<p class="text-xs uppercase opacity-70 font-bold mb-1">Lead Time</p>
+<p class="text-2xl font-black">1.2 hrs</p>
+</div>
+<div>
+<p class="text-xs uppercase opacity-70 font-bold mb-1">MTTR</p>
+<p class="text-2xl font-black">&lt; 15m</p>
+</div>
+</div>
+<div class="absolute right-[-10%] bottom-[-20%] opacity-10">
+<span class="material-symbols-outlined text-[300px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+</div>
+<!-- Leaderboard Sidebar -->
+<div class="bg-surface-container-low rounded-full p-6 ghost-shadow">
+<h4 class="text-sm font-black uppercase tracking-wider text-on-surface-variant mb-6">Velocity Leaderboard</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-outline-variant/5">
+<span class="w-8 h-8 flex items-center justify-center bg-primary-fixed text-primary font-bold rounded-full text-xs">01</span>
+<div class="flex-1">
+<p class="text-sm font-bold">Project Alpha</p>
+<p class="text-[10px] text-on-surface-variant font-medium">24 Deployments / week</p>
+</div>
+<span class="material-symbols-outlined text-secondary text-lg">trending_up</span>
+</div>
+<div class="flex items-center gap-4 p-3 rounded-2xl hover:bg-white transition-colors">
+<span class="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface-variant font-bold rounded-full text-xs">02</span>
+<div class="flex-1">
+<p class="text-sm font-bold">Payment Gateway</p>
+<p class="text-[10px] text-on-surface-variant font-medium">18 Deployments / week</p>
+</div>
+<span class="material-symbols-outlined text-outline text-lg">trending_flat</span>
+</div>
+<div class="flex items-center gap-4 p-3 rounded-2xl hover:bg-white transition-colors">
+<span class="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface-variant font-bold rounded-full text-xs">03</span>
+<div class="flex-1">
+<p class="text-sm font-bold">Inventory API</p>
+<p class="text-[10px] text-on-surface-variant font-medium">12 Deployments / week</p>
+</div>
+<span class="material-symbols-outlined text-error text-lg">trending_down</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Comparison Table: The Core Data View -->
+<section class="bg-surface-container-low rounded-full overflow-hidden ghost-shadow">
+<div class="px-8 py-6 flex items-center justify-between bg-surface-container-high/30">
+<h3 class="text-lg font-bold">Metric Benchmarking</h3>
+<div class="flex items-center gap-4 text-xs font-bold text-on-surface-variant">
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-primary"></div> Elite</span>
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-secondary-container"></div> High</span>
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-tertiary-container"></div> Medium</span>
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-error"></div> Low</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-[10px] uppercase tracking-widest text-on-surface-variant border-b border-outline-variant/10">
+<th class="px-8 py-4 font-black">Project / Service</th>
+<th class="px-6 py-4 font-black">Deployment Frequency</th>
+<th class="px-6 py-4 font-black">Lead Time for Changes</th>
+<th class="px-6 py-4 font-black">Change Failure Rate</th>
+<th class="px-6 py-4 font-black">Time to Restore</th>
+<th class="px-8 py-4 font-black text-right">Trend (30D)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container-highest transition-colors group">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-fixed-dim/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">hub</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Project Alpha</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Cloud Infrastructure</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">On-Demand</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-primary text-on-primary">Elite</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">2.4 hours</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">4.2%</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-secondary-container text-on-secondary-container">High</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">45 mins</td>
+<td class="px-8 py-6">
+<div class="flex justify-end h-8 gap-[2px] items-end">
+<div class="w-1 bg-primary/20 h-[40%] rounded-full"></div>
+<div class="w-1 bg-primary/40 h-[60%] rounded-full"></div>
+<div class="w-1 bg-primary/30 h-[50%] rounded-full"></div>
+<div class="w-1 bg-primary/60 h-[80%] rounded-full"></div>
+<div class="w-1 bg-primary/40 h-[70%] rounded-full"></div>
+<div class="w-1 bg-primary h-[100%] rounded-full"></div>
+</div>
+</td>
+</tr>
+<tr class="bg-white/40 hover:bg-surface-container-highest transition-colors group">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-secondary-fixed/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">payments</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Payment Gateway</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Core Transaction Engine</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">Weekly</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-tertiary-container text-white">Medium</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">4.8 days</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">0.8%</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-primary text-on-primary">Elite</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">1.2 hours</td>
+<td class="px-8 py-6">
+<div class="flex justify-end h-8 gap-[2px] items-end">
+<div class="w-1 bg-outline/20 h-[80%] rounded-full"></div>
+<div class="w-1 bg-outline/20 h-[75%] rounded-full"></div>
+<div class="w-1 bg-outline/20 h-[70%] rounded-full"></div>
+<div class="w-1 bg-outline/20 h-[85%] rounded-full"></div>
+<div class="w-1 bg-outline/20 h-[75%] rounded-full"></div>
+<div class="w-1 bg-outline/20 h-[80%] rounded-full"></div>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors group">
+<td class="px-8 py-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary">lock_open</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Auth Service</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Security &amp; Identity</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">Daily</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-primary text-on-primary">Elite</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">1.2 hours</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold">0.1%</span>
+<span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-primary text-on-primary">Elite</span>
+</div>
+</td>
+<td class="px-6 py-6 text-sm font-bold">12 mins</td>
+<td class="px-8 py-6">
+<div class="flex justify-end h-8 gap-[2px] items-end">
+<div class="w-1 bg-secondary-container h-[20%] rounded-full"></div>
+<div class="w-1 bg-secondary-container h-[40%] rounded-full"></div>
+<div class="w-1 bg-secondary-container h-[50%] rounded-full"></div>
+<div class="w-1 bg-secondary-container h-[70%] rounded-full"></div>
+<div class="w-1 bg-secondary-container h-[85%] rounded-full"></div>
+<div class="w-1 bg-secondary-container h-[100%] rounded-full"></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Correlation & Deep Insights -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Deployment Volume vs Failure Rate Chart -->
+<div class="bg-surface-container-lowest rounded-full p-8 ghost-shadow">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h4 class="text-lg font-bold">Volume vs. Stability</h4>
+<p class="text-xs text-on-surface-variant font-medium">Correlation: Deployment Frequency vs. Failure Rate</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">info</span>
+</div>
+<div class="h-64 relative border-l border-b border-outline-variant/30 ml-8 mb-8">
+<!-- Chart Axis Labels -->
+<div class="absolute -left-12 top-1/2 -rotate-90 text-[10px] font-black uppercase tracking-widest text-on-surface-variant opacity-50">Failure Rate</div>
+<div class="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant opacity-50">Deployment Volume</div>
+<!-- Data Points (Mock Scatter Plot) -->
+<div class="absolute bottom-[10%] left-[80%] w-4 h-4 rounded-full bg-primary border-4 border-white shadow-lg cursor-pointer group">
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Auth Service</div>
+</div>
+<div class="absolute bottom-[40%] left-[60%] w-4 h-4 rounded-full bg-secondary-container border-4 border-white shadow-lg cursor-pointer group">
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Project Alpha</div>
+</div>
+<div class="absolute bottom-[80%] left-[20%] w-4 h-4 rounded-full bg-error border-4 border-white shadow-lg cursor-pointer group">
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Legacy API</div>
+</div>
+<div class="absolute bottom-[15%] left-[30%] w-4 h-4 rounded-full bg-tertiary-container border-4 border-white shadow-lg cursor-pointer group">
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-on-surface text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Payment Gateway</div>
+</div>
+<!-- Ideal Correlation Line -->
+<svg class="absolute inset-0 w-full h-full opacity-10 pointer-events-none">
+<line class="text-primary" stroke="currentColor" stroke-dasharray="4 4" x1="0" x2="100%" y1="100%" y2="0"></line>
+</svg>
+</div>
+<p class="text-[11px] text-center italic text-on-surface-variant">High-volume teams typically exhibit lower failure rates through automated testing maturity.</p>
+</div>
+<!-- Qualitative Comparison / Service Type Health -->
+<div class="bg-surface-container-low rounded-full p-8 flex flex-col justify-between border border-white">
+<div>
+<h4 class="text-lg font-bold mb-6">Service Health Distribution</h4>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-xs font-bold mb-2">
+<span class="text-on-surface">Microservices (4 Projects)</span>
+<span class="text-primary">92% Elite</span>
+</div>
+<div class="h-2 w-full bg-white rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[92%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-bold mb-2">
+<span class="text-on-surface">Legacy Monoliths (1 Project)</span>
+<span class="text-error">15% High</span>
+</div>
+<div class="h-2 w-full bg-white rounded-full overflow-hidden">
+<div class="h-full bg-error w-[15%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-bold mb-2">
+<span class="text-on-surface">Cloud Infra (2 Projects)</span>
+<span class="text-secondary-container">78% High</span>
+</div>
+<div class="h-2 w-full bg-white rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[78%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 p-4 bg-primary-fixed-dim/30 rounded-2xl flex gap-4 items-start border border-primary/10">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<div class="text-xs leading-relaxed">
+<span class="font-bold text-on-primary-fixed">Advisor Insight:</span> 
+                            Projects utilizing the 'DevOps Accelerator' templates show a 40% faster Lead Time than manual pipeline configurations. Consider migrating <strong>Legacy Monoliths</strong> to GitHub Actions.
+                        </div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Mobile Navigation Shell -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant/10 px-4 py-2 flex justify-around items-center z-50">
+<a class="flex flex-col items-center p-2 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center p-2 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">compare_arrows</span>
+<span class="text-[10px] font-bold">Compare</span>
+</a>
+<a class="flex flex-col items-center p-2 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span class="text-[10px] font-bold">Metrics</span>
+</a>
+<a class="flex flex-col items-center p-2 text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold">Profile</span>
+</a>
+</nav>
+</body></html>

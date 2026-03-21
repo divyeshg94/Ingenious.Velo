@@ -167,6 +167,29 @@ public class WebhookController(
         await SetTenantContextAsync(orgName, cancellationToken);
 
         var definitionId = resource.Definition?.Id ?? 0;
+
+        // ADO registers service hooks with a project GUID, so the project segment in the
+        // webhook URL/containers is always a GUID — resolve it to the human name that sync
+        // stored, so both paths write to the same ProjectId and no duplicate project appears.
+        if (Guid.TryParse(projectName, out _) && definitionId > 0)
+        {
+            var resolved = await ResolveProjectNameAsync(orgName, definitionId, cancellationToken);
+            if (!string.IsNullOrEmpty(resolved))
+            {
+                logger.LogInformation(
+                    "WEBHOOK: Resolved project GUID {Guid} -> {Name} via existing runs",
+                    projectName, resolved);
+                projectName = resolved;
+            }
+            else
+            {
+                logger.LogWarning(
+                    "WEBHOOK: Could not resolve project GUID {Guid} for Org={Org}, DefinitionId={DefinitionId}. " +
+                    "Run sync first so the project name is recorded.",
+                    projectName, orgName, definitionId);
+            }
+        }
+
         var runNumber = resource.BuildNumber ?? string.Empty;
 
         // Deduplicate
@@ -228,21 +251,21 @@ public class WebhookController(
         return Ok();
     }
 
-    private static string ParseOrgName(string baseUrl)
+    private static string ParseOrgName(string url)
     {
-        if (string.IsNullOrEmpty(baseUrl)) return string.Empty;
+        if (string.IsNullOrEmpty(url)) return string.Empty;
 
-        // https://dev.azure.com/myorg/  ->  myorg
-        if (baseUrl.Contains("dev.azure.com"))
+        // https://dev.azure.com/myorg/ or https://dev.azure.com/myorg/myproject/_apis/...
+        if (url.Contains("dev.azure.com"))
         {
-            var parts = baseUrl.TrimEnd('/').Split('/');
+            var parts = url.TrimEnd('/').Split('/');
             return parts.Length >= 4 ? parts[3] : string.Empty;
         }
 
-        // https://myorg.visualstudio.com/  ->  myorg
-        if (baseUrl.Contains(".visualstudio.com"))
+        // https://myorg.visualstudio.com/ or https://myorg.visualstudio.com/DefaultCollection/...
+        if (url.Contains(".visualstudio.com"))
         {
-            var host = new Uri(baseUrl).Host;
+            var host = new Uri(url).Host;
             return host.Split('.')[0];
         }
 
@@ -294,6 +317,25 @@ public class WebhookController(
         "partiallySucceeded" => "partiallySucceeded",
         _ => null
     };
+
+    /// <summary>
+    /// ADO registers service hooks with a project GUID, so webhook payloads always carry
+    /// a GUID for the project. This method looks up the human-readable project name from
+    /// runs that sync already stored for the same pipeline, ensuring both code paths write
+    /// to the same ProjectId and no duplicate project row appears in the connections view.
+    /// </summary>
+    private async Task<string?> ResolveProjectNameAsync(
+        string orgId, int adoPipelineId, CancellationToken cancellationToken)
+    {
+        var candidates = await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId && r.AdoPipelineId == adoPipelineId)
+            .Select(r => r.ProjectId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+    }
 
     private static bool IsDeploymentPipeline(string? name)
     {

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Azure Meridian | DORA Ops Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-fixed": "#d3e3ff",
+              "on-secondary-fixed-variant": "#00497d",
+              "on-error-container": "#93000a",
+              "surface-tint": "#0060ab",
+              "on-tertiary-fixed": "#311300",
+              "on-tertiary-fixed-variant": "#743500",
+              "primary-container": "#0078d4",
+              "primary-fixed-dim": "#a3c9ff",
+              "surface-container-low": "#f4f3f2",
+              "surface": "#faf9f8",
+              "secondary": "#0061a3",
+              "background": "#faf9f8",
+              "surface-container-highest": "#e3e2e1",
+              "tertiary-container": "#bc5b00",
+              "secondary-container": "#5badff",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#2f3130",
+              "outline": "#717783",
+              "on-tertiary-container": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "error-container": "#ffdad6",
+              "inverse-primary": "#a3c9ff",
+              "surface-dim": "#dadad9",
+              "surface-bright": "#faf9f8",
+              "surface-container-high": "#e9e8e7",
+              "tertiary-fixed-dim": "#ffb689",
+              "on-primary-container": "#ffffff",
+              "inverse-on-surface": "#f1f0ef",
+              "tertiary": "#974700",
+              "secondary-fixed-dim": "#9ecaff",
+              "on-primary-fixed": "#001c39",
+              "on-primary-fixed-variant": "#004883",
+              "on-primary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "on-background": "#1a1c1c",
+              "surface-variant": "#e3e2e1",
+              "on-secondary-fixed": "#001d36",
+              "error": "#ba1a1a",
+              "surface-container": "#efeeed",
+              "secondary-fixed": "#d1e4ff",
+              "primary": "#005faa",
+              "on-secondary-container": "#003f6d",
+              "tertiary-fixed": "#ffdbc8",
+              "on-surface-variant": "#404752",
+              "outline-variant": "#c0c7d4",
+              "on-surface": "#1a1c1c",
+              "on-error": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-14 bg-[#faf9f8] dark:bg-slate-950 font-Inter antialiased text-sm tracking-tight flat no shadows">
+<div class="flex items-center gap-8">
+<span class="text-lg font-bold text-[#1a1c1c] dark:text-slate-100 tracking-tighter">Azure Meridian | DORA Ops</span>
+<div class="hidden md:flex items-center space-x-6">
+<a class="text-[#005faa] dark:text-[#5badff] font-semibold border-b-2 border-[#005faa] pb-1" href="#">Project Alpha</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors duration-200" href="#">Beta-Stream</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors duration-200" href="#">Legacy Core</a>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 rounded-full transition-all duration-150 scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 rounded-full transition-all duration-150 scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold overflow-hidden">
+<img alt="User profile avatar" class="h-full w-full object-cover" data-alt="User profile avatar with professional photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8bbv9FKVhQaAZesIemOxyAM8bJz9Q9rTJdn7B1VgL84fwRrNc5i6kIphaLUPqZGyhvuy9nh963aRENiaabY1BtZ0jvvidi6cLPthXp3ZvJFmF5lX6SimUclkwDMeSC7bxzkEcYC2N0dtnrRvvcl-YqYomM_cmf8gT7P_7rUabrNHsrK_C0ouoqBvJbeGtupUBDju_mZaojrF1M_A6tSJb1hTO31dYcqpCV0XgtVd37zsfdAl8wyfpZw8dnlomXkohDi5F2fRv_EOa"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-full flex flex-col p-4 space-y-2 bg-[#f4f3f2] dark:bg-slate-900 docked h-screen left-0 w-64 no borders tonal shifts only flat no shadows">
+<div class="mb-6 px-2">
+<h2 class="text-[#005faa] dark:text-[#5badff] font-Inter text-xs font-medium uppercase tracking-widest">DORA Metrics</h2>
+<p class="text-[10px] text-[#404752] dark:text-slate-400 uppercase tracking-widest mt-1">Operational Excellence</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 bg-[#ffffff] dark:bg-slate-800 text-[#005faa] dark:text-[#5badff] shadow-sm rounded-lg transition-all duration-300 ease-out font-Inter text-xs font-medium uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="speed">speed</span>
+<span>Deployment Frequency</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#404752] dark:text-slate-400 hover:text-[#1a1c1c] dark:hover:text-slate-100 transition-all duration-300 ease-out font-Inter text-xs font-medium uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+<span>Lead Time for Changes</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#404752] dark:text-slate-400 hover:text-[#1a1c1c] dark:hover:text-slate-100 transition-all duration-300 ease-out font-Inter text-xs font-medium uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="error_outline">error_outline</span>
+<span>Change Failure Rate</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#404752] dark:text-slate-400 hover:text-[#1a1c1c] dark:hover:text-slate-100 transition-all duration-300 ease-out font-Inter text-xs font-medium uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="build_circle">build_circle</span>
+<span>Time to Restore Service</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#404752] dark:text-slate-400 hover:text-[#1a1c1c] dark:hover:text-slate-100 transition-all duration-300 ease-out font-Inter text-xs font-medium uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+<span>Reliability Index</span>
+</a>
+</nav>
+<button class="mt-auto mb-20 mx-2 py-3 bg-gradient-to-br from-primary to-secondary-container text-on-primary rounded-xl font-semibold text-xs uppercase tracking-widest shadow-md hover:opacity-90 transition-opacity">
+            Generate Report
+        </button>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 pt-20 px-8 pb-12 min-h-screen bg-surface">
+<!-- Header Section -->
+<header class="mb-10 flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-extrabold tracking-tighter text-on-surface">Operational Overview</h1>
+<p class="text-on-surface-variant font-medium mt-1">Project Alpha • Team Maverick</p>
+</div>
+<div class="flex gap-3">
+<div class="px-4 py-2 bg-surface-container-low rounded-xl flex items-center gap-2 text-sm font-semibold text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
+                    Current Sprint (S42)
+                </div>
+</div>
+</header>
+<!-- Bottleneck Alert -->
+<section class="mb-8">
+<div class="bg-tertiary-container/10 border-l-4 border-tertiary p-5 rounded-xl flex items-start gap-4">
+<span class="material-symbols-outlined text-tertiary text-2xl" data-icon="warning">warning</span>
+<div class="flex-1">
+<h3 class="font-bold text-tertiary text-sm tracking-tight uppercase">Bottleneck Detected</h3>
+<p class="text-on-surface text-sm mt-1">Lead Time for Changes has spiked by <strong>24%</strong> in the last 48 hours. Primary cause identified as <span class="underline decoration-tertiary/30">delayed code reviews</span> in the 'Core-API' repository.</p>
+</div>
+<button class="text-tertiary font-bold text-xs uppercase tracking-widest hover:underline">Investigate</button>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Real-time Team Health (Left Column) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.04)]">
+<h2 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="health_and_safety">health_and_safety</span>
+                        Team Health
+                    </h2>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
+<span class="text-sm font-medium text-on-surface-variant">Active PRs</span>
+<span class="text-lg font-extrabold text-primary">12</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
+<span class="text-sm font-medium text-on-surface-variant">Pending Deploys</span>
+<span class="text-lg font-extrabold text-secondary">4</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-error-container/20 rounded-lg">
+<span class="text-sm font-medium text-error">Blocked Items</span>
+<span class="text-lg font-extrabold text-error">3</span>
+</div>
+</div>
+</div>
+<!-- Team Workload Heatmap -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.04)]">
+<h2 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="grid_view">grid_view</span>
+                        Commit Activity
+                    </h2>
+<div class="grid grid-cols-7 gap-1">
+<!-- Simulated Heatmap Tiles -->
+<div class="aspect-square bg-secondary/10 rounded-sm" title="Mon: Low"></div>
+<div class="aspect-square bg-secondary/40 rounded-sm" title="Tue: Mid"></div>
+<div class="aspect-square bg-secondary/80 rounded-sm" title="Wed: High"></div>
+<div class="aspect-square bg-secondary/60 rounded-sm" title="Thu: Mid"></div>
+<div class="aspect-square bg-secondary/90 rounded-sm" title="Fri: High"></div>
+<div class="aspect-square bg-secondary/10 rounded-sm" title="Sat: Low"></div>
+<div class="aspect-square bg-secondary/5 rounded-sm" title="Sun: None"></div>
+<!-- Week 2 row -->
+<div class="aspect-square bg-secondary/20 rounded-sm"></div>
+<div class="aspect-square bg-secondary/50 rounded-sm"></div>
+<div class="aspect-square bg-secondary/70 rounded-sm"></div>
+<div class="aspect-square bg-secondary/100 rounded-sm"></div>
+<div class="aspect-square bg-secondary/40 rounded-sm"></div>
+<div class="aspect-square bg-secondary/10 rounded-sm"></div>
+<div class="aspect-square bg-secondary/5 rounded-sm"></div>
+</div>
+<div class="mt-4 flex justify-between text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">
+<span>Mon</span>
+<span>Wed</span>
+<span>Fri</span>
+<span>Sun</span>
+</div>
+</div>
+</div>
+<!-- Main Stats & Pipelines (Center/Right Column) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<!-- DORA Quick Glance Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm border-b-2 border-primary/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Deployment Freq</p>
+<h4 class="text-2xl font-extrabold text-on-surface mt-1">4.2/d</h4>
+<p class="text-[10px] text-primary font-bold mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="trending_up">trending_up</span> +12% vs S41
+                        </p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm border-b-2 border-secondary/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Lead Time</p>
+<h4 class="text-2xl font-extrabold text-on-surface mt-1">1.8d</h4>
+<p class="text-[10px] text-error font-bold mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="trending_down">trending_down</span> -8% vs S41
+                        </p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm border-b-2 border-tertiary/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Failure Rate</p>
+<h4 class="text-2xl font-extrabold text-on-surface mt-1">2.4%</h4>
+<p class="text-[10px] text-primary font-bold mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="trending_down">trending_down</span> -0.5% vs S41
+                        </p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-sm border-b-2 border-outline-variant/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">MTTR</p>
+<h4 class="text-2xl font-extrabold text-on-surface mt-1">54m</h4>
+<p class="text-[10px] text-primary font-bold mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="bolt">bolt</span> Elite Level
+                        </p>
+</div>
+</div>
+<!-- Active Pipelines List -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_8px_32px_rgba(26,28,28,0.04)] overflow-hidden">
+<div class="p-6 border-b border-surface-container-low flex justify-between items-center">
+<h2 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="rocket_launch">rocket_launch</span>
+                            Active Pipelines
+                        </h2>
+<button class="text-xs font-bold text-primary hover:underline uppercase tracking-widest">View All</button>
+</div>
+<div class="divide-y divide-surface-container-low">
+<!-- Pipeline Item -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary animate-pulse" data-icon="sync">sync</span>
+</div>
+<div>
+<h5 class="text-sm font-bold text-on-surface">production-deploy-api</h5>
+<p class="text-xs text-on-surface-variant">Triggered by: <span class="font-medium text-on-surface">m_chen</span></p>
+</div>
+</div>
+<div class="flex items-center gap-8 text-right">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Status</p>
+<p class="text-xs font-bold text-primary">Running (72%)</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Est. Finish</p>
+<p class="text-xs font-bold text-on-surface">4m 12s</p>
+</div>
+</div>
+</div>
+<!-- Pipeline Item -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-error-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-error" data-icon="cancel">cancel</span>
+</div>
+<div>
+<h5 class="text-sm font-bold text-on-surface">staging-unit-tests</h5>
+<p class="text-xs text-on-surface-variant">Failed in: <span class="font-medium text-error">Test Phase</span></p>
+</div>
+</div>
+<div class="flex items-center gap-8 text-right">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Status</p>
+<p class="text-xs font-bold text-error uppercase">Failed</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Ended</p>
+<p class="text-xs font-bold text-on-surface">2m ago</p>
+</div>
+</div>
+</div>
+<!-- Pipeline Item -->
+<div class="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<h5 class="text-sm font-bold text-on-surface">data-warehouse-sync</h5>
+<p class="text-xs text-on-surface-variant">Job completed successfully</p>
+</div>
+</div>
+<div class="flex items-center gap-8 text-right">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Status</p>
+<p class="text-xs font-bold text-secondary uppercase">Success</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Duration</p>
+<p class="text-xs font-bold text-on-surface">1h 14m</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Custom Insights (Asymmetric Glass Card) -->
+<div class="relative overflow-hidden p-8 rounded-2xl bg-gradient-to-br from-primary-fixed to-surface-container-lowest border border-white/40">
+<div class="relative z-10 flex items-center gap-8">
+<div class="flex-1">
+<h3 class="text-xl font-bold tracking-tight text-on-primary-fixed">Strategic Insight</h3>
+<p class="text-on-primary-fixed-variant mt-2 max-w-md">Your team is deploying 20% more frequently than the enterprise average. However, code review density is decreasing. Consider a 'Review Sync' to maintain quality.</p>
+<button class="mt-6 px-6 py-2 bg-on-primary-fixed text-white rounded-lg text-sm font-bold hover:bg-primary-container transition-colors">Improve Flow</button>
+</div>
+<div class="hidden md:block">
+<span class="material-symbols-outlined text-8xl text-primary/20" data-icon="insights">insights</span>
+</div>
+</div>
+<!-- Decorative circle -->
+<div class="absolute -right-10 -bottom-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl"></div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

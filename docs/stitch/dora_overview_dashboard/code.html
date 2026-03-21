@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DORA Metrics Advisor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface-variant": "#404752",
+              "on-primary": "#ffffff",
+              "inverse-on-surface": "#f1f0ef",
+              "tertiary-fixed-dim": "#ffb689",
+              "secondary-fixed": "#d1e4ff",
+              "surface": "#faf9f8",
+              "tertiary-container": "#bc5b00",
+              "surface-bright": "#faf9f8",
+              "on-primary-fixed": "#001c39",
+              "on-primary-container": "#ffffff",
+              "surface-container-low": "#f4f3f2",
+              "error": "#ba1a1a",
+              "surface-variant": "#e3e2e1",
+              "secondary-container": "#5badff",
+              "on-primary-fixed-variant": "#004883",
+              "on-tertiary-fixed-variant": "#743500",
+              "on-secondary-fixed-variant": "#00497d",
+              "on-secondary-fixed": "#001d36",
+              "error-container": "#ffdad6",
+              "on-error": "#ffffff",
+              "primary-container": "#0078d4",
+              "surface-container-high": "#e9e8e7",
+              "outline-variant": "#c0c7d4",
+              "surface-container": "#efeeed",
+              "on-background": "#1a1c1c",
+              "inverse-primary": "#a3c9ff",
+              "on-tertiary-container": "#ffffff",
+              "primary": "#005faa",
+              "outline": "#717783",
+              "tertiary": "#974700",
+              "on-tertiary": "#ffffff",
+              "inverse-surface": "#2f3130",
+              "surface-dim": "#dadad9",
+              "on-secondary-container": "#003f6d",
+              "surface-container-highest": "#e3e2e1",
+              "secondary-fixed-dim": "#9ecaff",
+              "secondary": "#0061a3",
+              "on-secondary": "#ffffff",
+              "tertiary-fixed": "#ffdbc8",
+              "background": "#faf9f8",
+              "surface-container-lowest": "#ffffff",
+              "on-surface": "#1a1c1c",
+              "surface-tint": "#0060ab",
+              "on-error-container": "#93000a",
+              "primary-fixed": "#d3e3ff",
+              "on-tertiary-fixed": "#311300",
+              "primary-fixed-dim": "#a3c9ff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(26, 28, 28, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 z-50 w-full bg-[#faf9f8] dark:bg-slate-900 flex justify-between items-center px-6 py-3">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold text-[#1a1c1c] dark:text-slate-100 font-Inter antialiased tracking-tight">DORA Metrics Advisor</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-[#005faa] dark:text-blue-300 border-b-2 border-[#005faa] pb-1 font-medium transition-colors" href="#">Dashboard</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Analytics</a>
+<a class="text-[#404752] dark:text-slate-400 hover:bg-[#e9e8e7] dark:hover:bg-slate-800 transition-colors px-2 py-1 rounded" href="#">Team Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-lg text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search projects..." type="text"/>
+</div>
+<button class="p-2 text-on-surface-variant hover:bg-[#e9e8e7] rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-[#e9e8e7] rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 ring-2 ring-primary-fixed">
+<img alt="User profile" data-alt="Corporate professional user profile avatar headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqS-5oDp_2lu7bsAObuXudU_IE_mi0nrtn1mBeYJWV9aj2ib-CajmtLbI7P_bzUTfiukr5rtMxocR1mJzNcapwa-CeHdHv2cGu8Fb-824h3evEoDb0JiB3b-8K_wqpU3vocy90hlPMegEm7wQuXh_v3L_mL1fifYwyRVz8l8kDp5KJ33-ISInSRklKxb8cYCk7bvHsnUucoyA6IVrWgJ9u3iSikt9fM5AkA2KxiO8LewLjwUkjd0Wg9rKq9Ws7EssE57FnvdR572Sv"/>
+</div>
+</div>
+</header>
+<!-- Side Navigation -->
+<aside class="flex flex-col fixed left-0 top-0 h-full z-40 bg-[#f4f3f2] dark:bg-slate-900 h-screen w-64 border-r-0 pt-20">
+<div class="px-6 py-4 mb-4">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<h2 class="text-lg font-semibold text-[#1a1c1c] dark:text-white font-Inter">Project Alpha</h2>
+</div>
+<p class="text-xs text-on-surface-variant font-medium">Production Environment</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 bg-white dark:bg-slate-800 text-[#005faa] dark:text-blue-300 font-bold rounded-l-lg ml-2 px-4 py-3 transition-transform translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">speed</span>
+<span>Deployment Frequency</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-colors ml-2" href="#">
+<span class="material-symbols-outlined">schedule</span>
+<span>Lead Time for Changes</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-colors ml-2" href="#">
+<span class="material-symbols-outlined">error_outline</span>
+<span>Change Failure Rate</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-colors ml-2" href="#">
+<span class="material-symbols-outlined">auto_fix</span>
+<span>Failed Service Recovery</span>
+</a>
+<a class="flex items-center gap-3 text-[#404752] dark:text-slate-400 px-4 py-3 hover:text-[#0078D4] dark:hover:text-blue-400 transition-colors ml-2" href="#">
+<span class="material-symbols-outlined">compare_arrows</span>
+<span>Comparison View</span>
+</a>
+</nav>
+<div class="p-6 border-t border-surface-variant">
+<button class="w-full bg-primary text-on-primary py-2.5 rounded-xl font-semibold text-sm shadow-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">file_download</span>
+                Export Report
+            </button>
+<div class="mt-6 space-y-3">
+<a class="flex items-center gap-3 text-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-base">help_outline</span>
+                    Documentation
+                </a>
+<a class="flex items-center gap-3 text-xs text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-base">contact_support</span>
+                    Support
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-20 p-8 min-h-screen">
+<!-- Dashboard Header & Controls -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+<div>
+<nav class="flex items-center gap-2 text-xs text-on-surface-variant mb-2">
+<span>Dashboards</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary font-semibold">DORA Overview</span>
+</nav>
+<h1 class="text-3xl font-extrabold tracking-tight text-on-background">DORA Performance Overview</h1>
+<p class="text-on-surface-variant mt-1">Measuring software delivery performance against industry benchmarks.</p>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low p-1.5 rounded-xl">
+<div class="flex items-center bg-white rounded-lg shadow-sm">
+<button class="px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors">Last 30 days</button>
+<button class="px-4 py-1.5 text-xs font-bold text-on-primary bg-primary rounded-lg">Last 90 days</button>
+<button class="px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors">1 year</button>
+</div>
+<div class="h-6 w-px bg-outline-variant/30 mx-1"></div>
+<button class="flex items-center gap-2 px-4 py-1.5 bg-white rounded-lg shadow-sm text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors border border-outline-variant/20">
+<span class="material-symbols-outlined text-base">filter_list</span>
+                    Repositories
+                    <span class="material-symbols-outlined text-base">expand_more</span>
+</button>
+</div>
+</div>
+<!-- DORA Metrics Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+<!-- Metric Card: Deployment Frequency -->
+<div class="bg-surface-container-lowest rounded-xl p-6 transition-all hover:translate-y-[-4px] group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 text-secondary rounded-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">speed</span>
+</div>
+<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-100 text-emerald-700">ELITE</span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface-variant mb-1">Deployment Frequency</h3>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-3xl font-extrabold text-on-surface">Daily</span>
+<span class="text-xs text-emerald-600 flex items-center font-bold">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> 12%
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-6">Measures how often code is deployed to production or released to end users.</p>
+<div class="w-full h-12 flex items-end gap-1">
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[40%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[60%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[50%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[80%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[70%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary h-[95%] transition-colors"></div>
+</div>
+</div>
+<!-- Metric Card: Lead Time -->
+<div class="bg-surface-container-lowest rounded-xl p-6 transition-all hover:translate-y-[-4px] group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 text-secondary rounded-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span>
+</div>
+<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-100 text-emerald-700">ELITE</span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface-variant mb-1">Lead Time for Changes</h3>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-3xl font-extrabold text-on-surface">4.2h</span>
+<span class="text-xs text-emerald-600 flex items-center font-bold">
+<span class="material-symbols-outlined text-sm">arrow_downward</span> 0.5h
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-6">The time it takes for a commit to go into production successfully.</p>
+<div class="w-full h-12 flex items-end gap-1">
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[80%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[75%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[60%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[55%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[45%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary h-[30%] transition-colors"></div>
+</div>
+</div>
+<!-- Metric Card: Change Failure Rate -->
+<div class="bg-surface-container-lowest rounded-xl p-6 transition-all hover:translate-y-[-4px] group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 text-secondary rounded-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">error_outline</span>
+</div>
+<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-100 text-amber-700">HIGH</span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface-variant mb-1">Change Failure Rate</h3>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-3xl font-extrabold text-on-surface">8.4%</span>
+<span class="text-xs text-error flex items-center font-bold">
+<span class="material-symbols-outlined text-sm">arrow_upward</span> 1.2%
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-6">Percentage of changes to production that result in degraded service.</p>
+<div class="w-full h-12 flex items-end gap-1">
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[20%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[15%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[10%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[15%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[25%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-error h-[35%] transition-colors"></div>
+</div>
+</div>
+<!-- Metric Card: Time to Restore -->
+<div class="bg-surface-container-lowest rounded-xl p-6 transition-all hover:translate-y-[-4px] group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 text-secondary rounded-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_fix</span>
+</div>
+<span class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-100 text-emerald-700">ELITE</span>
+</div>
+<h3 class="text-sm font-semibold text-on-surface-variant mb-1">Time to Restore Service</h3>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-3xl font-extrabold text-on-surface">45m</span>
+<span class="text-xs text-emerald-600 flex items-center font-bold">
+<span class="material-symbols-outlined text-sm">arrow_downward</span> 18m
+                    </span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed mb-6">How long it generally takes to restore service after an incident occurs.</p>
+<div class="w-full h-12 flex items-end gap-1">
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[90%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[80%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[70%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[50%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary/20 rounded-t-sm h-[40%] group-hover:bg-secondary/40 transition-colors"></div>
+<div class="flex-1 bg-secondary h-[25%] transition-colors"></div>
+</div>
+</div>
+</div>
+<!-- Asymmetric Detail View (Bento Style) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Comparison Table (Major Section) -->
+<div class="lg:col-span-2 bg-surface-container-low rounded-xl p-6 border border-white/40">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-lg font-bold text-on-background">Metric Benchmarks by Service</h2>
+<button class="text-primary text-xs font-semibold hover:underline">View full analytics</button>
+</div>
+<div class="overflow-hidden">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[11px] font-bold text-on-surface-variant tracking-wider uppercase">
+<th class="pb-4">Service Name</th>
+<th class="pb-4">Stability</th>
+<th class="pb-4">Speed</th>
+<th class="pb-4 text-right">Trend</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-variant/30">
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-fixed-dim flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">cloud</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Authentication API</p>
+<p class="text-[10px] text-on-surface-variant">repo: alpha-auth-srv</p>
+</div>
+</div>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Elite</span>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Elite</span>
+</td>
+<td class="py-4 text-right">
+<span class="material-symbols-outlined text-emerald-600">trending_up</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary-fixed flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-sm">shopping_cart</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Payment Gateway</p>
+<p class="text-[10px] text-on-surface-variant">repo: alpha-pay-core</p>
+</div>
+</div>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">High</span>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Elite</span>
+</td>
+<td class="py-4 text-right">
+<span class="material-symbols-outlined text-amber-600">trending_flat</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-outline-variant/20 flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">inventory</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Inventory Manager</p>
+<p class="text-[10px] text-on-surface-variant">repo: alpha-inv-legacy</p>
+</div>
+</div>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Low</span>
+</td>
+<td class="py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">Medium</span>
+</td>
+<td class="py-4 text-right">
+<span class="material-symbols-outlined text-error">trending_down</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Insights Card (Side Column) -->
+<div class="bg-primary p-6 rounded-xl text-on-primary flex flex-col relative overflow-hidden">
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+<div class="relative z-10 flex-1">
+<span class="material-symbols-outlined mb-4" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<h2 class="text-xl font-bold mb-3 leading-tight">Key Efficiency Insight</h2>
+<p class="text-sm text-blue-100 mb-6 leading-relaxed">
+                        Your <span class="font-bold text-white">Lead Time</span> has improved by 14% since the last sprint. 
+                        This correlates with the new automated PR review pipeline implemented in Project Alpha.
+                    </p>
+<div class="bg-white/10 rounded-lg p-4 backdrop-blur-md border border-white/20">
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold uppercase tracking-wider">Potential Gain</span>
+<span class="text-xs font-bold text-emerald-300">MEDIUM</span>
+</div>
+<p class="text-xs leading-relaxed">Reducing manual QA approvals on staging could further decrease Lead Time by ~40 minutes.</p>
+</div>
+</div>
+<button class="mt-8 py-2 w-full bg-white text-primary font-bold rounded-lg text-sm transition-transform hover:scale-[1.02]">
+                    Explore Roadmap
+                </button>
+</div>
+</div>
+<!-- Secondary Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-surface-variant/30 flex items-center gap-6">
+<div class="w-16 h-16 rounded-full border-4 border-emerald-500 border-t-transparent flex items-center justify-center">
+<span class="text-sm font-bold">88%</span>
+</div>
+<div>
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Automation Coverage</h4>
+<p class="text-2xl font-black text-on-surface">Very High</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-surface-variant/30 flex items-center gap-6">
+<div class="w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent flex items-center justify-center">
+<span class="text-sm font-bold">12</span>
+</div>
+<div>
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Daily Deployments</h4>
+<p class="text-2xl font-black text-on-surface">Consistent</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-surface-variant/30 flex items-center gap-6">
+<div class="w-16 h-16 rounded-full border-4 border-amber-500 border-t-transparent flex items-center justify-center">
+<span class="text-sm font-bold">99.8</span>
+</div>
+<div>
+<h4 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">System Availability</h4>
+<p class="text-2xl font-black text-on-surface">Stable</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-primary to-secondary-container rounded-full shadow-2xl flex items-center justify-center text-on-primary hover:scale-105 transition-transform group">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="absolute right-16 bg-on-surface text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">New Deployment Plan</span>
+</button>
+</body></html>

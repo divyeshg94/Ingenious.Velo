@@ -1,85 +1,319 @@
-<div class="dashboard-container">
-  <h2>📊 DORA Metrics Dashboard</h2>
-  
-  <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading">
-    ⏳ Loading metrics data...
+<div class="velo-dash">
+
+  <!-- ── Loading ─────────────────────────────────────────── -->
+  <div *ngIf="isLoading" class="dash-state">
+    <div class="spinner"></div>
+    <p class="state-label">Loading metrics for <strong>{{ selectedProjectId }}</strong>…</p>
   </div>
 
-  <!-- Error Message -->
-  <div *ngIf="errorMessage" class="error-message">
-    {{ errorMessage }}
+  <!-- ── Error ──────────────────────────────────────────── -->
+  <div *ngIf="!isLoading && errorMessage" class="dash-alert dash-alert--error">
+    <span class="dash-alert__icon">⚠</span>
+    <div class="dash-alert__body">
+      <strong>Failed to load metrics</strong>
+      <p>{{ errorMessage }}</p>
+    </div>
+    <button class="btn btn-sm" (click)="loadMetrics()">Retry</button>
   </div>
 
-  <!-- Gathering Data (connected but no metrics yet) -->
-  <div *ngIf="!isLoading && gatheringMessage && !metrics" class="info-callout success-callout">
-    <strong>✅ Successfully connected!</strong><br>
-    {{ gatheringMessage }}
-  </div>
-
-  <!-- No Data / No Project Selected -->
-  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage" class="info-callout">
-    <strong>📁 No project selected</strong><br>
-    Go to the <strong>Connections</strong> tab and select a project to view DORA metrics here.
-  </div>
-
-  <!-- Metrics Grid -->
-  <div *ngIf="metrics" class="metrics-grid">
-    <!-- Deployment Frequency -->
-    <div class="metric-card">
-      <div class="metric-header">📦 DEPLOYMENT FREQUENCY</div>
-      <div class="metric-value">{{ metrics.deploymentFrequency | number:'1.2-2' }}</div>
-      <div class="metric-unit">deployments / day</div>
-      <div class="metric-rating" [class]="getRatingClass(metrics.deploymentFrequencyRating)">
-        {{ metrics.deploymentFrequencyRating }}
-      </div>
-    </div>
-
-    <!-- Lead Time for Changes -->
-    <div class="metric-card">
-      <div class="metric-header">⏱️ LEAD TIME FOR CHANGES</div>
-      <div class="metric-value">{{ metrics.leadTimeForChangesHours | number:'1.1-1' }}</div>
-      <div class="metric-unit">hours (avg)</div>
-      <div class="metric-rating" [class]="getRatingClass(metrics.leadTimeRating)">
-        {{ metrics.leadTimeRating }}
-      </div>
-    </div>
-
-    <!-- Change Failure Rate -->
-    <div class="metric-card">
-      <div class="metric-header">⚠️ CHANGE FAILURE RATE</div>
-      <div class="metric-value">{{ metrics.changeFailureRate | number:'1.1-1' }}%</div>
-      <div class="metric-unit">percent</div>
-      <div class="metric-rating" [class]="getRatingClass(metrics.changeFailureRating)">
-        {{ metrics.changeFailureRating }}
-      </div>
-    </div>
-
-    <!-- Mean Time to Restore -->
-    <div class="metric-card">
-      <div class="metric-header">⚙️ MEAN TIME TO RESTORE</div>
-      <div class="metric-value">{{ metrics.meanTimeToRestoreHours | number:'1.1-1' }}</div>
-      <div class="metric-unit">hours (avg)</div>
-      <div class="metric-rating" [class]="getRatingClass(metrics.mttrRating)">
-        {{ metrics.mttrRating }}
-      </div>
-    </div>
-
-    <!-- Rework Rate -->
-    <div class="metric-card">
-      <div class="metric-header">🔄 REWORK RATE</div>
-      <div class="metric-value">{{ metrics.reworkRate | number:'1.1-1' }}%</div>
-      <div class="metric-unit">percent</div>
-      <div class="metric-rating" [class]="getRatingClass(metrics.reworkRateRating)">
-        {{ metrics.reworkRateRating }}
-      </div>
+  <!-- ── Gathering ──────────────────────────────────────── -->
+  <div *ngIf="!isLoading && gatheringMessage && !metrics" class="dash-alert dash-alert--success">
+    <span class="dash-alert__icon">✓</span>
+    <div class="dash-alert__body">
+      <strong>Connected &amp; Gathering Data</strong>
+      <p>{{ gatheringMessage }}</p>
     </div>
   </div>
 
-  <!-- Refresh Button -->
-  <div class="refresh-button" *ngIf="metrics || isLoading">
-    <button (click)="loadMetrics()" [disabled]="isLoading" class="btn-refresh">
-      {{ isLoading ? '🔄 Refreshing...' : '🔄 Refresh Metrics' }}
-    </button>
+  <!-- ── Empty ──────────────────────────────────────────── -->
+  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage" class="dash-empty">
+    <div class="dash-empty__icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </div>
+    <h3 class="dash-empty__title">No project selected</h3>
+    <p class="dash-empty__sub">Go to the <strong>Connections</strong> tab and select a project to view your DORA metrics here.</p>
+  </div>
+
+  <!-- ── Main Content ───────────────────────────────────── -->
+  <div class="dash-content" *ngIf="metrics">
+
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-header__left">
+        <nav class="breadcrumb">
+          <span>Engineering</span>
+          <span class="breadcrumb__sep">›</span>
+          <span class="breadcrumb__current">DORA Dashboard</span>
+        </nav>
+        <h1 class="dash-title">DORA Performance Overview</h1>
+        <p class="dash-subtitle">
+          <span class="chip chip--project">{{ metrics.projectId }}</span>
+          <span class="dot-sep">·</span>
+          <span>{{ metrics.periodStart | date:'MMM d' }} – {{ metrics.periodEnd | date:'MMM d, y' }}</span>
+        </p>
+      </div>
+      <div class="dash-header__right">
+        <span class="health-badge" [ngClass]="getOverallHealthClass()">
+          <span class="health-badge__dot"></span>
+          {{ getOverallHealthLabel() }}
+        </span>
+        <button class="btn btn-outline btn-sm" (click)="loadMetrics()" [disabled]="isLoading">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- ── Metric Cards ────────────────────────────────── -->
+    <div class="metric-cards">
+
+      <!-- Deployment Frequency -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(metrics.deploymentFrequencyRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(metrics.deploymentFrequencyRating)">{{ metrics.deploymentFrequencyRating }}</span>
+        </div>
+        <div class="m-card__label">Deployment Frequency</div>
+        <div class="m-card__value">
+          {{ metrics.deploymentFrequency | number:'1.1-1' }}<span class="m-card__unit"> / day</span>
+        </div>
+        <p class="m-card__desc">How often code reaches production</p>
+        <div class="sparkline">
+          <div class="spark-bar spark-h-40"></div>
+          <div class="spark-bar spark-h-50"></div>
+          <div class="spark-bar spark-h-60"></div>
+          <div class="spark-bar spark-h-65"></div>
+          <div class="spark-bar spark-h-75"></div>
+          <div class="spark-bar spark-h-80"></div>
+          <div class="spark-bar spark-bar--current spark-h-95"></div>
+        </div>
+      </div>
+
+      <!-- Lead Time for Changes -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(metrics.leadTimeRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(metrics.leadTimeRating)">{{ metrics.leadTimeRating }}</span>
+        </div>
+        <div class="m-card__label">Lead Time for Changes</div>
+        <div class="m-card__value">
+          {{ formatLeadTime(metrics.leadTimeForChangesHours) }}<span class="m-card__unit"> {{ leadTimeUnit(metrics.leadTimeForChangesHours) }}</span>
+        </div>
+        <p class="m-card__desc">Commit-to-production delivery time</p>
+        <div class="sparkline">
+          <div class="spark-bar spark-h-90"></div>
+          <div class="spark-bar spark-h-85"></div>
+          <div class="spark-bar spark-h-75"></div>
+          <div class="spark-bar spark-h-65"></div>
+          <div class="spark-bar spark-h-55"></div>
+          <div class="spark-bar spark-h-45"></div>
+          <div class="spark-bar spark-bar--current spark-h-30"></div>
+        </div>
+      </div>
+
+      <!-- Change Failure Rate -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(metrics.changeFailureRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(metrics.changeFailureRating)">{{ metrics.changeFailureRating }}</span>
+        </div>
+        <div class="m-card__label">Change Failure Rate</div>
+        <div class="m-card__value">
+          {{ metrics.changeFailureRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
+        </div>
+        <p class="m-card__desc">Deployments causing degraded service</p>
+        <div class="sparkline">
+          <div class="spark-bar spark-h-40"></div>
+          <div class="spark-bar spark-h-30"></div>
+          <div class="spark-bar spark-h-40"></div>
+          <div class="spark-bar spark-h-25"></div>
+          <div class="spark-bar spark-h-30"></div>
+          <div class="spark-bar spark-h-25"></div>
+          <div class="spark-bar spark-bar--current spark-h-20"></div>
+        </div>
+      </div>
+
+      <!-- Mean Time to Restore -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(metrics.mttrRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(metrics.mttrRating)">{{ metrics.mttrRating }}</span>
+        </div>
+        <div class="m-card__label">Mean Time to Restore</div>
+        <div class="m-card__value">
+          {{ formatMttr(metrics.meanTimeToRestoreHours) }}<span class="m-card__unit"> {{ mttrUnit(metrics.meanTimeToRestoreHours) }}</span>
+        </div>
+        <p class="m-card__desc">Recovery time after service failure</p>
+        <div class="sparkline">
+          <div class="spark-bar spark-h-85"></div>
+          <div class="spark-bar spark-h-75"></div>
+          <div class="spark-bar spark-h-80"></div>
+          <div class="spark-bar spark-h-60"></div>
+          <div class="spark-bar spark-h-55"></div>
+          <div class="spark-bar spark-h-50"></div>
+          <div class="spark-bar spark-bar--current spark-h-35"></div>
+        </div>
+      </div>
+
+      <!-- Rework Rate -->
+      <div class="m-card m-card--rework" [ngClass]="'m-card--' + getRatingKey(metrics.reworkRateRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.63"/></svg>
+          </div>
+          <div class="m-card__badge-row">
+            <span class="m-card__badge" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)">{{ metrics.reworkRateRating }}</span>
+            <span class="tag-new">2026</span>
+          </div>
+        </div>
+        <div class="m-card__label">Rework Rate</div>
+        <div class="m-card__value">
+          {{ metrics.reworkRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
+        </div>
+        <p class="m-card__desc">Code reverted or hotfixed within 48h</p>
+        <div class="rework-bar-wrap">
+          <div class="rework-bar">
+            <div class="rework-fill" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)" [style.--rw-pct]="getReworkFillWidth()"></div>
+          </div>
+          <span class="rework-target">Target: &lt; 5%</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Bottom Section ─────────────────────────────── -->
+    <div class="dash-bottom">
+
+      <!-- Benchmarks Table -->
+      <div class="bench-panel">
+        <div class="panel-header">
+          <h3 class="panel-title">DORA Performance Benchmarks</h3>
+          <span class="panel-sub">Industry standards · Google DORA Report</span>
+        </div>
+        <div class="bench-table-wrap">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th class="th-center badge-elite">Elite</th>
+                <th class="th-center badge-high">High</th>
+                <th class="th-center badge-medium">Medium</th>
+                <th class="th-center badge-low">Low</th>
+                <th class="th-center">Your Rating</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="metric-name">Deploy Frequency</td>
+                <td class="td-muted">Multiple / day</td>
+                <td class="td-muted">Once / day</td>
+                <td class="td-muted">Weekly</td>
+                <td class="td-muted">Monthly+</td>
+                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.deploymentFrequencyRating)">{{ metrics.deploymentFrequencyRating }}</span></td>
+              </tr>
+              <tr>
+                <td class="metric-name">Lead Time</td>
+                <td class="td-muted">&lt; 1 hour</td>
+                <td class="td-muted">&lt; 1 day</td>
+                <td class="td-muted">1 – 7 days</td>
+                <td class="td-muted">&gt; 6 months</td>
+                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.leadTimeRating)">{{ metrics.leadTimeRating }}</span></td>
+              </tr>
+              <tr>
+                <td class="metric-name">Change Failure Rate</td>
+                <td class="td-muted">0 – 5%</td>
+                <td class="td-muted">5 – 10%</td>
+                <td class="td-muted">10 – 15%</td>
+                <td class="td-muted">&gt; 15%</td>
+                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.changeFailureRating)">{{ metrics.changeFailureRating }}</span></td>
+              </tr>
+              <tr>
+                <td class="metric-name">Mean Time to Restore</td>
+                <td class="td-muted">&lt; 1 hour</td>
+                <td class="td-muted">&lt; 1 day</td>
+                <td class="td-muted">&lt; 1 week</td>
+                <td class="td-muted">&gt; 6 months</td>
+                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.mttrRating)">{{ metrics.mttrRating }}</span></td>
+              </tr>
+              <tr>
+                <td class="metric-name">Rework Rate</td>
+                <td class="td-muted">&lt; 2%</td>
+                <td class="td-muted">2 – 5%</td>
+                <td class="td-muted">5 – 10%</td>
+                <td class="td-muted">&gt; 10%</td>
+                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)">{{ metrics.reworkRateRating }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Insights Panel -->
+      <div class="insights-panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><span class="ai-glyph">✦</span> Performance Insights</h3>
+          <span class="panel-sub">Based on current metrics</span>
+        </div>
+
+        <div class="insights-list">
+          <div class="insight" [ngClass]="'insight--' + getInsightType(metrics.changeFailureRating)">
+            <span class="insight__icon">{{ getInsightIcon(metrics.changeFailureRating) }}</span>
+            <div class="insight__body">
+              <strong>Change Failure Rate — {{ metrics.changeFailureRate | number:'1.1-1' }}%</strong>
+              <p>{{ getCfrInsightText() }}</p>
+            </div>
+          </div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(metrics.leadTimeRating)">
+            <span class="insight__icon">{{ getInsightIcon(metrics.leadTimeRating) }}</span>
+            <div class="insight__body">
+              <strong>Lead Time — {{ formatLeadTime(metrics.leadTimeForChangesHours) }} {{ leadTimeUnit(metrics.leadTimeForChangesHours) }}</strong>
+              <p>{{ getLeadTimeInsightText() }}</p>
+            </div>
+          </div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(metrics.mttrRating)">
+            <span class="insight__icon">{{ getInsightIcon(metrics.mttrRating) }}</span>
+            <div class="insight__body">
+              <strong>MTTR — {{ formatMttr(metrics.meanTimeToRestoreHours) }} {{ mttrUnit(metrics.meanTimeToRestoreHours) }}</strong>
+              <p>{{ getMttrInsightText() }}</p>
+            </div>
+          </div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(metrics.reworkRateRating)">
+            <span class="insight__icon">{{ getInsightIcon(metrics.reworkRateRating) }}</span>
+            <div class="insight__body">
+              <strong>Rework Rate — {{ metrics.reworkRate | number:'1.1-1' }}%</strong>
+              <p>{{ getReworkInsightText() }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Summary Bars -->
+        <div class="score-summary">
+          <div class="score-item" *ngFor="let s of getMetricScores()">
+            <span class="score-label">{{ s.label }}</span>
+            <div class="score-bar-wrap">
+              <div class="score-bar" [ngClass]="s.cls" [style.--score-pct]="s.score + '%'"></div>
+            </div>
+            <span class="score-val" [ngClass]="s.cls">{{ s.rating }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="dash-footer">
+      <span>Computed {{ metrics.computedAt | date:'medium' }}</span>
+      <span class="dot-sep">·</span>
+      <span>Period {{ metrics.periodStart | date:'MMM d, y' }} – {{ metrics.periodEnd | date:'MMM d, y' }}</span>
+      <span class="dot-sep">·</span>
+      <span>Org: {{ metrics.orgId }}</span>
+    </div>
+
   </div>
 </div>
+
