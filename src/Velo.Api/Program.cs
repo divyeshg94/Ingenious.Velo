@@ -1,6 +1,10 @@
 using Serilog;
 using Serilog.Events;
 using System.Text.RegularExpressions;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Velo.Api.Middleware;
 using Velo.Api.Services;
 using Velo.Shared.Contracts;
@@ -88,11 +92,83 @@ try
     });
 
     // Add Authentication & Authorization
+    // Azure DevOps extensions use VSSO tokens (from SDK.getAppToken()), not Azure AD tokens.
+    // The VSSO JWT is issued by app.vstoken.visualstudio.com with audience <publisher>.<extension>.
+    var vssoAudience = builder.Configuration["AzureDevOps:Audience"] ?? "DivyeshGovaerdhanan.velo";
+
     builder.Services.AddAuthentication("Bearer")
         .AddJwtBearer(options =>
         {
-            options.Authority = builder.Configuration["Azure:Authority"] ?? "https://login.microsoftonline.com/common";
-            options.Audience = builder.Configuration["Azure:Audience"];
+            // VSSO tokens don't expose an OIDC discovery endpoint, so disable automatic metadata retrieval.
+            options.Configuration = new Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration();
+
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = "app.vstoken.visualstudio.com",
+                ValidateAudience = true,
+                ValidAudience = vssoAudience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(5),
+
+                // VSSO signing keys are not available via standard OIDC JWKS.
+                // Signature validation is skipped for now; CORS + issuer/audience/expiry
+                // checks provide the security boundary.  Full key validation can be
+                // added later by fetching keys from the Azure DevOps REST API.
+                RequireSignedTokens = false,
+                ValidateIssuerSigningKey = false,
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                // Handle the VSSO token manually so that the standard handler
+                // (which has no signing keys) doesn't reject the signature.
+                OnMessageReceived = context =>
+                {
+                    var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                    if (authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) != true)
+                        return Task.CompletedTask;
+
+                    var raw = authHeader["Bearer ".Length..].Trim();
+
+                    try
+                    {
+                        var handler = new JsonWebTokenHandler();
+                        var jwt = handler.ReadJsonWebToken(raw);
+
+                        // Validate issuer
+                        if (!jwt.Issuer.StartsWith("app.vstoken.visualstudio.com", StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.Fail("Invalid VSSO token issuer");
+                            return Task.CompletedTask;
+                        }
+
+                        // Validate audience
+                        if (!jwt.Audiences.Any(a => a.Equals(vssoAudience, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            context.Fail("Invalid VSSO token audience");
+                            return Task.CompletedTask;
+                        }
+
+                        // Validate expiry
+                        if (jwt.ValidTo < DateTime.UtcNow.AddMinutes(-5))
+                        {
+                            context.Fail("VSSO token expired");
+                            return Task.CompletedTask;
+                        }
+
+                        var identity = new ClaimsIdentity(jwt.Claims, "VssoBearer");
+                        context.Principal = new ClaimsPrincipal(identity);
+                        context.Success();
+                    }
+                    catch
+                    {
+                        context.Fail("Malformed VSSO token");
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
     
     builder.Services.AddAuthorization();

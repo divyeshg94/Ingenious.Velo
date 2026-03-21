@@ -46,6 +46,10 @@ export const createMockSDK = (config: Partial<MockSDKConfig> = {}) => {
       console.log('[Mock SDK] Returning mock token');
       return Promise.resolve(finalConfig.token);
     },
+    getHost: () => ({
+      name: finalConfig.orgId,
+      id: finalConfig.orgId,
+    }),
     getConfiguration: () => ({
       witInputs: {
         theme: 'light',

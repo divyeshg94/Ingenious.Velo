@@ -12,9 +12,16 @@ export class AuthInterceptor implements HttpInterceptor {
       const SDK = getSDK();
       return from(Promise.resolve(SDK.getAppToken?.())).pipe(
         switchMap((token: string | undefined) => {
-          const authedReq = token
-            ? req.clone({ setHeaders: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } })
-            : req;
+          // Send the Azure DevOps org name so the backend can resolve the tenant
+          const orgName = SDK.getHost?.()?.name || '';
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          if (orgName) {
+            headers['X-Azure-DevOps-OrgId'] = orgName;
+          }
+          const authedReq = req.clone({ setHeaders: headers });
           return next.handle(authedReq);
         }),
         catchError((error: HttpErrorResponse) => this.handleError(error))
@@ -23,11 +30,13 @@ export class AuthInterceptor implements HttpInterceptor {
 
     // Local development — synchronous mock token
     const token = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
+    const orgId = localStorage.getItem('mock-org-id') || 'local-org-dev';
     console.log('[Auth Interceptor] Using local mock token');
     const cloned = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Azure-DevOps-OrgId': orgId
       }
     });
     return next.handle(cloned).pipe(
