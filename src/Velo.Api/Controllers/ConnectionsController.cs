@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Velo.Shared.Models.Requests;
 using Velo.Api.Services;
 
 namespace Velo.Api.Controllers;
-
-public record ConnectionConfig(string OrgUrl, string PersonalAccessToken);
 
 [ApiController]
 [Route("api/[controller]")]

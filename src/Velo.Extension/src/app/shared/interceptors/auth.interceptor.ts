@@ -8,21 +8,20 @@ import { getSDK, isRunningInADO } from '../services/sdk-initializer.service';
 export class AuthInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     if (isRunningInADO()) {
-      // ADO SDK v4: getAppToken() returns Promise<string>
+      // ADO SDK v4: getAppToken() returns the extension token (for our API auth)
+      //             getAccessToken() returns an ADO-scoped token (for calling ADO REST APIs)
       const SDK = getSDK();
-      return from(Promise.resolve(SDK.getAppToken?.())).pipe(
-        switchMap((token: string | undefined) => {
-          // Send the Azure DevOps org name so the backend can resolve the tenant
+      return from(Promise.all([
+        Promise.resolve(SDK.getAppToken?.()),
+        Promise.resolve(SDK.getAccessToken?.())
+      ])).pipe(
+        switchMap(([appToken, accessToken]: [string | undefined, string | undefined]) => {
           const orgName = SDK.getHost?.()?.name || '';
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-          }
-          if (orgName) {
-            headers['X-Azure-DevOps-OrgId'] = orgName;
-          }
-          const authedReq = req.clone({ setHeaders: headers });
-          return next.handle(authedReq);
+          if (appToken) headers['Authorization'] = `Bearer ${appToken}`;
+          if (orgName) headers['X-Azure-DevOps-OrgId'] = orgName;
+          if (accessToken) headers['X-Ado-Access-Token'] = accessToken;
+          return next.handle(req.clone({ setHeaders: headers }));
         }),
         catchError((error: HttpErrorResponse) => this.handleError(error))
       );

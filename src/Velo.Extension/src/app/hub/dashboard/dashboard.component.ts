@@ -14,6 +14,7 @@ export class DashboardComponent implements OnInit {
   metrics: DoraMetricsDto | null = null;
   isLoading = false;
   errorMessage = '';
+  gatheringMessage = '';
   selectedProjectId: string | null = null;
 
   constructor(private doraService: DoraMetricsService) {}
@@ -53,13 +54,22 @@ export class DashboardComponent implements OnInit {
 
     this.isLoading = true;
     this.errorMessage = '';
+    this.gatheringMessage = '';
 
     console.log('[Dashboard] Calling API: GET /api/dora/latest for project:', this.selectedProjectId);
 
     this.doraService.getLatestMetrics(this.selectedProjectId).subscribe({
-      next: (metrics) => {
-        console.log('[Dashboard] ✅ API Response received:', metrics);
-        this.metrics = metrics;
+      next: (response: any) => {
+        console.log('[Dashboard] ✅ API Response received:', response);
+
+        // The API returns { status: "gathering", message: "..." } when no metrics exist yet
+        if (response?.status === 'gathering') {
+          this.gatheringMessage = response.message;
+          this.metrics = null;
+        } else {
+          this.metrics = response as DoraMetricsDto;
+          this.gatheringMessage = '';
+        }
         this.isLoading = false;
       },
       error: (err) => {

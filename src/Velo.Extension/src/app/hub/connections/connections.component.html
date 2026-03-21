@@ -92,13 +92,23 @@
     ❌ {{ errorMessage }}
   </div>
 
+  <!-- Sync Controls -->
+  <div *ngIf="currentOrg && selectedProjectId" class="sync-section">
+    <button class="btn-sync" (click)="syncNow()" [disabled]="isSyncing">
+      {{ isSyncing ? '🔄 Syncing pipeline data...' : '🔄 Sync Pipeline Data Now' }}
+    </button>
+    <div *ngIf="syncMessage" class="sync-success">{{ syncMessage }}</div>
+    <div *ngIf="syncError" class="sync-error">❌ {{ syncError }}</div>
+  </div>
+
   <!-- Info Box -->
   <div class="info-box">
     <h4>ℹ️ How It Works</h4>
     <ul>
       <li><strong>Inside Azure DevOps:</strong> Your organization is automatically detected from your Azure AD account.</li>
       <li *ngIf="!isADO"><strong>Local Development:</strong> Organization ID comes from dev settings (configure via ⚙️ button).</li>
-      <li><strong>Projects appear automatically</strong> when pipelines are executed and ingested into Velo.</li>
+      <li><strong>Select a project</strong> to trigger the first data sync automatically.</li>
+      <li><strong>Click "Sync Pipeline Data Now"</strong> any time to pull the latest builds and refresh metrics.</li>
     </ul>
   </div>
 </div>

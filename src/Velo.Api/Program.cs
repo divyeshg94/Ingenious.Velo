@@ -44,6 +44,10 @@ try
     builder.Services.AddScoped<IConnectionService, ConnectionService>();
     builder.Services.AddScoped<IMetricsRepository, MetricsRepository>();
     builder.Services.AddScoped<IProjectService, ProjectService>();
+    builder.Services.AddScoped<AdoPipelineIngestService>();
+    builder.Services.AddScoped<DoraComputeService>();
+    builder.Services.AddScoped<AdoServiceHookService>();
+    builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration
     // so they can be overridden per environment without a code change.

@@ -61,7 +61,16 @@ public class DoraController(IMetricsRepository metricsRepository, ILogger<DoraCo
                 logger.LogInformation(
                     "AUDIT: No metrics found - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                     orgId, projectId, userId, correlationId);
-                return NotFound(new { error = "No metrics available. Please connect your organization and run pipelines." });
+
+                // Return 200 with a status flag instead of 404 so the UI can show
+                // a friendly "gathering data" message rather than an error.
+                return Ok(new
+                {
+                    status = "gathering",
+                    message = "Successfully connected! We are gathering your pipeline data. Metrics will appear after your next pipeline run.",
+                    orgId,
+                    projectId
+                });
             }
 
             logger.LogInformation(

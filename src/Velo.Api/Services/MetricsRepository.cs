@@ -125,6 +125,15 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
     }
 
+    public async Task<bool> RunExistsAsync(string orgId, string projectId, int adoPipelineId, string runNumber, CancellationToken cancellationToken)
+    {
+        return await dbContext.PipelineRuns
+            .AsNoTracking()
+            .AnyAsync(r => r.OrgId == orgId && r.ProjectId == projectId
+                        && r.AdoPipelineId == adoPipelineId && r.RunNumber == runNumber,
+                cancellationToken);
+    }
+
     public async Task SaveRunAsync(PipelineRunDto runDto, CancellationToken cancellationToken)
     {
         try

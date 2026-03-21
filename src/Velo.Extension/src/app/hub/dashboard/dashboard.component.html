@@ -11,8 +11,14 @@
     {{ errorMessage }}
   </div>
 
+  <!-- Gathering Data (connected but no metrics yet) -->
+  <div *ngIf="!isLoading && gatheringMessage && !metrics" class="info-callout success-callout">
+    <strong>✅ Successfully connected!</strong><br>
+    {{ gatheringMessage }}
+  </div>
+
   <!-- No Data / No Project Selected -->
-  <div *ngIf="!isLoading && !metrics" class="info-callout">
+  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage" class="info-callout">
     <strong>📁 No project selected</strong><br>
     Go to the <strong>Connections</strong> tab and select a project to view DORA metrics here.
   </div>

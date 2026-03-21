@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <Folder Include="Data\" />
+    <Folder Include="Models\Ado\" />
+    <Folder Include="Models\Requests\" />
   </ItemGroup>
 
 </Project>

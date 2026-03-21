@@ -15,6 +15,7 @@ public interface IMetricsRepository
 
     // Pipeline Runs
     Task<IEnumerable<PipelineRunDto>> GetRunsAsync(string orgId, string projectId, int page, int pageSize, CancellationToken cancellationToken);
+    Task<bool> RunExistsAsync(string orgId, string projectId, int adoPipelineId, string runNumber, CancellationToken cancellationToken);
     Task SaveRunAsync(PipelineRunDto run, CancellationToken cancellationToken);
 
     // Team Health

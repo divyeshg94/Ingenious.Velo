@@ -43,6 +43,11 @@
     font-weight: 600;
     color: var(--heading-color);
   }
+
+  &.success-callout {
+    border-left-color: #107c10;
+    background-color: rgba(16, 124, 16, 0.06);
+  }
 }
 
 .metrics-grid {
