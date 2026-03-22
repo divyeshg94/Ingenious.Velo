@@ -25,7 +25,6 @@ export class ConnectionsComponent implements OnInit {
   projectSearch = '';
   isLoading = false;
   isSyncing = false;
-  isHookLoading = false;
   syncAttempted = false;
 
   /** True when the API reported it kicked off a background historical sync. */
@@ -41,8 +40,15 @@ export class ConnectionsComponent implements OnInit {
   syncMessage = '';
   syncError = '';
 
+  // ── Build webhook state ──────────────────────────────────────────────────
   webhookStatus: WebhookStatus | null = null;
   webhookError = '';
+  isHookLoading = false;
+
+  // ── PR webhook state ──────────────────────────────────────────────────────
+  prWebhookStatus: WebhookStatus | null = null;
+  prWebhookError = '';
+  isPrHookLoading = false;
 
   constructor(
     private orgService: OrgConnectionService,
@@ -67,7 +73,6 @@ export class ConnectionsComponent implements OnInit {
       error: () => {
         // When inside ADO and the org isn't registered yet (or API is unreachable),
         // try to self-register using the org name from SDK.getHost().name.
-        // This is the "auto-detect" path that fulfils the promise on the empty state.
         if (this.isADO) {
           this.autoConnectFromSDK();
         } else {
@@ -83,7 +88,6 @@ export class ConnectionsComponent implements OnInit {
     const hostName = sdk?.getHost?.()?.name;
 
     if (!hostName) {
-      // SDK didn't give us a name — fall back to manual entry form
       this.isLoading = false;
       this.errorMessage = 'Could not auto-detect your Azure DevOps organization. Enter your org URL below to connect manually.';
       return;
@@ -99,7 +103,7 @@ export class ConnectionsComponent implements OnInit {
       },
       error: () => {
         this.isLoading = false;
-        this.orgUrl = orgUrl;   // pre-fill the manual form with the detected URL
+        this.orgUrl = orgUrl;
         this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
       }
     });
@@ -111,7 +115,10 @@ export class ConnectionsComponent implements OnInit {
         this.projects = projects;
         this.isLoading = false;
         // Auto-load webhook status when a project was already selected (e.g. page reload)
-        if (this.selectedProjectId) this.loadHookStatus();
+        if (this.selectedProjectId) {
+          this.loadHookStatus();
+          this.loadPrHookStatus();
+        }
       },
       error: () => {
         this.errorMessage = 'Failed to load projects';
@@ -123,23 +130,26 @@ export class ConnectionsComponent implements OnInit {
   selectProject(projectId: string): void {
     this.selectedProjectId = projectId;
     sessionStorage.setItem('selectedProjectId', projectId);
-    this.webhookStatus = null;
+    this.webhookStatus   = null;
+    this.prWebhookStatus = null;
     this.syncNow();
   }
 
   syncNow(): void {
     if (!this.selectedProjectId) { this.syncError = 'Select a project first.'; return; }
     this.isSyncing = true;
-    this.syncMessage = '';
-    this.syncError = '';
+    this.syncMessage  = '';
+    this.syncError    = '';
     this.webhookError = '';
+    this.prWebhookError = '';
 
     this.syncService.syncProject(this.selectedProjectId).subscribe({
       next: (result: SyncResult) => {
         this.isSyncing = false;
-        this.syncAttempted = true;
-        this.syncMessage = `Sync complete — ${result.ingested} pipeline runs ingested.`;
-        this.webhookStatus = result.webhook ?? null;
+        this.syncAttempted   = true;
+        this.syncMessage     = `Sync complete — ${result.ingested} pipeline runs ingested.`;
+        this.webhookStatus   = result.webhook   ?? null;
+        this.prWebhookStatus = result.prWebhook ?? null;
       },
       error: (err) => {
         this.isSyncing = false;
@@ -149,10 +159,12 @@ export class ConnectionsComponent implements OnInit {
     });
   }
 
+  // ── Build webhook actions ─────────────────────────────────────────────────
+
   loadHookStatus(): void {
     if (!this.selectedProjectId) return;
     this.isHookLoading = true;
-    this.webhookError = '';
+    this.webhookError  = '';
 
     this.syncService.getHookStatus(this.selectedProjectId).subscribe({
       next: (status) => {
@@ -161,8 +173,6 @@ export class ConnectionsComponent implements OnInit {
         this.isHookLoading = false;
       },
       error: () => {
-        // Status check failed — mark as attempted so the template shows
-        // "Check Status Manually" instead of "Click Sync first"
         this.syncAttempted = true;
         this.isHookLoading = false;
       }
@@ -172,12 +182,12 @@ export class ConnectionsComponent implements OnInit {
   registerHook(): void {
     if (!this.selectedProjectId) return;
     this.isHookLoading = true;
-    this.webhookError = '';
+    this.webhookError  = '';
 
     this.syncService.registerHook(this.selectedProjectId).subscribe({
       next: (status) => { this.webhookStatus = status; this.isHookLoading = false; },
       error: (err) => {
-        this.webhookError = err.error?.registrationError || err.message || 'Failed to register webhook.';
+        this.webhookError  = err.error?.registrationError || err.message || 'Failed to register webhook.';
         this.isHookLoading = false;
       }
     });
@@ -186,7 +196,7 @@ export class ConnectionsComponent implements OnInit {
   removeHook(): void {
     if (!this.webhookStatus?.subscriptionId) return;
     this.isHookLoading = true;
-    this.webhookError = '';
+    this.webhookError  = '';
 
     this.syncService.removeHook(this.webhookStatus.subscriptionId).subscribe({
       next: () => {
@@ -194,11 +204,64 @@ export class ConnectionsComponent implements OnInit {
         this.isHookLoading = false;
       },
       error: (err) => {
-        this.webhookError = err.message || 'Failed to remove webhook.';
+        this.webhookError  = err.message || 'Failed to remove webhook.';
         this.isHookLoading = false;
       }
     });
   }
+
+  // ── PR webhook actions ────────────────────────────────────────────────────
+
+  loadPrHookStatus(): void {
+    if (!this.selectedProjectId) return;
+    this.isPrHookLoading = true;
+    this.prWebhookError  = '';
+
+    this.syncService.getPrHookStatus(this.selectedProjectId).subscribe({
+      next: (status) => {
+        this.prWebhookStatus = status;
+        this.syncAttempted   = true;
+        this.isPrHookLoading = false;
+      },
+      error: () => {
+        this.syncAttempted   = true;
+        this.isPrHookLoading = false;
+      }
+    });
+  }
+
+  registerPrHook(): void {
+    if (!this.selectedProjectId) return;
+    this.isPrHookLoading = true;
+    this.prWebhookError  = '';
+
+    this.syncService.registerPrHook(this.selectedProjectId).subscribe({
+      next: (status) => { this.prWebhookStatus = status; this.isPrHookLoading = false; },
+      error: (err) => {
+        this.prWebhookError  = err.error?.registrationError || err.message || 'Failed to register PR webhooks.';
+        this.isPrHookLoading = false;
+      }
+    });
+  }
+
+  removePrHook(): void {
+    if (!this.prWebhookStatus?.subscriptionId) return;
+    this.isPrHookLoading = true;
+    this.prWebhookError  = '';
+
+    this.syncService.removePrHook(this.prWebhookStatus.subscriptionId).subscribe({
+      next: () => {
+        this.prWebhookStatus = { isRegistered: false, webhookUrl: this.prWebhookStatus?.webhookUrl, manualSetupUrl: this.prWebhookStatus?.manualSetupUrl };
+        this.isPrHookLoading = false;
+      },
+      error: (err) => {
+        this.prWebhookError  = err.message || 'Failed to remove PR webhook.';
+        this.isPrHookLoading = false;
+      }
+    });
+  }
+
+  // ── Org management ────────────────────────────────────────────────────────
 
   connectOrg(): void {
     if (!this.orgUrl) return;
@@ -206,8 +269,6 @@ export class ConnectionsComponent implements OnInit {
     this.errorMessage = '';
     this.autoSyncTriggered = false;
 
-    // The auth interceptor already injects X-Ado-Access-Token on every request
-    // when running inside Azure DevOps — the API reads it from there.
     this.orgService.connectOrganization(this.orgUrl).subscribe({
       next: (resp) => {
         this.currentOrg = resp.org;
@@ -221,8 +282,8 @@ export class ConnectionsComponent implements OnInit {
   }
 
   toggleEditUrl(): void {
-    this.editingUrl = !this.editingUrl;
-    this.editOrgUrl = this.currentOrg?.orgUrl || '';
+    this.editingUrl   = !this.editingUrl;
+    this.editOrgUrl   = this.currentOrg?.orgUrl || '';
     this.updateErrorMessage = '';
   }
 
@@ -230,7 +291,7 @@ export class ConnectionsComponent implements OnInit {
     if (!this.editOrgUrl) return;
     this.isLoading = true;
     this.updateErrorMessage = '';
-    this.autoSyncTriggered = false;
+    this.autoSyncTriggered  = false;
 
     this.orgService.connectOrganization(this.editOrgUrl).subscribe({
       next: (resp) => {

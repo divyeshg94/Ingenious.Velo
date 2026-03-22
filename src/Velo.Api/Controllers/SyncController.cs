@@ -16,7 +16,7 @@ public class SyncController(
 {
     private const string AdoTokenHeader = "X-Ado-Access-Token";
 
-    /// <summary>POST /api/sync/{projectId} — pull historical runs, compute DORA, register webhook.</summary>
+    /// <summary>POST /api/sync/{projectId} — pull historical runs, compute DORA, register build + PR webhooks.</summary>
     [HttpPost("{projectId}")]
     public async Task<ActionResult> Sync(string projectId, CancellationToken cancellationToken)
     {
@@ -36,8 +36,9 @@ public class SyncController(
             var ingested = await ingestService.IngestAsync(orgId, projectId, adoToken, cancellationToken);
             var metrics = await doraService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
 
-            // Hook registration is best-effort — never let it fail the sync response
             var webhookBase = $"{Request.Scheme}://{Request.Host}";
+
+            // Build webhook registration — best-effort
             WebhookStatusDto hookStatus;
             try
             {
@@ -45,7 +46,7 @@ public class SyncController(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "SYNC: Hook registration threw an exception — returning error status");
+                logger.LogWarning(ex, "SYNC: Build hook registration threw — returning error status");
                 hookStatus = new WebhookStatusDto
                 {
                     IsRegistered = false,
@@ -54,11 +55,38 @@ public class SyncController(
                 };
             }
 
-            logger.LogInformation(
-                "SYNC: Done — {Ingested} runs ingested, hook={Hook}, OrgId={OrgId}, ProjectId={ProjectId}",
-                ingested, hookStatus.IsRegistered, orgId, projectId);
+            // PR webhook registration — best-effort (separate subscriptions for created + updated)
+            WebhookStatusDto prHookStatus;
+            try
+            {
+                prHookStatus = await hookService.RegisterPrHookAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "SYNC: PR hook registration threw — returning error status");
+                prHookStatus = new WebhookStatusDto
+                {
+                    IsRegistered = false,
+                    RegistrationError = ex.Message,
+                    ManualSetupUrl = $"https://dev.azure.com/{orgId}/_settings/serviceHooks"
+                };
+            }
 
-            return Ok(new { ingested, metrics, webhook = hookStatus, orgId, projectId, syncedAt = DateTimeOffset.UtcNow });
+            logger.LogInformation(
+                "SYNC: Done — {Ingested} runs ingested, buildHook={BHook}, prHook={PHook}, " +
+                "OrgId={OrgId}, ProjectId={ProjectId}",
+                ingested, hookStatus.IsRegistered, prHookStatus.IsRegistered, orgId, projectId);
+
+            return Ok(new
+            {
+                ingested,
+                metrics,
+                webhook   = hookStatus,
+                prWebhook = prHookStatus,
+                orgId,
+                projectId,
+                syncedAt  = DateTimeOffset.UtcNow
+            });
         }
         catch (InvalidOperationException ex)
         {
@@ -72,56 +100,82 @@ public class SyncController(
         }
     }
 
-    /// <summary>GET /api/sync/hook-status/{projectId} — check whether the webhook is registered.</summary>
+    // ── Build webhook endpoints ────────────────────────────────────────────────
+
+    /// <summary>GET /api/sync/hook-status/{projectId} — check build webhook status.</summary>
     [HttpGet("hook-status/{projectId}")]
     public async Task<ActionResult> GetHookStatus(string projectId, CancellationToken cancellationToken)
     {
-        var orgId = HttpContext.Items["OrgId"]?.ToString();
-        var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(orgId))
-            return Unauthorized(new { error = "Organization context not found" });
-
-        if (string.IsNullOrEmpty(adoToken))
-            return BadRequest(new { error = $"Missing {AdoTokenHeader} header." });
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
 
         var webhookBase = $"{Request.Scheme}://{Request.Host}";
-        var status = await hookService.GetStatusAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+        var status = await hookService.GetStatusAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
         return Ok(status);
     }
 
-    /// <summary>POST /api/sync/hook/{projectId} — register (or re-register) the webhook.</summary>
+    /// <summary>POST /api/sync/hook/{projectId} — register (or re-register) the build webhook.</summary>
     [HttpPost("hook/{projectId}")]
     public async Task<ActionResult> RegisterHook(string projectId, CancellationToken cancellationToken)
     {
-        var orgId = HttpContext.Items["OrgId"]?.ToString();
-        var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(orgId))
-            return Unauthorized(new { error = "Organization context not found" });
-
-        if (string.IsNullOrEmpty(adoToken))
-            return BadRequest(new { error = $"Missing {AdoTokenHeader} header." });
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
 
         var webhookBase = $"{Request.Scheme}://{Request.Host}";
-        var status = await hookService.RegisterAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+        var status = await hookService.RegisterAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
         return status.IsRegistered ? Ok(status) : StatusCode(422, status);
     }
 
-    /// <summary>DELETE /api/sync/hook/{subscriptionId} — remove the webhook subscription.</summary>
+    /// <summary>DELETE /api/sync/hook/{subscriptionId} — remove a webhook subscription (build or PR).</summary>
     [HttpDelete("hook/{subscriptionId}")]
     public async Task<ActionResult> RemoveHook(string subscriptionId, CancellationToken cancellationToken)
     {
-        var orgId = HttpContext.Items["OrgId"]?.ToString();
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
+
+        var removed = await hookService.RemoveAsync(orgId!, subscriptionId, adoToken!, cancellationToken);
+        return removed ? NoContent() : StatusCode(500, new { error = "Failed to remove subscription." });
+    }
+
+    // ── PR webhook endpoints ───────────────────────────────────────────────────
+
+    /// <summary>GET /api/sync/pr-hook-status/{projectId} — check PR webhook registration status.</summary>
+    [HttpGet("pr-hook-status/{projectId}")]
+    public async Task<ActionResult> GetPrHookStatus(string projectId, CancellationToken cancellationToken)
+    {
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
+
+        var webhookBase = $"{Request.Scheme}://{Request.Host}";
+        var status = await hookService.GetPrStatusAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
+        return Ok(status);
+    }
+
+    /// <summary>POST /api/sync/pr-hook/{projectId} — register (or re-register) the PR webhooks.</summary>
+    [HttpPost("pr-hook/{projectId}")]
+    public async Task<ActionResult> RegisterPrHook(string projectId, CancellationToken cancellationToken)
+    {
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
+
+        var webhookBase = $"{Request.Scheme}://{Request.Host}";
+        var status = await hookService.RegisterPrHookAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
+        return status.IsRegistered ? Ok(status) : StatusCode(422, status);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private (string? orgId, string? adoToken, ActionResult? error) GetOrgAndToken()
+    {
+        var orgId    = HttpContext.Items["OrgId"]?.ToString();
         var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
 
         if (string.IsNullOrEmpty(orgId))
-            return Unauthorized(new { error = "Organization context not found" });
+            return (null, null, Unauthorized(new { error = "Organization context not found" }));
 
         if (string.IsNullOrEmpty(adoToken))
-            return BadRequest(new { error = $"Missing {AdoTokenHeader} header." });
+            return (null, null, BadRequest(new { error = $"Missing {AdoTokenHeader} header." }));
 
-        var removed = await hookService.RemoveAsync(orgId, subscriptionId, adoToken, cancellationToken);
-        return removed ? NoContent() : StatusCode(500, new { error = "Failed to remove subscription." });
+        return (orgId, adoToken, null);
     }
 }

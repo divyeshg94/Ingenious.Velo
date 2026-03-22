@@ -13,6 +13,7 @@ public class VeloDbContext : DbContext
     public DbSet<DoraMetrics> DoraMetrics { get; set; } = null!;
     public DbSet<OrgContext> Organizations { get; set; } = null!;
     public DbSet<TeamHealth> TeamHealth { get; set; } = null!;
+    public DbSet<PullRequestEvent> PullRequestEvents { get; set; } = null!;
     public DbSet<LogEvent> LogEvents { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -21,6 +22,7 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<PipelineRun>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<DoraMetrics>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
+        modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
 
         // Configure OrgContext
         modelBuilder.Entity<OrgContext>(eb =>
@@ -46,6 +48,7 @@ public class VeloDbContext : DbContext
         ConfigureAuditable<PipelineRun>();
         ConfigureAuditable<DoraMetrics>();
         ConfigureAuditable<TeamHealth>();
+        ConfigureAuditable<PullRequestEvent>();
 
         // Configure indexes for performance and multi-tenancy
 
@@ -85,6 +88,16 @@ public class VeloDbContext : DbContext
             .HasIndex(h => h.ComputedAt)
             .IsDescending(true)
             .HasDatabaseName("IX_TeamHealth_ComputedAt_DESC");
+
+        // PullRequestEvents indexes
+        modelBuilder.Entity<PullRequestEvent>()
+            .HasIndex(p => new { p.OrgId, p.ProjectId, p.CreatedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_PullRequestEvents_OrgId_ProjectId_CreatedAt_DESC");
+
+        modelBuilder.Entity<PullRequestEvent>()
+            .HasIndex(p => new { p.OrgId, p.PrId, p.Status })
+            .HasDatabaseName("IX_PullRequestEvents_OrgId_PrId_Status");
 
         // LogEvents — no tenant filter (logs are cross-org for ops/audit)
         // Table name matches Serilog MSSqlServer sink tableName in appsettings.json

@@ -301,6 +301,99 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
     }
 
+    public async Task SavePrEventAsync(PullRequestEventDto prDto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Upsert: if a PR event for the same prId+status already exists, update it (e.g. vote changed).
+            var existing = await dbContext.PullRequestEvents
+                .FirstOrDefaultAsync(p => p.OrgId == prDto.OrgId
+                                       && p.ProjectId == prDto.ProjectId
+                                       && p.PrId == prDto.PrId
+                                       && p.Status == prDto.Status,
+                    cancellationToken);
+
+            if (existing != null)
+            {
+                existing.ClosedAt     = prDto.ClosedAt;
+                existing.IsApproved   = prDto.IsApproved;
+                existing.ReviewerCount= prDto.ReviewerCount;
+                existing.Title        = prDto.Title;
+                existing.IngestedAt   = DateTimeOffset.UtcNow;
+                dbContext.PullRequestEvents.Update(existing);
+            }
+            else
+            {
+                var entity = new PullRequestEvent
+                {
+                    Id            = prDto.Id == Guid.Empty ? Guid.NewGuid() : prDto.Id,
+                    OrgId         = prDto.OrgId,
+                    ProjectId     = prDto.ProjectId,
+                    PrId          = prDto.PrId,
+                    Title         = prDto.Title,
+                    Status        = prDto.Status,
+                    SourceBranch  = prDto.SourceBranch,
+                    TargetBranch  = prDto.TargetBranch,
+                    CreatedAt     = prDto.CreatedAt,
+                    ClosedAt      = prDto.ClosedAt,
+                    IsApproved    = prDto.IsApproved,
+                    ReviewerCount = prDto.ReviewerCount,
+                    IngestedAt    = prDto.IngestedAt
+                };
+                dbContext.PullRequestEvents.Add(entity);
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogInformation(
+                "Saved PR event OrgId={OrgId}, ProjectId={ProjectId}, PrId={PrId}, Status={Status}",
+                prDto.OrgId, prDto.ProjectId, prDto.PrId, prDto.Status);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Error saving PR event OrgId={OrgId}, ProjectId={ProjectId}, PrId={PrId}",
+                prDto.OrgId, prDto.ProjectId, prDto.PrId);
+            throw;
+        }
+    }
+
+    public async Task<bool> PrEventExistsAsync(
+        string orgId, string projectId, int prId, string status, CancellationToken cancellationToken)
+    {
+        return await dbContext.PullRequestEvents
+            .AsNoTracking()
+            .AnyAsync(p => p.OrgId == orgId && p.ProjectId == projectId
+                        && p.PrId == prId && p.Status == status,
+                cancellationToken);
+    }
+
+    public async Task<IEnumerable<PullRequestEventDto>> GetPrEventsAsync(
+        string orgId, string projectId, DateTimeOffset from, CancellationToken cancellationToken)
+    {
+        var events = await dbContext.PullRequestEvents
+            .AsNoTracking()
+            .Where(p => p.OrgId == orgId && p.ProjectId == projectId && p.CreatedAt >= from)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return events.Select(p => new PullRequestEventDto
+        {
+            Id            = p.Id,
+            OrgId         = p.OrgId,
+            ProjectId     = p.ProjectId,
+            PrId          = p.PrId,
+            Title         = p.Title,
+            Status        = p.Status,
+            SourceBranch  = p.SourceBranch,
+            TargetBranch  = p.TargetBranch,
+            CreatedAt     = p.CreatedAt,
+            ClosedAt      = p.ClosedAt,
+            IsApproved    = p.IsApproved,
+            ReviewerCount = p.ReviewerCount,
+            IngestedAt    = p.IngestedAt
+        }).ToList();
+    }
+
     // Private mapping methods
     private static DoraMetricsDto MapDoraMetricsToDto(DoraMetrics metric) => new()
     {
