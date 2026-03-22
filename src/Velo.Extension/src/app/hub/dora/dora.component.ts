@@ -226,6 +226,11 @@ export class DoraComponent implements OnInit, OnDestroy {
     return 'badge-' + this.getRatingKey(rating);
   }
 
+  /** Safe string cast for template binding (avoids pipe usage on union types). */
+  asString(val: string | number | boolean | null | undefined): string {
+    return String(val ?? '');
+  }
+
   formatLeadTime(hours: number): string {
     if (hours < 1) return Math.round(hours * 60).toString();
     if (hours < 24) return hours.toFixed(1);
@@ -288,6 +293,88 @@ export class DoraComponent implements OnInit, OnDestroy {
       { label: 'MTTR',         rating: this.latest.mttrRating,                 score: ratingToScore(this.latest.mttrRating),                 cls: this.getRatingBadgeClass(this.latest.mttrRating) },
       { label: 'Rework Rate',  rating: this.latest.reworkRateRating,           score: ratingToScore(this.latest.reworkRateRating),           cls: this.getRatingBadgeClass(this.latest.reworkRateRating) },
     ];
+  }
+
+  // ── Chart helpers ──────────────────────────────────────────
+
+  /** SVG chart dimensions (viewBox: "0 0 600 130"). */
+  private readonly CHART_W = 560;
+  private readonly CHART_H = 100;
+  private readonly CHART_X = 20;
+  private readonly CHART_Y = 10;
+
+  readonly chartMetrics: { field: keyof DoraMetricsDto; ratingField: keyof DoraMetricsDto; label: string; color: string }[] = [
+    { field: 'deploymentFrequency',    ratingField: 'deploymentFrequencyRating', label: 'Deploy Freq',   color: '#22c55e' },
+    { field: 'leadTimeForChangesHours', ratingField: 'leadTimeRating',           label: 'Lead Time',     color: '#3b82f6' },
+    { field: 'changeFailureRate',       ratingField: 'changeFailureRating',      label: 'Failure Rate',  color: '#ef4444' },
+    { field: 'meanTimeToRestoreHours',  ratingField: 'mttrRating',               label: 'MTTR',          color: '#f59e0b' },
+    { field: 'reworkRate',              ratingField: 'reworkRateRating',         label: 'Rework Rate',   color: '#8b5cf6' },
+  ];
+
+  /**
+   * Generates SVG polyline `points` string for a given metric across the history.
+   * Uses the rating score (0–100) so all 5 metrics share the same Y-scale.
+   */
+  getChartPoints(ratingField: keyof DoraMetricsDto): string {
+    const pts = [...this.history].reverse(); // oldest → newest
+    if (pts.length < 2) return '';
+    const n = pts.length;
+    return pts.map((m, i) => {
+      const score = this.ratingToScore(m[ratingField] as string);
+      const x = this.CHART_X + (i / (n - 1)) * this.CHART_W;
+      const y = this.CHART_Y + this.CHART_H - (score / 100) * this.CHART_H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+  }
+
+  /** SVG `cx` coordinate for the latest (rightmost) data point. */
+  getChartLatestX(): number {
+    return this.CHART_X + this.CHART_W; // rightmost
+  }
+
+  /** SVG `cy` coordinate for the latest data point of a given metric. */
+  getChartLatestY(ratingField: keyof DoraMetricsDto): number {
+    if (!this.latest) return this.CHART_Y + this.CHART_H / 2;
+    const score = this.ratingToScore(this.latest[ratingField] as string);
+    return this.CHART_Y + this.CHART_H - (score / 100) * this.CHART_H;
+  }
+
+  /** Y-axis grid line positions (scores: 0, 18, 44, 72, 100). */
+  getChartGridLines(): { y: number; label: string }[] {
+    return [
+      { y: this.CHART_Y + this.CHART_H,                                    label: 'Low' },
+      { y: this.CHART_Y + this.CHART_H - (44 / 100) * this.CHART_H,       label: 'Medium' },
+      { y: this.CHART_Y + this.CHART_H - (72 / 100) * this.CHART_H,       label: 'High' },
+      { y: this.CHART_Y,                                                    label: 'Elite' },
+    ];
+  }
+
+  /** Number of metrics that improved since the previous period. */
+  getImprovementCount(): number {
+    if (!this.latest || !this.previous) return 0;
+    let count = 0;
+    if (this.isImprovement('deploymentFrequency', false))    count++;
+    if (this.isImprovement('leadTimeForChangesHours', true)) count++;
+    if (this.isImprovement('changeFailureRate', true))       count++;
+    if (this.isImprovement('meanTimeToRestoreHours', true))  count++;
+    if (this.isImprovement('reworkRate', true))              count++;
+    return count;
+  }
+
+  getImprovementChipClass(): string {
+    const c = this.getImprovementCount();
+    if (c >= 4) return 'velocity--excellent';
+    if (c >= 2) return 'velocity--good';
+    if (c >= 1) return 'velocity--fair';
+    return 'velocity--none';
+  }
+
+  private ratingToScore(rating: string): number {
+    const r = (rating || '').toLowerCase();
+    if (r === 'elite')  return 100;
+    if (r === 'high')   return 72;
+    if (r === 'medium') return 44;
+    return 18;
   }
 
   getInsightType(rating: string): string {

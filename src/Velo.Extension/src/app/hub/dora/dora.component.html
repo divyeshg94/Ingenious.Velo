@@ -72,6 +72,11 @@
           <span class="health-badge__dot"></span>
           {{ getOverallHealthLabel() }}
         </span>
+        <!-- Improvement velocity chip -->
+        <span class="velocity-chip" [ngClass]="getImprovementChipClass()" *ngIf="previous">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          {{ getImprovementCount() }}/5 improved
+        </span>
         <div class="period-selector">
           <button
             *ngFor="let p of periods"
@@ -83,6 +88,66 @@
         </div>
         <button class="btn btn-outline btn-sm" (click)="loadHistory()" [disabled]="isLoading">↻ Refresh</button>
       </div>
+    </div>
+
+    <!-- ── Multi-Metric Trend Chart ──────────────────────── -->
+    <div class="trend-chart" *ngIf="history.length >= 2">
+      <div class="panel-header">
+        <h3 class="panel-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          5-Metric Score Trajectory
+        </h3>
+        <div class="chart-legend">
+          <span class="legend-item" *ngFor="let m of chartMetrics">
+            <span class="legend-dot" [style.background]="m.color"></span>
+            {{ m.label }}
+          </span>
+        </div>
+      </div>
+
+      <svg class="chart-svg" viewBox="0 0 600 130" preserveAspectRatio="none" aria-hidden="true">
+        <!-- Y-axis grid lines -->
+        <g *ngFor="let g of getChartGridLines()">
+          <line [attr.x1]="20" [attr.y1]="g.y" [attr.x2]="580" [attr.y2]="g.y"
+                stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <text [attr.x]="16" [attr.y]="g.y + 3" font-size="7" fill="var(--text-disabled-color)"
+                text-anchor="end">{{ g.label }}</text>
+        </g>
+
+        <!-- Metric polylines -->
+        <polyline
+          *ngFor="let m of chartMetrics"
+          [attr.points]="getChartPoints(m.ratingField)"
+          [attr.stroke]="m.color"
+          stroke-width="1.8"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.85"/>
+
+        <!-- Latest data point dots -->
+        <circle
+          *ngFor="let m of chartMetrics"
+          [attr.cx]="getChartLatestX()"
+          [attr.cy]="getChartLatestY(m.ratingField)"
+          r="3.5"
+          [attr.fill]="m.color"
+          stroke="var(--card-background)"
+          stroke-width="1.5"/>
+      </svg>
+
+      <!-- X-axis: period labels (oldest & newest) -->
+      <div class="chart-xaxis">
+        <span>{{ history[history.length - 1].periodEnd | date:'MMM d, y' }}</span>
+        <span class="chart-xaxis__mid" *ngIf="history.length > 2">{{ selectedDays }}-day window</span>
+        <span>{{ history[0].periodEnd | date:'MMM d, y' }}</span>
+      </div>
+    </div>
+
+    <!-- Single-snapshot note (chart needs 2+ points) -->
+    <div class="chart-placeholder" *ngIf="history.length === 1">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>Trend chart will appear after a second metrics snapshot is computed.</span>
     </div>
 
     <!-- ── Metric Cards ─────────────────────────────────── -->
@@ -100,7 +165,6 @@
         <div class="m-card__value">
           {{ latest.deploymentFrequency | number:'1.1-1' }}<span class="m-card__unit"> / day</span>
         </div>
-        <p class="m-card__desc">How often code reaches production</p>
         <div class="m-card__trend" *ngIf="previous">
           <span
             [class.trend--up]="isImprovement('deploymentFrequency', false)"
@@ -129,7 +193,6 @@
         <div class="m-card__value">
           {{ formatLeadTime(latest.leadTimeForChangesHours) }}<span class="m-card__unit"> {{ leadTimeUnit(latest.leadTimeForChangesHours) }}</span>
         </div>
-        <p class="m-card__desc">Commit-to-production delivery time</p>
         <div class="m-card__trend" *ngIf="previous">
           <span
             [class.trend--up]="isImprovement('leadTimeForChangesHours', true)"
@@ -158,7 +221,6 @@
         <div class="m-card__value">
           {{ latest.changeFailureRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
         </div>
-        <p class="m-card__desc">Deployments causing degraded service</p>
         <div class="m-card__trend" *ngIf="previous">
           <span
             [class.trend--up]="isImprovement('changeFailureRate', true)"
@@ -187,7 +249,6 @@
         <div class="m-card__value">
           {{ formatMttr(latest.meanTimeToRestoreHours) }}<span class="m-card__unit"> {{ mttrUnit(latest.meanTimeToRestoreHours) }}</span>
         </div>
-        <p class="m-card__desc">Recovery time after service failure</p>
         <div class="m-card__trend" *ngIf="previous">
           <span
             [class.trend--up]="isImprovement('meanTimeToRestoreHours', true)"
@@ -219,7 +280,6 @@
         <div class="m-card__value">
           {{ latest.reworkRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
         </div>
-        <p class="m-card__desc">Code reverted or hotfixed within 48h</p>
         <div class="m-card__trend" *ngIf="previous">
           <span
             [class.trend--up]="isImprovement('reworkRate', true)"
@@ -286,14 +346,14 @@
         </div>
       </div>
 
-      <!-- Insights + Score Summary -->
+      <!-- Trend Insights (no score bars — chart is the authoritative trend view) -->
       <div class="insights-panel">
         <div class="panel-header">
           <h3 class="panel-title"><span class="ai-glyph">✦</span> Trend Insights</h3>
           <span class="panel-sub">vs previous period</span>
         </div>
 
-        <!-- Trend summary insight -->
+        <!-- Period-over-period summary -->
         <div class="insight insight--trend">
           <span class="insight__icon">◈</span>
           <div class="insight__body">
@@ -324,18 +384,30 @@
               <p>Mean time to restore service after an incident. Elite teams restore in under one hour.</p>
             </div>
           </div>
-        </div>
-
-        <!-- Score Summary Bars -->
-        <div class="score-summary">
-          <div class="score-item" *ngFor="let s of getMetricScores()">
-            <span class="score-label">{{ s.label }}</span>
-            <div class="score-bar-wrap">
-              <div class="score-bar" [ngClass]="s.cls" [style.--score-pct]="s.score + '%'"></div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(latest.reworkRateRating)">
+            <span class="insight__icon">{{ getInsightIcon(latest.reworkRateRating) }}</span>
+            <div class="insight__body">
+              <strong>Rework Rate — {{ latest.reworkRate | number:'1.1-1' }}%</strong>
+              <p>Proportion of commits reverted or requiring a hotfix within 48h of deployment.</p>
             </div>
-            <span class="score-val" [ngClass]="s.cls">{{ s.rating }}</span>
           </div>
         </div>
+
+        <!-- Velocity breakdown: replaces score summary bars -->
+        <div class="velocity-breakdown" *ngIf="previous">
+          <div class="velocity-breakdown__title">Metric Movement vs Previous Period</div>
+          <div class="velocity-breakdown__row" *ngFor="let m of chartMetrics">
+            <span class="velocity-breakdown__label">{{ m.label }}</span>
+            <span class="velocity-breakdown__arrow vd--improved"
+              *ngIf="isImprovement(m.field, m.field === 'leadTimeForChangesHours' || m.field === 'changeFailureRate' || m.field === 'meanTimeToRestoreHours' || m.field === 'reworkRate')">↑</span>
+            <span class="velocity-breakdown__arrow vd--regressed"
+              *ngIf="!isImprovement(m.field, m.field === 'leadTimeForChangesHours' || m.field === 'changeFailureRate' || m.field === 'meanTimeToRestoreHours' || m.field === 'reworkRate') && getDelta(m.field) !== 0">↓</span>
+            <span class="velocity-breakdown__arrow vd--stable"
+              *ngIf="getDelta(m.field) === 0">—</span>
+            <span class="table-badge" [ngClass]="getRatingBadgeClass(asString(latest[m.ratingField]))">{{ latest[m.ratingField] }}</span>
+          </div>
+        </div>
+
       </div>
 
     </div>
