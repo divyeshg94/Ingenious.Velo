@@ -14,21 +14,40 @@
     <span>Historical pipeline data is being synced in the background. DORA metrics will appear shortly — no action needed.</span>
   </div>
 
-  <!-- Error -->
-  <div *ngIf="errorMessage" class="conn-alert conn-alert--error">
-    <span class="conn-alert__icon">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    </span>
-    <span>{{ errorMessage }}</span>
-  </div>
-
-  <!-- No Org -->
-  <div *ngIf="!isLoading && !currentOrg && !errorMessage" class="conn-empty">
+  <!-- No Org / Connection required -->
+  <div *ngIf="!isLoading && !currentOrg" class="conn-empty">
     <div class="conn-empty__icon">
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
     </div>
-    <h3 class="conn-empty__title">Organization not detected</h3>
-    <p class="conn-empty__sub">Open this extension inside Azure DevOps. Your organization is auto-detected from your Azure AD session.</p>
+
+    <!-- Normal auto-detect state (no error yet) -->
+    <ng-container *ngIf="!errorMessage">
+      <h3 class="conn-empty__title">Organization not detected</h3>
+      <p class="conn-empty__sub">Open this extension inside Azure DevOps. Your organization will be auto-detected and connected automatically.</p>
+    </ng-container>
+
+    <!-- Auto-detect failed — show manual connect form -->
+    <ng-container *ngIf="errorMessage">
+      <h3 class="conn-empty__title">Connection Required</h3>
+      <p class="conn-empty__sub conn-empty__sub--warn">{{ errorMessage }}</p>
+      <div class="manual-connect">
+        <label class="field-label">Azure DevOps Organization URL</label>
+        <div class="manual-connect__row">
+          <input
+            class="field-input"
+            type="text"
+            [(ngModel)]="orgUrl"
+            placeholder="https://dev.azure.com/your-org" />
+          <button
+            class="btn btn-primary"
+            (click)="connectOrg()"
+            [disabled]="isLoading || !orgUrl">
+            Connect
+          </button>
+        </div>
+        <p class="manual-connect__hint">Example: <code>https://dev.azure.com/contoso</code></p>
+      </div>
+    </ng-container>
   </div>
 
   <!-- Main Content -->
