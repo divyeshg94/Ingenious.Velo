@@ -53,6 +53,7 @@ try
     builder.Services.AddScoped<IProjectService, ProjectService>();
     builder.Services.AddScoped<AdoPipelineIngestService>();
     builder.Services.AddScoped<DoraComputeService>();
+    builder.Services.AddScoped<TeamHealthComputeService>();
     builder.Services.AddScoped<AdoServiceHookService>();
     builder.Services.AddHttpClient();
 
