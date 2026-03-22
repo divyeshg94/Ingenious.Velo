@@ -3,6 +3,7 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Observable, throwError, from } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { getSDK, isRunningInADO } from '../services/sdk-initializer.service';
+import { DEV_MOCK_JWT } from '../services/mock-sdk.service';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -28,7 +29,7 @@ export class AuthInterceptor implements HttpInterceptor {
     }
 
     // Local development — synchronous mock token
-    const token = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
+    const token = localStorage.getItem('mock-token') || DEV_MOCK_JWT;
     const orgId = localStorage.getItem('mock-org-id') || 'local-org-dev';
     console.log('[Auth Interceptor] Using local mock token');
     const cloned = req.clone({

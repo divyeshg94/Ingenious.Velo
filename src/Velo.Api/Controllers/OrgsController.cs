@@ -140,6 +140,77 @@ public class OrgsController(
     }
 
     /// <summary>
+    /// Connect (create-or-update) an organisation by URL.
+    /// Called by the frontend Connections tab on first-time setup or URL change.
+    /// The org_id is derived from the JWT token — cannot be overridden.
+    /// </summary>
+    [HttpPost("connect")]
+    public async Task<ActionResult<OrgContextDto>> ConnectOrganization(
+        [FromBody] UpdateOrgRequest request,
+        CancellationToken cancellationToken)
+    {
+        var orgId = HttpContext.Items["OrgId"]?.ToString();
+        var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? "N/A";
+        var userId = User?.FindFirst("sub")?.Value ?? "unknown";
+
+        try
+        {
+            if (string.IsNullOrEmpty(orgId))
+            {
+                logger.LogWarning(
+                    "SECURITY: Unauthorized connect attempt — OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                    userId, correlationId);
+                return Unauthorized(new { error = "Organization context not found" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.OrgUrl))
+                return BadRequest(new { error = "OrgUrl is required" });
+
+            logger.LogInformation(
+                "AUDIT: Connecting organization — OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, request.OrgUrl, userId, correlationId);
+
+            var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
+
+            if (org == null)
+            {
+                org = new OrgContextDto
+                {
+                    OrgId = orgId,
+                    OrgUrl = request.OrgUrl.TrimEnd('/'),
+                    DisplayName = request.DisplayName ?? ParseOrgName(request.OrgUrl),
+                    IsPremium = false,
+                    DailyTokenBudget = 50_000,
+                    RegisteredAt = DateTimeOffset.UtcNow,
+                    LastSeenAt = DateTimeOffset.UtcNow
+                };
+            }
+            else
+            {
+                org.OrgUrl = request.OrgUrl.TrimEnd('/');
+                if (!string.IsNullOrEmpty(request.DisplayName))
+                    org.DisplayName = request.DisplayName;
+                org.LastSeenAt = DateTimeOffset.UtcNow;
+            }
+
+            await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
+
+            logger.LogInformation(
+                "AUDIT: Organization connected — OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, org.OrgUrl, userId, correlationId);
+
+            return Ok(org);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "ERROR: Exception connecting organization — OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, userId, correlationId);
+            return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
+    /// <summary>
     /// Update an existing organization's connection details.
     /// This endpoint allows users to update their org URL and other settings.
     /// The org_id is already determined from the JWT token - cannot be changed.
@@ -207,6 +278,12 @@ public class OrgsController(
                 orgId, userId, correlationId);
             return StatusCode(500, new { error = "Internal server error" });
         }
+    }
+    private static string ParseOrgName(string orgUrl)
+    {
+        if (Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))
+            return uri.Segments.LastOrDefault()?.Trim('/') ?? orgUrl;
+        return orgUrl;
     }
 }
 
