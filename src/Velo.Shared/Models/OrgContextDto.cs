@@ -9,4 +9,7 @@ public class OrgContextDto
     public int DailyTokenBudget { get; set; }
     public DateTimeOffset RegisteredAt { get; set; }
     public DateTimeOffset? LastSeenAt { get; set; }
+
+    /// <summary>Null until the first historical sync has been triggered for this org.</summary>
+    public DateTimeOffset? LastSyncedAt { get; set; }
 }

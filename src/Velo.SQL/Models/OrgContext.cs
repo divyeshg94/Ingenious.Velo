@@ -22,4 +22,10 @@ public class OrgContext : AuditableEntity
     public DateTimeOffset RegisteredAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset? LastSeenAt { get; set; }
+
+    /// <summary>
+    /// Set when a background historical sync has been successfully kicked off or completed.
+    /// Used to avoid re-triggering auto-sync on every request for the same org.
+    /// </summary>
+    public DateTimeOffset? LastSyncedAt { get; set; }
 }

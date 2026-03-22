@@ -28,6 +28,9 @@ export class ConnectionsComponent implements OnInit {
   isHookLoading = false;
   syncAttempted = false;
 
+  /** True when the API reported it kicked off a background historical sync. */
+  autoSyncTriggered = false;
+
   get filteredProjects(): string[] {
     const q = this.projectSearch.trim().toLowerCase();
     return q ? this.projects.filter(p => p.toLowerCase().includes(q)) : this.projects;
@@ -163,8 +166,18 @@ export class ConnectionsComponent implements OnInit {
     if (!this.orgUrl) return;
     this.isLoading = true;
     this.errorMessage = '';
+    this.autoSyncTriggered = false;
+
+    // The auth interceptor already injects X-Ado-Access-Token on every request
+    // when running inside Azure DevOps — the API reads it from there.
     this.orgService.connectOrganization(this.orgUrl).subscribe({
-      next: (org) => { this.currentOrg = org; this.isAutoDetected = false; this.orgUrl = ''; this.loadProjects(); },
+      next: (resp) => {
+        this.currentOrg = resp.org;
+        this.autoSyncTriggered = resp.autoSyncTriggered;
+        this.isAutoDetected = false;
+        this.orgUrl = '';
+        this.loadProjects();
+      },
       error: () => { this.errorMessage = 'Failed to connect organization.'; this.isLoading = false; }
     });
   }
@@ -179,8 +192,17 @@ export class ConnectionsComponent implements OnInit {
     if (!this.editOrgUrl) return;
     this.isLoading = true;
     this.updateErrorMessage = '';
+    this.autoSyncTriggered = false;
+
     this.orgService.connectOrganization(this.editOrgUrl).subscribe({
-      next: (org) => { this.currentOrg = org; this.isAutoDetected = false; this.editingUrl = false; this.editOrgUrl = ''; this.loadProjects(); },
+      next: (resp) => {
+        this.currentOrg = resp.org;
+        this.autoSyncTriggered = resp.autoSyncTriggered;
+        this.isAutoDetected = false;
+        this.editingUrl = false;
+        this.editOrgUrl = '';
+        this.loadProjects();
+      },
       error: () => { this.updateErrorMessage = 'Failed to update organization URL.'; this.isLoading = false; }
     });
   }

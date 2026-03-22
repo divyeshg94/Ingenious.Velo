@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -10,6 +10,13 @@ export interface OrgConnectionDto {
   isPremium: boolean;
   dailyTokenBudget?: number;
   registerAt?: string;
+  lastSyncedAt?: string;
+}
+
+/** Response from POST /api/orgs/connect — wraps the org plus an auto-sync flag. */
+export interface ConnectOrgResponse {
+  org: OrgConnectionDto;
+  autoSyncTriggered: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -43,14 +50,19 @@ export class OrgConnectionService {
   }
 
   /**
-   * Connect organization by URL
-   * For new users - registers and connects organization
-   * For existing users - reconnects to the same organization
+   * Connect organization by URL.
+   * Optionally pass the ADO access token so the API can trigger a background
+   * historical backfill immediately after registration.
    */
-  connectOrganization(orgUrl: string): Observable<OrgConnectionDto> {
+  connectOrganization(orgUrl: string, adoToken?: string): Observable<ConnectOrgResponse> {
     const url = `${this.apiUrl}/connect`;
-    console.log('[OrgConnectionService] POST /connect - Connecting organization', { orgUrl });
-    return this.http.post<OrgConnectionDto>(url, { orgUrl });
+    console.log('[OrgConnectionService] POST /connect - Connecting organization', { orgUrl, hasToken: !!adoToken });
+
+    const headers = adoToken
+      ? new HttpHeaders({ 'X-Ado-Access-Token': adoToken })
+      : undefined;
+
+    return this.http.post<ConnectOrgResponse>(url, { orgUrl }, { headers });
   }
 
   /**

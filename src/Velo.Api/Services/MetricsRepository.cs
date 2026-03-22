@@ -267,6 +267,9 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 existing.IsPremium = orgDto.IsPremium;
                 existing.DailyTokenBudget = orgDto.DailyTokenBudget;
                 existing.LastSeenAt = DateTimeOffset.UtcNow;
+                // Only update LastSyncedAt when the caller explicitly sets it
+                if (orgDto.LastSyncedAt.HasValue)
+                    existing.LastSyncedAt = orgDto.LastSyncedAt;
                 dbContext.Organizations.Update(existing);
             }
             else
@@ -279,7 +282,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                     IsPremium = orgDto.IsPremium,
                     DailyTokenBudget = orgDto.DailyTokenBudget,
                     RegisteredAt = DateTimeOffset.UtcNow,
-                    LastSeenAt = DateTimeOffset.UtcNow
+                    LastSeenAt = DateTimeOffset.UtcNow,
+                    LastSyncedAt = orgDto.LastSyncedAt
                 };
                 dbContext.Organizations.Add(org);
             }
@@ -362,6 +366,7 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         IsPremium = org.IsPremium,
         DailyTokenBudget = org.DailyTokenBudget,
         RegisteredAt = org.RegisteredAt,
-        LastSeenAt = org.LastSeenAt
+        LastSeenAt = org.LastSeenAt,
+        LastSyncedAt = org.LastSyncedAt
     };
 }

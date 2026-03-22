@@ -232,6 +232,9 @@ namespace Velo.SQL.Migrations
                     b.Property<DateTimeOffset?>("LastSeenAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("LastSyncedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("ModifiedBy")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
