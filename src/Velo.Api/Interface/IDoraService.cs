@@ -1,7 +1,7 @@
 using Velo.SQL;
 using Velo.SQL.Models;
 
-namespace Velo.Api.Services;
+namespace Velo.Api.Interface;
 
 public interface IDoraService
 {

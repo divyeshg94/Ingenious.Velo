@@ -1,6 +1,6 @@
 using Velo.Api.Controllers;
 
-namespace Velo.Api.Services;
+namespace Velo.Api.Interface;
 
 public interface IAgentService
 {

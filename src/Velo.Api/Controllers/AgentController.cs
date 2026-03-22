@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Velo.Api.Services;
+using Velo.Api.Interface;
 
 namespace Velo.Api.Controllers;
 

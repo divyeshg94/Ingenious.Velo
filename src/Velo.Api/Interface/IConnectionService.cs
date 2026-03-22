@@ -1,6 +1,6 @@
 using Velo.SQL;
 
-namespace Velo.Api.Services;
+namespace Velo.Api.Interface;
 
 public interface IConnectionService
 {

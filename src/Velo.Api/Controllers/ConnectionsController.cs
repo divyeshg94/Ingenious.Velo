@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models.Requests;
-using Velo.Api.Services;
+using Velo.Api.Interface;
 
 namespace Velo.Api.Controllers;
 

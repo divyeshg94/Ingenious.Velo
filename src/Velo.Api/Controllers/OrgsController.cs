@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models;
 using Velo.Shared.Contracts;
-using Velo.Api.Services;
+using Velo.Api.Interface;
 
 namespace Velo.Api.Controllers;
 

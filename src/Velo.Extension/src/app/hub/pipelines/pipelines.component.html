@@ -1,0 +1,124 @@
+<div class="velo-pipes">
+
+  <!-- No Project Selected -->
+  <div *ngIf="!selectedProjectId" class="pipes-empty">
+    <div class="pipes-empty__icon">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+    <h3 class="pipes-empty__title">No project selected</h3>
+    <p class="pipes-empty__sub">Go to the <strong>Connections</strong> tab to select a project first.</p>
+  </div>
+
+  <ng-container *ngIf="selectedProjectId">
+
+    <!-- Header -->
+    <div class="pipes-header">
+      <div class="pipes-header__left">
+        <nav class="breadcrumb">
+          <span>Engineering</span>
+          <span class="breadcrumb__sep">›</span>
+          <span class="breadcrumb__current">Pipelines</span>
+        </nav>
+        <h1 class="pipes-title">Pipeline Runs</h1>
+        <p class="pipes-subtitle">
+          <span class="chip">{{ selectedProjectId }}</span>
+        </p>
+      </div>
+      <div class="pipes-header__right">
+        <button class="btn-refresh" (click)="refresh()" [disabled]="isLoading" title="Refresh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="pipes-toolbar">
+      <label class="toggle-label">
+        <input type="checkbox" [(ngModel)]="showDeploymentsOnly" />
+        <span>Deployments only</span>
+      </label>
+      <span class="run-count" *ngIf="!isLoading || runs.length > 0">
+        {{ filteredRuns.length }} run{{ filteredRuns.length !== 1 ? 's' : '' }}
+      </span>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="errorMessage" class="pipes-alert pipes-alert--error">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {{ errorMessage }}
+    </div>
+
+    <!-- Loading (initial) -->
+    <div *ngIf="isLoading && runs.length === 0" class="pipes-state">
+      <div class="spinner"></div>
+      <p class="state-label">Loading pipeline runs…</p>
+    </div>
+
+    <!-- Empty -->
+    <div *ngIf="!isLoading && runs.length === 0 && !errorMessage" class="pipes-empty">
+      <div class="pipes-empty__icon">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <h3 class="pipes-empty__title">No pipeline runs found</h3>
+      <p class="pipes-empty__sub">Sync your project from the <strong>Connections</strong> tab to ingest pipeline runs.</p>
+    </div>
+
+    <!-- Runs Table -->
+    <div *ngIf="filteredRuns.length > 0" class="pipes-table-wrap">
+      <table class="pipes-table">
+        <thead>
+          <tr>
+            <th>Pipeline</th>
+            <th>Run #</th>
+            <th>Result</th>
+            <th>Duration</th>
+            <th>Triggered By</th>
+            <th>Started</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let run of filteredRuns">
+            <td class="cell-name" [title]="run.pipelineName">{{ run.pipelineName }}</td>
+            <td class="cell-num">{{ run.runNumber }}</td>
+            <td>
+              <span class="result-badge" [ngClass]="getResultClass(run.result)">
+                {{ getResultLabel(run.result) }}
+              </span>
+            </td>
+            <td class="cell-duration">{{ formatDuration(run.durationMs) }}</td>
+            <td class="cell-actor">{{ run.triggeredBy || '—' }}</td>
+            <td class="cell-time">{{ run.startTime | date:'MMM d, h:mm a' }}</td>
+            <td class="cell-type">
+              <span *ngIf="run.isDeployment" class="deploy-badge">Deploy</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Load More -->
+      <div *ngIf="hasMore" class="pipes-loadmore">
+        <button class="btn-loadmore" (click)="loadMore()" [disabled]="isLoading">
+          <span *ngIf="isLoading" class="spinner-sm"></span>
+          <span>{{ isLoading ? 'Loading…' : 'Load more' }}</span>
+        </button>
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

@@ -1,8 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Velo.Api.Services;
 using Velo.SQL;
 
-namespace Velo.Api.Services;
+namespace Velo.Api.Interface;
 
 /// <summary>
 /// Project service contract - handles project-related operations scoped to org_id.

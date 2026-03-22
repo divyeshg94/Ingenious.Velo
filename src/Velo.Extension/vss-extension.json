@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "velo",
   "name": "Velo - Engineering Intelligence for Azure DevOps",
-  "version": "1.0.24",
+  "version": "1.0.26",
   "publisher": "DivyeshGovaerdhanan",
   "public": false,
   "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
@@ -87,7 +87,7 @@
         ],
         "supportedScopes": ["project_team"],
         "catalogIconUrl": "images/catalog-icon.png",
-        "previewImageUrl": "images/preview.png"
+        "previewImageUrl": "images/catalog-icon.png"
       }
     },
     {

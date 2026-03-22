@@ -11,6 +11,7 @@ using Velo.Shared.Contracts;
 using Velo.SQL;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Velo.Api.Interface;
 
 // Bootstrap logger — console only, used until the host is built and
 // the full configuration (including MSSqlServer sink) is loaded.
