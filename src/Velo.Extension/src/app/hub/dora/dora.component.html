@@ -16,8 +16,19 @@
     <button class="btn btn-sm" (click)="loadHistory()">Retry</button>
   </div>
 
+  <!-- ── Syncing (auto-recovery in progress) ───────────── -->
+  <div *ngIf="!isLoading && isSyncing && history.length === 0" class="dash-alert dash-alert--syncing">
+    <span class="dash-alert__icon">
+      <div class="spinner-sm"></div>
+    </span>
+    <div class="dash-alert__body">
+      <strong>Syncing historical pipeline data…</strong>
+      <p>{{ gatheringMessage }}</p>
+    </div>
+  </div>
+
   <!-- ── Gathering ──────────────────────────────────────── -->
-  <div *ngIf="!isLoading && gatheringMessage && history.length === 0" class="dash-alert dash-alert--success">
+  <div *ngIf="!isLoading && !isSyncing && gatheringMessage && history.length === 0" class="dash-alert dash-alert--success">
     <span class="dash-alert__icon">✓</span>
     <div class="dash-alert__body">
       <strong>Connected &amp; Gathering Data</strong>

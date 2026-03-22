@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
@@ -17,13 +17,19 @@ interface MetricScore {
   templateUrl: './dora.component.html',
   styleUrls: ['./dora.component.scss']
 })
-export class DoraComponent implements OnInit {
+export class DoraComponent implements OnInit, OnDestroy {
   history: DoraMetricsDto[] = [];
   isLoading = false;
   errorMessage = '';
   gatheringMessage = '';
+  /** True while a background sync is in progress — drives the syncing spinner in the template. */
+  isSyncing = false;
   selectedProjectId: string | null = null;
   selectedDays = 90;
+
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollAttempts = 0;
+  private readonly MAX_POLL_ATTEMPTS = 12; // 12 × 5s = 60s max
 
   readonly periods = [
     { label: 'Last 30 days', days: 30 },
@@ -52,6 +58,10 @@ export class DoraComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.stopPolling();
+  }
+
   loadHistory(): void {
     if (!this.selectedProjectId) {
       this.errorMessage = 'Please select a project in the Connections tab first.';
@@ -64,26 +74,103 @@ export class DoraComponent implements OnInit {
 
     this.doraService.getMetricsHistory(this.selectedProjectId, this.selectedDays).subscribe({
       next: (data: any) => {
-        if (Array.isArray(data)) {
+        this.isLoading = false;
+
+        if (Array.isArray(data) && data.length > 0) {
+          // Got real data — cancel any in-progress polling
+          this.isSyncing = false;
+          this.stopPolling();
           this.history = data.sort((a: DoraMetricsDto, b: DoraMetricsDto) =>
             new Date(b.computedAt).getTime() - new Date(a.computedAt).getTime()
           );
-        } else if (data?.status === 'gathering') {
-          this.gatheringMessage = data.message;
+        } else {
+          // Empty history — call getLatestMetrics which will:
+          //   • Return { status: 'syncing' } AND kick off a background sync if ADO token is present
+          //   • Return { status: 'gathering' } when no ADO token is available
           this.history = [];
+          this.triggerAutoRecovery();
         }
-        this.isLoading = false;
       },
       error: (err) => {
-        this.errorMessage = err.message || 'Failed to load DORA history. Please check your connection and try again.';
         this.isLoading = false;
+        this.errorMessage = err.message || 'Failed to load DORA history. Please check your connection and try again.';
       }
     });
+  }
+
+  /**
+   * Calls GET /api/dora/latest which auto-triggers a background sync (via X-Ado-Access-Token
+   * injected by the auth interceptor) when no metrics exist. Handles three states:
+   *   'syncing'   — sync started, poll every 5 s until data appears (max 60 s)
+   *   'gathering' — no ADO token available, show static waiting message
+   *   real DTO    — metrics already exist (edge case), refresh history
+   */
+  private triggerAutoRecovery(): void {
+    if (!this.selectedProjectId) return;
+
+    this.doraService.getLatestMetrics(this.selectedProjectId).subscribe({
+      next: (response: any) => {
+        if (response?.status === 'syncing') {
+          this.isSyncing = true;
+          this.gatheringMessage = response.message;
+          this.startPolling();
+        } else if (response?.status === 'gathering') {
+          this.isSyncing = false;
+          this.gatheringMessage = response.message;
+        } else if (response?.id) {
+          // Rare: latest exists but history was empty (period filter mismatch)
+          this.isSyncing = false;
+          this.loadHistory();
+        }
+      },
+      error: () => {
+        this.gatheringMessage = 'No pipeline data yet. Metrics will appear after your first pipeline run.';
+      }
+    });
+  }
+
+  private startPolling(): void {
+    if (this.pollTimer) return; // already polling
+    this.pollAttempts = 0;
+
+    this.pollTimer = setInterval(() => {
+      this.pollAttempts++;
+
+      if (this.pollAttempts > this.MAX_POLL_ATTEMPTS) {
+        this.stopPolling();
+        this.isSyncing = false;
+        this.gatheringMessage = 'Sync is taking longer than expected. The page will update automatically once data is ready.';
+        return;
+      }
+
+      this.doraService.getMetricsHistory(this.selectedProjectId!, this.selectedDays).subscribe({
+        next: (data: any) => {
+          if (Array.isArray(data) && data.length > 0) {
+            this.isSyncing = false;
+            this.gatheringMessage = '';
+            this.stopPolling();
+            this.history = data.sort((a: DoraMetricsDto, b: DoraMetricsDto) =>
+              new Date(b.computedAt).getTime() - new Date(a.computedAt).getTime()
+            );
+          }
+        },
+        error: () => { /* silent — keep polling */ }
+      });
+    }, 5_000); // check every 5 seconds
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   setDays(days: number): void {
     if (this.selectedDays === days) return;
     this.selectedDays = days;
+    this.stopPolling();
+    this.isSyncing = false;
     this.loadHistory();
   }
 
@@ -195,11 +282,11 @@ export class DoraComponent implements OnInit {
       return 18;
     };
     return [
-      { label: 'Deploy Freq', rating: this.latest.deploymentFrequencyRating, score: ratingToScore(this.latest.deploymentFrequencyRating), cls: this.getRatingBadgeClass(this.latest.deploymentFrequencyRating) },
-      { label: 'Lead Time',   rating: this.latest.leadTimeRating,            score: ratingToScore(this.latest.leadTimeRating),            cls: this.getRatingBadgeClass(this.latest.leadTimeRating) },
-      { label: 'Failure Rate', rating: this.latest.changeFailureRating,      score: ratingToScore(this.latest.changeFailureRating),      cls: this.getRatingBadgeClass(this.latest.changeFailureRating) },
-      { label: 'MTTR',        rating: this.latest.mttrRating,                score: ratingToScore(this.latest.mttrRating),                cls: this.getRatingBadgeClass(this.latest.mttrRating) },
-      { label: 'Rework Rate', rating: this.latest.reworkRateRating,          score: ratingToScore(this.latest.reworkRateRating),          cls: this.getRatingBadgeClass(this.latest.reworkRateRating) },
+      { label: 'Deploy Freq',  rating: this.latest.deploymentFrequencyRating, score: ratingToScore(this.latest.deploymentFrequencyRating), cls: this.getRatingBadgeClass(this.latest.deploymentFrequencyRating) },
+      { label: 'Lead Time',    rating: this.latest.leadTimeRating,             score: ratingToScore(this.latest.leadTimeRating),             cls: this.getRatingBadgeClass(this.latest.leadTimeRating) },
+      { label: 'Failure Rate', rating: this.latest.changeFailureRating,        score: ratingToScore(this.latest.changeFailureRating),        cls: this.getRatingBadgeClass(this.latest.changeFailureRating) },
+      { label: 'MTTR',         rating: this.latest.mttrRating,                 score: ratingToScore(this.latest.mttrRating),                 cls: this.getRatingBadgeClass(this.latest.mttrRating) },
+      { label: 'Rework Rate',  rating: this.latest.reworkRateRating,           score: ratingToScore(this.latest.reworkRateRating),           cls: this.getRatingBadgeClass(this.latest.reworkRateRating) },
     ];
   }
 

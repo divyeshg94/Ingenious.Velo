@@ -52,3 +52,10 @@ public record AdoProject(string? Id, string? Name);
 public record AdoIdentity(string? DisplayName);
 public record AdoResourceContainers(AdoAccount? Account, AdoAccount? Collection, AdoAccount? Project);
 public record AdoAccount(string? Id, string? BaseUrl);
+
+/// <summary>
+/// Response from GET {org}/_apis/projects — list of all ADO projects in the organisation.
+/// </summary>
+public record AdoProjectsResponse(AdoProjectRef[] Value, int Count);
+
+public record AdoProjectRef(string Id, string Name);

@@ -54,6 +54,11 @@
     background: rgba(34, 197, 94, 0.08);
     border-left: 3px solid #22c55e;
   }
+
+  &--syncing {
+    background: rgba(99, 102, 241, 0.08);
+    border-left: 3px solid #6366f1;
+  }
 }
 
 .dash-alert__icon {

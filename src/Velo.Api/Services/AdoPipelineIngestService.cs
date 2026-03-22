@@ -13,6 +13,7 @@ namespace Velo.Api.Services;
 public class AdoPipelineIngestService(
     IMetricsRepository repo,
     IHttpClientFactory httpClientFactory,
+    DoraComputeService doraComputeService,
     ILogger<AdoPipelineIngestService> logger)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
@@ -107,6 +108,93 @@ public class AdoPipelineIngestService(
             saved, builds.Value.Length, orgId, projectId);
 
         return saved;
+    }
+
+    /// <summary>
+    /// Discovers all projects in the ADO organisation and ingests the latest 200 pipeline runs
+    /// for each. Returns the total number of new runs saved across all projects.
+    /// Used for first-time backfill when an org connects or when metrics are missing.
+    /// </summary>
+    public async Task<int> IngestAllProjectsAsync(
+        string orgId,
+        string orgUrl,
+        string adoAccessToken,
+        CancellationToken cancellationToken)
+    {
+        // Derive the short organisation name from the URL
+        // e.g. "https://dev.azure.com/mycompany" → "mycompany"
+        var orgName = orgId;
+        if (Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))
+            orgName = uri.Segments.LastOrDefault()?.Trim('/') ?? orgId;
+
+        var projectsUrl = $"https://dev.azure.com/{orgName}/_apis/projects?api-version=7.1&$top=200";
+        logger.LogInformation("AUTO_SYNC: Fetching project list from {Url}", projectsUrl);
+
+        using var http = httpClientFactory.CreateClient();
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adoAccessToken);
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.GetAsync(projectsUrl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "AUTO_SYNC: HTTP request to list projects failed for OrgId={OrgId}", orgId);
+            throw;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            logger.LogWarning(
+                "AUTO_SYNC: Project list returned {Status} for OrgId={OrgId}. Body: {Body}",
+                response.StatusCode, orgId, body);
+            // Non-fatal: return 0 so the caller can still update LastSyncedAt
+            return 0;
+        }
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var projects = JsonSerializer.Deserialize<AdoProjectsResponse>(json, _json);
+
+        if (projects?.Value == null || projects.Value.Length == 0)
+        {
+            logger.LogInformation("AUTO_SYNC: No projects found for OrgId={OrgId}", orgId);
+            return 0;
+        }
+
+        logger.LogInformation(
+            "AUTO_SYNC: Found {Count} projects for OrgId={OrgId} — starting per-project ingest",
+            projects.Value.Length, orgId);
+
+        int total = 0;
+        foreach (var project in projects.Value)
+        {
+            try
+            {
+                var saved = await IngestAsync(orgId, project.Name, adoAccessToken, cancellationToken);
+                total += saved;
+
+                // Compute DORA metrics for this project after ingest, even if no new runs
+                // were saved — the compute service re-evaluates all stored runs.
+                if (saved > 0)
+                    await doraComputeService.ComputeAndSaveAsync(orgId, project.Name, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Log and continue — one failing project should not abort the whole sync
+                logger.LogWarning(ex,
+                    "AUTO_SYNC: Ingest failed for project {Project} (OrgId={OrgId}) — skipping",
+                    project.Name, orgId);
+            }
+        }
+
+        logger.LogInformation(
+            "AUTO_SYNC: Completed — {Total} runs ingested across {Projects} projects for OrgId={OrgId}",
+            total, projects.Value.Length, orgId);
+
+        return total;
     }
 
     // Heuristic: pipelines with "deploy", "release", "prod" in their name are deployments

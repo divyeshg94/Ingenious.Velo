@@ -6,6 +6,14 @@
     <p class="state-label">Detecting organization…</p>
   </div>
 
+  <!-- Auto-sync banner -->
+  <div *ngIf="autoSyncTriggered" class="conn-alert conn-alert--info">
+    <span class="conn-alert__icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.63"/></svg>
+    </span>
+    <span>Historical pipeline data is being synced in the background. DORA metrics will appear shortly — no action needed.</span>
+  </div>
+
   <!-- Error -->
   <div *ngIf="errorMessage" class="conn-alert conn-alert--error">
     <span class="conn-alert__icon">

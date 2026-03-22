@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models;
 using Velo.Shared.Contracts;
+using Velo.Api.Services;
 
 namespace Velo.Api.Controllers;
 
@@ -15,12 +16,23 @@ namespace Velo.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class DoraController(IMetricsRepository metricsRepository, ILogger<DoraController> logger) : ControllerBase
+public class DoraController(
+    IMetricsRepository metricsRepository,
+    AdoPipelineIngestService ingestService,
+    DoraComputeService doraComputeService,
+    ILogger<DoraController> logger) : ControllerBase
 {
+    private const string AdoTokenHeader = "X-Ado-Access-Token";
+
     /// <summary>
     /// Get the latest DORA metrics for a project.
     /// Multi-tenant: Only returns metrics for the authenticated org_id.
     /// Enforced by: EF Core global query filter + SQL Server RLS.
+    ///
+    /// AUTO-RECOVERY: When no metrics exist and X-Ado-Access-Token is present,
+    /// automatically triggers a background sync for this project so metrics appear
+    /// without requiring the user to visit the Connections tab first. This recovers
+    /// from webhook failures or missed events without any manual intervention.
     /// </summary>
     [HttpGet("latest")]
     public async Task<ActionResult<DoraMetricsDto>> GetLatestMetrics(
@@ -30,6 +42,7 @@ public class DoraController(IMetricsRepository metricsRepository, ILogger<DoraCo
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? "N/A";
         var userId = User?.FindFirst("sub")?.Value ?? "unknown";
+        var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
 
         try
         {
@@ -61,6 +74,54 @@ public class DoraController(IMetricsRepository metricsRepository, ILogger<DoraCo
                 logger.LogInformation(
                     "AUDIT: No metrics found - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                     orgId, projectId, userId, correlationId);
+
+                // AUTO-RECOVERY: If the ADO token is present, kick off a background sync
+                // for this specific project. This handles:
+                //   1. First-time load before any webhook has fired
+                //   2. Missed webhook events (delivery failures from ADO)
+                //   3. Any gap in data that left this project without metrics
+                if (!string.IsNullOrEmpty(adoToken))
+                {
+                    var capturedOrgId = orgId;
+                    var capturedProjectId = projectId;
+                    var capturedToken = adoToken;
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            logger.LogInformation(
+                                "AUTO_RECOVERY: Background sync triggered from dora/latest — OrgId={OrgId}, ProjectId={ProjectId}",
+                                capturedOrgId, capturedProjectId);
+
+                            var ingested = await ingestService.IngestAsync(
+                                capturedOrgId, capturedProjectId, capturedToken, CancellationToken.None);
+
+                            if (ingested > 0)
+                                await doraComputeService.ComputeAndSaveAsync(
+                                    capturedOrgId, capturedProjectId, CancellationToken.None);
+
+                            logger.LogInformation(
+                                "AUTO_RECOVERY: Done — {Ingested} runs ingested, OrgId={OrgId}, ProjectId={ProjectId}",
+                                ingested, capturedOrgId, capturedProjectId);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex,
+                                "AUTO_RECOVERY: Background sync failed — OrgId={OrgId}, ProjectId={ProjectId}",
+                                capturedOrgId, capturedProjectId);
+                        }
+                    });
+
+                    // Return "syncing" so the UI can show a progress indicator and poll
+                    return Ok(new
+                    {
+                        status = "syncing",
+                        message = "Syncing your pipeline history — metrics will appear in a few seconds.",
+                        orgId,
+                        projectId
+                    });
+                }
 
                 // Return 200 with a status flag instead of 404 so the UI can show
                 // a friendly "gathering data" message rather than an error.

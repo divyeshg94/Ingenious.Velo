@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models;
 using Velo.Shared.Contracts;
 using Velo.Api.Interface;
+using Velo.Api.Services;
 
 namespace Velo.Api.Controllers;
 
@@ -18,6 +19,7 @@ namespace Velo.Api.Controllers;
 public class OrgsController(
     IMetricsRepository metricsRepository,
     IProjectService projectService,
+    AdoPipelineIngestService ingestService,
     ILogger<OrgsController> logger) : ControllerBase
 {
     /// <summary>
@@ -143,15 +145,21 @@ public class OrgsController(
     /// Connect (create-or-update) an organisation by URL.
     /// Called by the frontend Connections tab on first-time setup or URL change.
     /// The org_id is derived from the JWT token — cannot be overridden.
+    ///
+    /// AUTO-BACKFILL: If X-Ado-Access-Token is present and the org has never been synced
+    /// (or hasn't been synced in the last hour), a background task is kicked off immediately
+    /// to pull up to 200 pipeline runs per project from the ADO REST API and compute DORA
+    /// metrics. This handles both the first-time setup case and webhook-failure recovery.
     /// </summary>
     [HttpPost("connect")]
-    public async Task<ActionResult<OrgContextDto>> ConnectOrganization(
+    public async Task<ActionResult<object>> ConnectOrganization(
         [FromBody] UpdateOrgRequest request,
         CancellationToken cancellationToken)
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         var correlationId = HttpContext.Items["CorrelationId"]?.ToString() ?? "N/A";
         var userId = User?.FindFirst("sub")?.Value ?? "unknown";
+        var adoToken = Request.Headers["X-Ado-Access-Token"].FirstOrDefault();
 
         try
         {
@@ -171,6 +179,7 @@ public class OrgsController(
                 orgId, request.OrgUrl, userId, correlationId);
 
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
+            var isFirstConnect = org == null;
 
             if (org == null)
             {
@@ -195,11 +204,62 @@ public class OrgsController(
 
             await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
 
-            logger.LogInformation(
-                "AUDIT: Organization connected — OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, org.OrgUrl, userId, correlationId);
+            // --- AUTO-BACKFILL ---
+            // Trigger a background historical sync when:
+            //   • An ADO token is present (required to call ADO REST API), AND
+            //   • The org has never been synced OR hasn't been synced in the last hour
+            //     (the 1-hour window prevents duplicate syncs on every page refresh).
+            var syncStale = org.LastSyncedAt == null
+                || org.LastSyncedAt < DateTimeOffset.UtcNow.AddHours(-1);
+            var autoSyncTriggered = !string.IsNullOrEmpty(adoToken) && syncStale;
 
-            return Ok(org);
+            if (autoSyncTriggered)
+            {
+                // Stamp LastSyncedAt immediately so a concurrent request doesn't also
+                // kick off a sync before the background task has a chance to run.
+                org.LastSyncedAt = DateTimeOffset.UtcNow;
+                await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
+
+                var capturedOrgId = orgId;
+                var capturedOrgUrl = org.OrgUrl;
+                var capturedToken = adoToken!;
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        logger.LogInformation(
+                            "AUTO_SYNC: Background sync started — OrgId={OrgId}, FirstConnect={First}",
+                            capturedOrgId, isFirstConnect);
+
+                        var ingested = await ingestService.IngestAllProjectsAsync(
+                            capturedOrgId, capturedOrgUrl, capturedToken, CancellationToken.None);
+
+                        // Fire-and-forget DORA computation per project is handled inside
+                        // IngestAsync → each run triggers DoraComputeService via webhook path.
+                        // For the bulk backfill we do a final compute pass after ingest.
+                        logger.LogInformation(
+                            "AUTO_SYNC: Ingested {Total} runs — OrgId={OrgId}",
+                            ingested, capturedOrgId);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex,
+                            "AUTO_SYNC: Background sync failed — OrgId={OrgId}",
+                            capturedOrgId);
+                    }
+                });
+
+                logger.LogInformation(
+                    "AUDIT: Auto-sync background task started — OrgId: {OrgId}, FirstConnect: {First}, CorrelationId: {CorrelationId}",
+                    orgId, isFirstConnect, correlationId);
+            }
+
+            logger.LogInformation(
+                "AUDIT: Organization connected — OrgId: {OrgId}, OrgUrl: {OrgUrl}, AutoSync: {AutoSync}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, org.OrgUrl, autoSyncTriggered, userId, correlationId);
+
+            return Ok(new { org, autoSyncTriggered });
         }
         catch (Exception ex)
         {
