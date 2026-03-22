@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OrgConnectionService, OrgConnectionDto } from '../../shared/services/org-connection.service';
 import { SyncService, SyncResult, WebhookStatus } from '../../shared/services/sync.service';
-import { isRunningInADO } from '../../shared/services/sdk-initializer.service';
+import { isRunningInADO, getSDK } from '../../shared/services/sdk-initializer.service';
 
 @Component({
   selector: 'velo-connections',
@@ -57,13 +57,51 @@ export class ConnectionsComponent implements OnInit {
 
   loadCurrentOrg(): void {
     this.isLoading = true;
+    this.errorMessage = '';
     this.orgService.getMyOrganization().subscribe({
       next: (org) => {
         this.currentOrg = org;
         this.isAutoDetected = false;
         this.loadProjects();
       },
-      error: () => { this.isLoading = false; }
+      error: () => {
+        // When inside ADO and the org isn't registered yet (or API is unreachable),
+        // try to self-register using the org name from SDK.getHost().name.
+        // This is the "auto-detect" path that fulfils the promise on the empty state.
+        if (this.isADO) {
+          this.autoConnectFromSDK();
+        } else {
+          this.isLoading = false;
+        }
+      }
+    });
+  }
+
+  /** Auto-register the organisation using the ADO SDK host name when GET /me fails. */
+  private autoConnectFromSDK(): void {
+    const sdk = getSDK();
+    const hostName = sdk?.getHost?.()?.name;
+
+    if (!hostName) {
+      // SDK didn't give us a name — fall back to manual entry form
+      this.isLoading = false;
+      this.errorMessage = 'Could not auto-detect your Azure DevOps organization. Enter your org URL below to connect manually.';
+      return;
+    }
+
+    const orgUrl = `https://dev.azure.com/${hostName}`;
+    this.orgService.connectOrganization(orgUrl).subscribe({
+      next: (resp) => {
+        this.currentOrg = resp.org;
+        this.autoSyncTriggered = resp.autoSyncTriggered;
+        this.isAutoDetected = true;
+        this.loadProjects();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.orgUrl = orgUrl;   // pre-fill the manual form with the detected URL
+        this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
+      }
     });
   }
 
