@@ -14,10 +14,23 @@ export interface MockSDKConfig {
 
 export const MOCK_SDK_CONFIG = new InjectionToken<MockSDKConfig>('mock-sdk-config');
 
+/**
+ * A structurally-valid (but unsigned) JWT for local development.
+ * Decoded claims: { sub: "local-user-dev", tid: "local-org-dev", exp: 9999999999 }
+ *
+ * The API accepts it because ValidateIssuerSigningKey=false and RequireSignedTokens=false.
+ * TenantResolutionMiddleware reads 'tid' as the org_id, so all authenticated requests
+ * are scoped to 'local-org-dev' automatically.
+ */
+export const DEV_MOCK_JWT =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
+  '.eyJzdWIiOiJsb2NhbC11c2VyLWRldiIsInRpZCI6ImxvY2FsLW9yZy1kZXYiLCJleHAiOjk5OTk5OTk5OTl9' +
+  '.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+
 const DEFAULT_CONFIG: MockSDKConfig = {
   orgId: 'local-org-dev',
   userId: 'local-user-dev',
-  token: 'mock-token-for-local-dev',
+  token: DEV_MOCK_JWT,
   isLocal: true,
 };
 

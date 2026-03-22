@@ -9,7 +9,7 @@
  */
 
 import * as SDK from 'azure-devops-extension-sdk';
-import { createMockSDK } from './mock-sdk.service';
+import { createMockSDK, DEV_MOCK_JWT } from './mock-sdk.service';
 
 /** Cached reference – set once by initializeSDK(). */
 let sdkInstance: any = null;
@@ -52,7 +52,7 @@ export const initializeSDK = async (): Promise<any> => {
   const mockSDK = createMockSDK({
     orgId: localStorage.getItem('mock-org-id') || 'local-org-dev',
     userId: localStorage.getItem('mock-user-id') || 'local-user-dev',
-    token: localStorage.getItem('mock-token') || 'mock-token-for-local-dev',
+    token: localStorage.getItem('mock-token') || DEV_MOCK_JWT,
   });
   mockSDK.init({ loaded: false });
   await mockSDK.ready();

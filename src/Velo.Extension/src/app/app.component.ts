@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { isRunningInADO, getSDK } from './shared/services/sdk-initializer.service';
+import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
 
 @Component({
   selector: 'velo-root',
@@ -214,7 +215,7 @@ export class AppComponent implements OnInit {
     // Load dev settings from localStorage
     this.mockOrgId = localStorage.getItem('mock-org-id') || 'local-org-dev';
     this.mockUserId = localStorage.getItem('mock-user-id') || 'local-user-dev';
-    this.mockToken = localStorage.getItem('mock-token') || 'mock-token-for-local-dev';
+    this.mockToken = localStorage.getItem('mock-token') || DEV_MOCK_JWT;
     this.apiBaseUrl = localStorage.getItem('api-base-url') || 'http://localhost:5001';
 
     // Initialize theme detection
