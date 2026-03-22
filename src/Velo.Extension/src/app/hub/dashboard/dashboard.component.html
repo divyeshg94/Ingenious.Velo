@@ -43,9 +43,9 @@
         <nav class="breadcrumb">
           <span>Engineering</span>
           <span class="breadcrumb__sep">›</span>
-          <span class="breadcrumb__current">DORA Dashboard</span>
+          <span class="breadcrumb__current">Dashboard</span>
         </nav>
-        <h1 class="dash-title">DORA Performance Overview</h1>
+        <h1 class="dash-title">Engineering Command Center</h1>
         <p class="dash-subtitle">
           <span class="chip chip--project">{{ metrics.projectId }}</span>
           <span class="dot-sep">·</span>
@@ -58,6 +58,37 @@
           {{ getOverallHealthLabel() }}
         </span>
         <button class="btn btn-outline btn-sm" (click)="loadMetrics()" [disabled]="isLoading">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- ── Overall Score Banner ────────────────────────── -->
+    <div class="score-banner" [ngClass]="getOverallScoreClass()">
+      <div class="score-banner__left">
+        <div class="score-ring">
+          <span class="score-ring__num">{{ getOverallScore() }}</span>
+          <span class="score-ring__denom">/100</span>
+        </div>
+        <div class="score-banner__text">
+          <span class="score-banner__grade">{{ getOverallScoreLabel() }} Performer</span>
+          <span class="score-banner__sub">DORA Overall Score</span>
+        </div>
+      </div>
+      <div class="score-banner__chips">
+        <div class="smc" *ngFor="let s of getMetricScores()" [ngClass]="s.cls">
+          <span class="smc__label">{{ s.label }}</span>
+          <span class="smc__badge">{{ s.rating }}</span>
+        </div>
+      </div>
+      <div class="score-banner__track-wrap">
+        <div class="score-track">
+          <div class="score-track__fill" [ngClass]="'fill--' + getOverallScoreLabel().toLowerCase()" [style.width]="getOverallScore() + '%'"></div>
+        </div>
+        <div class="score-track__labels">
+          <span>Low</span>
+          <span>Medium</span>
+          <span>High</span>
+          <span>Elite</span>
+        </div>
       </div>
     </div>
 
@@ -77,14 +108,14 @@
           {{ metrics.deploymentFrequency | number:'1.1-1' }}<span class="m-card__unit"> / day</span>
         </div>
         <p class="m-card__desc">How often code reaches production</p>
-        <div class="sparkline">
-          <div class="spark-bar spark-h-40"></div>
-          <div class="spark-bar spark-h-50"></div>
-          <div class="spark-bar spark-h-60"></div>
-          <div class="spark-bar spark-h-65"></div>
-          <div class="spark-bar spark-h-75"></div>
-          <div class="spark-bar spark-h-80"></div>
-          <div class="spark-bar spark-bar--current spark-h-95"></div>
+        <div class="elite-track">
+          <div class="elite-track__bar">
+            <div class="elite-track__fill" [ngClass]="getRatingBadgeClass(metrics.deploymentFrequencyRating)" [style.width]="getEliteProgressPct(metrics.deploymentFrequencyRating) + '%'"></div>
+          </div>
+          <div class="elite-track__labels">
+            <span>Progress to Elite</span>
+            <span class="elite-track__pct">{{ getEliteProgressPct(metrics.deploymentFrequencyRating) }}%</span>
+          </div>
         </div>
       </div>
 
@@ -101,14 +132,14 @@
           {{ formatLeadTime(metrics.leadTimeForChangesHours) }}<span class="m-card__unit"> {{ leadTimeUnit(metrics.leadTimeForChangesHours) }}</span>
         </div>
         <p class="m-card__desc">Commit-to-production delivery time</p>
-        <div class="sparkline">
-          <div class="spark-bar spark-h-90"></div>
-          <div class="spark-bar spark-h-85"></div>
-          <div class="spark-bar spark-h-75"></div>
-          <div class="spark-bar spark-h-65"></div>
-          <div class="spark-bar spark-h-55"></div>
-          <div class="spark-bar spark-h-45"></div>
-          <div class="spark-bar spark-bar--current spark-h-30"></div>
+        <div class="elite-track">
+          <div class="elite-track__bar">
+            <div class="elite-track__fill" [ngClass]="getRatingBadgeClass(metrics.leadTimeRating)" [style.width]="getEliteProgressPct(metrics.leadTimeRating) + '%'"></div>
+          </div>
+          <div class="elite-track__labels">
+            <span>Progress to Elite</span>
+            <span class="elite-track__pct">{{ getEliteProgressPct(metrics.leadTimeRating) }}%</span>
+          </div>
         </div>
       </div>
 
@@ -125,14 +156,14 @@
           {{ metrics.changeFailureRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
         </div>
         <p class="m-card__desc">Deployments causing degraded service</p>
-        <div class="sparkline">
-          <div class="spark-bar spark-h-40"></div>
-          <div class="spark-bar spark-h-30"></div>
-          <div class="spark-bar spark-h-40"></div>
-          <div class="spark-bar spark-h-25"></div>
-          <div class="spark-bar spark-h-30"></div>
-          <div class="spark-bar spark-h-25"></div>
-          <div class="spark-bar spark-bar--current spark-h-20"></div>
+        <div class="elite-track">
+          <div class="elite-track__bar">
+            <div class="elite-track__fill" [ngClass]="getRatingBadgeClass(metrics.changeFailureRating)" [style.width]="getEliteProgressPct(metrics.changeFailureRating) + '%'"></div>
+          </div>
+          <div class="elite-track__labels">
+            <span>Progress to Elite</span>
+            <span class="elite-track__pct">{{ getEliteProgressPct(metrics.changeFailureRating) }}%</span>
+          </div>
         </div>
       </div>
 
@@ -149,14 +180,14 @@
           {{ formatMttr(metrics.meanTimeToRestoreHours) }}<span class="m-card__unit"> {{ mttrUnit(metrics.meanTimeToRestoreHours) }}</span>
         </div>
         <p class="m-card__desc">Recovery time after service failure</p>
-        <div class="sparkline">
-          <div class="spark-bar spark-h-85"></div>
-          <div class="spark-bar spark-h-75"></div>
-          <div class="spark-bar spark-h-80"></div>
-          <div class="spark-bar spark-h-60"></div>
-          <div class="spark-bar spark-h-55"></div>
-          <div class="spark-bar spark-h-50"></div>
-          <div class="spark-bar spark-bar--current spark-h-35"></div>
+        <div class="elite-track">
+          <div class="elite-track__bar">
+            <div class="elite-track__fill" [ngClass]="getRatingBadgeClass(metrics.mttrRating)" [style.width]="getEliteProgressPct(metrics.mttrRating) + '%'"></div>
+          </div>
+          <div class="elite-track__labels">
+            <span>Progress to Elite</span>
+            <span class="elite-track__pct">{{ getEliteProgressPct(metrics.mttrRating) }}%</span>
+          </div>
         </div>
       </div>
 
@@ -176,11 +207,14 @@
           {{ metrics.reworkRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
         </div>
         <p class="m-card__desc">Code reverted or hotfixed within 48h</p>
-        <div class="rework-bar-wrap">
-          <div class="rework-bar">
-            <div class="rework-fill" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)" [style.--rw-pct]="getReworkFillWidth()"></div>
+        <div class="elite-track">
+          <div class="elite-track__bar">
+            <div class="elite-track__fill" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)" [style.width]="getEliteProgressPct(metrics.reworkRateRating) + '%'"></div>
           </div>
-          <span class="rework-target">Target: &lt; 5%</span>
+          <div class="elite-track__labels">
+            <span>Progress to Elite</span>
+            <span class="elite-track__pct">{{ getEliteProgressPct(metrics.reworkRateRating) }}%</span>
+          </div>
         </div>
       </div>
 
@@ -189,67 +223,65 @@
     <!-- ── Bottom Section ─────────────────────────────── -->
     <div class="dash-bottom">
 
-      <!-- Benchmarks Table -->
-      <div class="bench-panel">
+      <!-- Priority Actions Panel (replaces static benchmarks table) -->
+      <div class="actions-panel">
         <div class="panel-header">
-          <h3 class="panel-title">DORA Performance Benchmarks</h3>
-          <span class="panel-sub">Industry standards · Google DORA Report</span>
+          <h3 class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Priority Actions
+          </h3>
+          <span class="panel-sub">Highest-impact improvements</span>
         </div>
-        <div class="bench-table-wrap">
-          <table class="bench-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th class="th-center badge-elite">Elite</th>
-                <th class="th-center badge-high">High</th>
-                <th class="th-center badge-medium">Medium</th>
-                <th class="th-center badge-low">Low</th>
-                <th class="th-center">Your Rating</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="metric-name">Deploy Frequency</td>
-                <td class="td-muted">Multiple / day</td>
-                <td class="td-muted">Once / day</td>
-                <td class="td-muted">Weekly</td>
-                <td class="td-muted">Monthly+</td>
-                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.deploymentFrequencyRating)">{{ metrics.deploymentFrequencyRating }}</span></td>
-              </tr>
-              <tr>
-                <td class="metric-name">Lead Time</td>
-                <td class="td-muted">&lt; 1 hour</td>
-                <td class="td-muted">&lt; 1 day</td>
-                <td class="td-muted">1 – 7 days</td>
-                <td class="td-muted">&gt; 6 months</td>
-                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.leadTimeRating)">{{ metrics.leadTimeRating }}</span></td>
-              </tr>
-              <tr>
-                <td class="metric-name">Change Failure Rate</td>
-                <td class="td-muted">0 – 5%</td>
-                <td class="td-muted">5 – 10%</td>
-                <td class="td-muted">10 – 15%</td>
-                <td class="td-muted">&gt; 15%</td>
-                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.changeFailureRating)">{{ metrics.changeFailureRating }}</span></td>
-              </tr>
-              <tr>
-                <td class="metric-name">Mean Time to Restore</td>
-                <td class="td-muted">&lt; 1 hour</td>
-                <td class="td-muted">&lt; 1 day</td>
-                <td class="td-muted">&lt; 1 week</td>
-                <td class="td-muted">&gt; 6 months</td>
-                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.mttrRating)">{{ metrics.mttrRating }}</span></td>
-              </tr>
-              <tr>
-                <td class="metric-name">Rework Rate</td>
-                <td class="td-muted">&lt; 2%</td>
-                <td class="td-muted">2 – 5%</td>
-                <td class="td-muted">5 – 10%</td>
-                <td class="td-muted">&gt; 10%</td>
-                <td class="td-center"><span class="table-badge" [ngClass]="getRatingBadgeClass(metrics.reworkRateRating)">{{ metrics.reworkRateRating }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="action-list" *ngIf="getPriorityActions().length > 0; else allElite">
+          <div class="action-item" *ngFor="let a of getPriorityActions()">
+            <div class="action-item__header">
+              <span class="action-item__metric">{{ a.metric }}</span>
+              <span class="action-item__value">{{ a.value }}</span>
+              <span class="action-item__badge" [ngClass]="a.cls">{{ a.rating }}</span>
+            </div>
+            <p class="action-item__text">{{ a.action }}</p>
+          </div>
+        </div>
+
+        <ng-template #allElite>
+          <div class="action-all-elite">
+            <span class="action-all-elite__icon">🏆</span>
+            <div>
+              <strong>All metrics at Elite performance</strong>
+              <p>Your team is operating at the highest DORA benchmark level. Focus on maintaining consistency.</p>
+            </div>
+          </div>
+        </ng-template>
+
+        <!-- DORA Benchmarks (compact reference at bottom) -->
+        <div class="bench-ref">
+          <div class="bench-ref__title">Benchmark thresholds</div>
+          <div class="bench-ref__grid">
+            <span class="bench-ref__label">Deploy Freq</span>
+            <span class="badge-elite bench-ref__val">1+/day</span>
+            <span class="badge-high bench-ref__val">1/day</span>
+            <span class="badge-medium bench-ref__val">Weekly</span>
+            <span class="badge-low bench-ref__val">Monthly+</span>
+
+            <span class="bench-ref__label">Lead Time</span>
+            <span class="badge-elite bench-ref__val">&lt;1h</span>
+            <span class="badge-high bench-ref__val">&lt;1d</span>
+            <span class="badge-medium bench-ref__val">1-7d</span>
+            <span class="badge-low bench-ref__val">&gt;1mo</span>
+
+            <span class="bench-ref__label">Failure Rate</span>
+            <span class="badge-elite bench-ref__val">0-5%</span>
+            <span class="badge-high bench-ref__val">5-10%</span>
+            <span class="badge-medium bench-ref__val">10-15%</span>
+            <span class="badge-low bench-ref__val">&gt;15%</span>
+
+            <span class="bench-ref__label">MTTR</span>
+            <span class="badge-elite bench-ref__val">&lt;1h</span>
+            <span class="badge-high bench-ref__val">&lt;1d</span>
+            <span class="badge-medium bench-ref__val">&lt;1wk</span>
+            <span class="badge-low bench-ref__val">&gt;1mo</span>
+          </div>
         </div>
       </div>
 
@@ -316,4 +348,3 @@
 
   </div>
 </div>
-

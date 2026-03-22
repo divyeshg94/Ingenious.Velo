@@ -196,6 +196,48 @@ export class DashboardComponent implements OnInit {
     return value + '%';
   }
 
+  getOverallScore(): number {
+    const scores = this.getMetricScores();
+    if (scores.length === 0) return 0;
+    return Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length);
+  }
+
+  getOverallScoreLabel(): string {
+    const s = this.getOverallScore();
+    if (s >= 90) return 'Elite';
+    if (s >= 60) return 'High';
+    if (s >= 35) return 'Medium';
+    return 'Low';
+  }
+
+  getOverallScoreClass(): string {
+    return 'grade--' + this.getOverallScoreLabel().toLowerCase();
+  }
+
+  /** Percent progress toward Elite benchmark (0–100). Used for the per-card progress track. */
+  getEliteProgressPct(rating: string): number {
+    const r = (rating || '').toLowerCase();
+    if (r === 'elite') return 100;
+    if (r === 'high')  return 68;
+    if (r === 'medium') return 38;
+    return 14;
+  }
+
+  getPriorityActions(): { metric: string; value: string; rating: string; action: string; cls: string }[] {
+    if (!this.metrics) return [];
+    const all = [
+      { metric: 'Change Failure Rate', value: `${this.metrics.changeFailureRate.toFixed(1)}%`, rating: this.metrics.changeFailureRating, action: this.getCfrInsightText(), cls: this.getRatingBadgeClass(this.metrics.changeFailureRating) },
+      { metric: 'Lead Time for Changes', value: `${this.formatLeadTime(this.metrics.leadTimeForChangesHours)} ${this.leadTimeUnit(this.metrics.leadTimeForChangesHours)}`, rating: this.metrics.leadTimeRating, action: this.getLeadTimeInsightText(), cls: this.getRatingBadgeClass(this.metrics.leadTimeRating) },
+      { metric: 'Mean Time to Restore', value: `${this.formatMttr(this.metrics.meanTimeToRestoreHours)} ${this.mttrUnit(this.metrics.meanTimeToRestoreHours)}`, rating: this.metrics.mttrRating, action: this.getMttrInsightText(), cls: this.getRatingBadgeClass(this.metrics.mttrRating) },
+      { metric: 'Deployment Frequency', value: `${this.metrics.deploymentFrequency.toFixed(1)}/day`, rating: this.metrics.deploymentFrequencyRating, action: 'Increase cadence by decomposing large releases into smaller, independently deployable increments.', cls: this.getRatingBadgeClass(this.metrics.deploymentFrequencyRating) },
+      { metric: 'Rework Rate', value: `${this.metrics.reworkRate.toFixed(1)}%`, rating: this.metrics.reworkRateRating, action: this.getReworkInsightText(), cls: this.getRatingBadgeClass(this.metrics.reworkRateRating) },
+    ];
+    const order: Record<string, number> = { low: 0, medium: 1, high: 2, elite: 3 };
+    const sorted = all.sort((a, b) => (order[a.rating.toLowerCase()] ?? 4) - (order[b.rating.toLowerCase()] ?? 4));
+    const nonElite = sorted.filter(a => a.rating.toLowerCase() !== 'elite');
+    return (nonElite.length > 0 ? nonElite : sorted).slice(0, 3);
+  }
+
   private ratingToScore(rating: string): number {
     const r = (rating || '').toLowerCase();
     if (r === 'elite') return 100;

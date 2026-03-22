@@ -416,6 +416,318 @@
 .m-card--medium .spark-bar--current { background: #f59e0b; }
 .m-card--low    .spark-bar--current { background: #ef4444; }
 
+// ── Overall Score Banner ──────────────────────────────────────
+.score-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 4px;
+  border: 1px solid var(--card-border);
+  background: var(--card-background);
+  box-shadow: var(--card-shadow);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+
+  &.grade--elite  { border-left: 4px solid #22c55e; }
+  &.grade--high   { border-left: 4px solid var(--primary-color); }
+  &.grade--medium { border-left: 4px solid #f59e0b; }
+  &.grade--low    { border-left: 4px solid #ef4444; }
+}
+
+.score-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.score-ring {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  line-height: 1;
+}
+
+.score-ring__num {
+  font-size: 36px;
+  font-weight: 200;
+  color: var(--heading-color);
+  line-height: 1;
+}
+
+.score-ring__denom {
+  font-size: 14px;
+  color: var(--text-secondary-color);
+  align-self: flex-end;
+  padding-bottom: 4px;
+}
+
+.score-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.score-banner__grade {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--heading-color);
+}
+
+.score-banner__sub {
+  font-size: 11px;
+  color: var(--text-secondary-color);
+}
+
+.score-banner__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: center;
+}
+
+.smc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  min-width: 58px;
+
+  &.badge-elite  { background: rgba(34, 197, 94, 0.08); }
+  &.badge-high   { background: rgba(0, 120, 212, 0.06); }
+  &.badge-medium { background: rgba(245, 158, 11, 0.08); }
+  &.badge-low    { background: rgba(239, 68, 68, 0.08); }
+}
+
+.smc__label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary-color);
+  white-space: nowrap;
+}
+
+.smc__badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.smc.badge-elite  .smc__badge { color: #16a34a; }
+.smc.badge-high   .smc__badge { color: var(--primary-color); }
+.smc.badge-medium .smc__badge { color: #d97706; }
+.smc.badge-low    .smc__badge { color: #dc2626; }
+
+.score-banner__track-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.score-track {
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.score-track__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+
+  &.fill--elite  { background: #22c55e; }
+  &.fill--high   { background: var(--primary-color); }
+  &.fill--medium { background: #f59e0b; }
+  &.fill--low    { background: #ef4444; }
+}
+
+.score-track__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-disabled-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+// ── Elite Progress Track (per card) ───────────────────────────
+.elite-track {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.elite-track__bar {
+  height: 5px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.elite-track__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+
+  &.badge-elite  { background: #22c55e; }
+  &.badge-high   { background: var(--primary-color); }
+  &.badge-medium { background: #f59e0b; }
+  &.badge-low    { background: #ef4444; }
+}
+
+.elite-track__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-disabled-color);
+}
+
+.elite-track__pct {
+  font-weight: 600;
+  color: var(--text-secondary-color);
+}
+
+// ── Priority Actions Panel ─────────────────────────────────────
+.actions-panel {
+  background: var(--card-background);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  padding: 16px 18px;
+  box-shadow: var(--card-shadow);
+}
+
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.action-item {
+  padding: 10px 12px;
+  background: var(--background-color);
+  border-radius: 4px;
+  border-left: 3px solid var(--border-color);
+
+  &:has(.badge-low)    { border-left-color: #ef4444; }
+  &:has(.badge-medium) { border-left-color: #f59e0b; }
+  &:has(.badge-high)   { border-left-color: var(--primary-color); }
+  &:has(.badge-elite)  { border-left-color: #22c55e; }
+}
+
+.action-item__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.action-item__metric {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--heading-color);
+  flex: 1;
+}
+
+.action-item__value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary-color);
+}
+
+.action-item__badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.action-item__text {
+  font-size: 11px;
+  color: var(--text-secondary-color);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.action-all-elite {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(34, 197, 94, 0.06);
+  border-radius: 4px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  margin-bottom: 16px;
+  font-size: 12px;
+
+  .action-all-elite__icon { font-size: 20px; flex-shrink: 0; }
+
+  strong {
+    display: block;
+    color: #16a34a;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-secondary-color);
+    font-size: 11px;
+  }
+}
+
+// ── Compact benchmark reference ────────────────────────────────
+.bench-ref {
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.bench-ref__title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary-color);
+  margin-bottom: 8px;
+}
+
+.bench-ref__grid {
+  display: grid;
+  grid-template-columns: auto repeat(4, 1fr);
+  gap: 4px 6px;
+  align-items: center;
+  font-size: 10px;
+}
+
+.bench-ref__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary-color);
+  white-space: nowrap;
+  padding-right: 4px;
+}
+
+.bench-ref__val {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 // ── Rework Rate progress bar ──────────────────────────────────
 .rework-bar-wrap {
   display: flex;
@@ -461,6 +773,7 @@
 
 // ── Panels ────────────────────────────────────────────────────
 .bench-panel,
+.actions-panel,
 .insights-panel {
   background: var(--card-background);
   border: 1px solid var(--card-border);
