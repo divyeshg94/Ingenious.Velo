@@ -1,0 +1,342 @@
+<div class="dora-page">
+
+  <!-- ── Loading ─────────────────────────────────────────── -->
+  <div *ngIf="isLoading" class="dash-state">
+    <div class="spinner"></div>
+    <p class="state-label">Loading DORA history for <strong>{{ selectedProjectId }}</strong>…</p>
+  </div>
+
+  <!-- ── Error ──────────────────────────────────────────── -->
+  <div *ngIf="!isLoading && errorMessage" class="dash-alert dash-alert--error">
+    <span class="dash-alert__icon">⚠</span>
+    <div class="dash-alert__body">
+      <strong>Failed to load metrics</strong>
+      <p>{{ errorMessage }}</p>
+    </div>
+    <button class="btn btn-sm" (click)="loadHistory()">Retry</button>
+  </div>
+
+  <!-- ── Gathering ──────────────────────────────────────── -->
+  <div *ngIf="!isLoading && gatheringMessage && history.length === 0" class="dash-alert dash-alert--success">
+    <span class="dash-alert__icon">✓</span>
+    <div class="dash-alert__body">
+      <strong>Connected &amp; Gathering Data</strong>
+      <p>{{ gatheringMessage }}</p>
+    </div>
+  </div>
+
+  <!-- ── Empty ──────────────────────────────────────────── -->
+  <div *ngIf="!isLoading && history.length === 0 && !gatheringMessage && !errorMessage" class="dash-empty">
+    <div class="dash-empty__icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+    <h3 class="dash-empty__title">No project selected</h3>
+    <p class="dash-empty__sub">Go to the <strong>Connections</strong> tab and select a project to view DORA trends here.</p>
+  </div>
+
+  <!-- ── Main Content ───────────────────────────────────── -->
+  <div class="dora-content" *ngIf="!isLoading && latest">
+
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-header__left">
+        <nav class="breadcrumb">
+          <span>Engineering</span>
+          <span class="breadcrumb__sep">›</span>
+          <span class="breadcrumb__current">DORA Trends</span>
+        </nav>
+        <h1 class="dash-title">DORA Performance Trends</h1>
+        <p class="dash-subtitle">
+          <span class="chip chip--project">{{ latest.projectId }}</span>
+          <span class="dot-sep">·</span>
+          <span>{{ history.length }} snapshot{{ history.length === 1 ? '' : 's' }}</span>
+          <span class="dot-sep">·</span>
+          <span>{{ latest.periodEnd | date:'MMM d, y' }}</span>
+        </p>
+      </div>
+      <div class="dash-header__right">
+        <span class="health-badge" [ngClass]="getOverallHealthClass()">
+          <span class="health-badge__dot"></span>
+          {{ getOverallHealthLabel() }}
+        </span>
+        <div class="period-selector">
+          <button
+            *ngFor="let p of periods"
+            class="period-btn"
+            [class.period-btn--active]="selectedDays === p.days"
+            (click)="setDays(p.days)">
+            {{ p.label }}
+          </button>
+        </div>
+        <button class="btn btn-outline btn-sm" (click)="loadHistory()" [disabled]="isLoading">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- ── Metric Cards ─────────────────────────────────── -->
+    <div class="metric-cards">
+
+      <!-- Deployment Frequency -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(latest.deploymentFrequencyRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(latest.deploymentFrequencyRating)">{{ latest.deploymentFrequencyRating }}</span>
+        </div>
+        <div class="m-card__label">Deployment Frequency</div>
+        <div class="m-card__value">
+          {{ latest.deploymentFrequency | number:'1.1-1' }}<span class="m-card__unit"> / day</span>
+        </div>
+        <p class="m-card__desc">How often code reaches production</p>
+        <div class="m-card__trend" *ngIf="previous">
+          <span
+            [class.trend--up]="isImprovement('deploymentFrequency', false)"
+            [class.trend--down]="!isImprovement('deploymentFrequency', false) && getDelta('deploymentFrequency') !== 0">
+            {{ getDelta('deploymentFrequency') > 0 ? '+' : '' }}{{ getDelta('deploymentFrequency') | number:'1.1-1' }} vs prev
+          </span>
+        </div>
+        <div class="sparkline">
+          <div class="spark-bar"
+            *ngFor="let h of getSparkHeights('deploymentFrequency'); let last = last"
+            [class.spark-bar--current]="last"
+            [style.height.%]="h">
+          </div>
+        </div>
+      </div>
+
+      <!-- Lead Time for Changes -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(latest.leadTimeRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(latest.leadTimeRating)">{{ latest.leadTimeRating }}</span>
+        </div>
+        <div class="m-card__label">Lead Time for Changes</div>
+        <div class="m-card__value">
+          {{ formatLeadTime(latest.leadTimeForChangesHours) }}<span class="m-card__unit"> {{ leadTimeUnit(latest.leadTimeForChangesHours) }}</span>
+        </div>
+        <p class="m-card__desc">Commit-to-production delivery time</p>
+        <div class="m-card__trend" *ngIf="previous">
+          <span
+            [class.trend--up]="isImprovement('leadTimeForChangesHours', true)"
+            [class.trend--down]="!isImprovement('leadTimeForChangesHours', true) && getDelta('leadTimeForChangesHours') !== 0">
+            {{ getDelta('leadTimeForChangesHours') > 0 ? '+' : '' }}{{ formatDelta(getDelta('leadTimeForChangesHours'), 'hours') }} vs prev
+          </span>
+        </div>
+        <div class="sparkline">
+          <div class="spark-bar"
+            *ngFor="let h of getSparkHeights('leadTimeForChangesHours'); let last = last"
+            [class.spark-bar--current]="last"
+            [style.height.%]="h">
+          </div>
+        </div>
+      </div>
+
+      <!-- Change Failure Rate -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(latest.changeFailureRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(latest.changeFailureRating)">{{ latest.changeFailureRating }}</span>
+        </div>
+        <div class="m-card__label">Change Failure Rate</div>
+        <div class="m-card__value">
+          {{ latest.changeFailureRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
+        </div>
+        <p class="m-card__desc">Deployments causing degraded service</p>
+        <div class="m-card__trend" *ngIf="previous">
+          <span
+            [class.trend--up]="isImprovement('changeFailureRate', true)"
+            [class.trend--down]="!isImprovement('changeFailureRate', true) && getDelta('changeFailureRate') !== 0">
+            {{ getDelta('changeFailureRate') > 0 ? '+' : '' }}{{ getDelta('changeFailureRate') | number:'1.1-1' }}% vs prev
+          </span>
+        </div>
+        <div class="sparkline">
+          <div class="spark-bar"
+            *ngFor="let h of getSparkHeights('changeFailureRate'); let last = last"
+            [class.spark-bar--current]="last"
+            [style.height.%]="h">
+          </div>
+        </div>
+      </div>
+
+      <!-- Mean Time to Restore -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(latest.mttrRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </div>
+          <span class="m-card__badge" [ngClass]="getRatingBadgeClass(latest.mttrRating)">{{ latest.mttrRating }}</span>
+        </div>
+        <div class="m-card__label">Mean Time to Restore</div>
+        <div class="m-card__value">
+          {{ formatMttr(latest.meanTimeToRestoreHours) }}<span class="m-card__unit"> {{ mttrUnit(latest.meanTimeToRestoreHours) }}</span>
+        </div>
+        <p class="m-card__desc">Recovery time after service failure</p>
+        <div class="m-card__trend" *ngIf="previous">
+          <span
+            [class.trend--up]="isImprovement('meanTimeToRestoreHours', true)"
+            [class.trend--down]="!isImprovement('meanTimeToRestoreHours', true) && getDelta('meanTimeToRestoreHours') !== 0">
+            {{ getDelta('meanTimeToRestoreHours') > 0 ? '+' : '' }}{{ formatDelta(getDelta('meanTimeToRestoreHours'), 'hours') }} vs prev
+          </span>
+        </div>
+        <div class="sparkline">
+          <div class="spark-bar"
+            *ngFor="let h of getSparkHeights('meanTimeToRestoreHours'); let last = last"
+            [class.spark-bar--current]="last"
+            [style.height.%]="h">
+          </div>
+        </div>
+      </div>
+
+      <!-- Rework Rate -->
+      <div class="m-card" [ngClass]="'m-card--' + getRatingKey(latest.reworkRateRating)">
+        <div class="m-card__top">
+          <div class="m-card__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.63"/></svg>
+          </div>
+          <div class="m-card__badge-row">
+            <span class="m-card__badge" [ngClass]="getRatingBadgeClass(latest.reworkRateRating)">{{ latest.reworkRateRating }}</span>
+            <span class="tag-new">2026</span>
+          </div>
+        </div>
+        <div class="m-card__label">Rework Rate</div>
+        <div class="m-card__value">
+          {{ latest.reworkRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
+        </div>
+        <p class="m-card__desc">Code reverted or hotfixed within 48h</p>
+        <div class="m-card__trend" *ngIf="previous">
+          <span
+            [class.trend--up]="isImprovement('reworkRate', true)"
+            [class.trend--down]="!isImprovement('reworkRate', true) && getDelta('reworkRate') !== 0">
+            {{ getDelta('reworkRate') > 0 ? '+' : '' }}{{ getDelta('reworkRate') | number:'1.1-1' }}% vs prev
+          </span>
+        </div>
+        <div class="sparkline">
+          <div class="spark-bar"
+            *ngFor="let h of getSparkHeights('reworkRate'); let last = last"
+            [class.spark-bar--current]="last"
+            [style.height.%]="h">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Bottom Section ─────────────────────────────── -->
+    <div class="dash-bottom">
+
+      <!-- History Table -->
+      <div class="bench-panel">
+        <div class="panel-header">
+          <h3 class="panel-title">DORA Snapshot History</h3>
+          <span class="panel-sub">{{ selectedDays }}-day window · {{ history.length }} period{{ history.length === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="bench-table-wrap">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Period End</th>
+                <th class="th-center">Deploy Freq</th>
+                <th class="th-center">Lead Time</th>
+                <th class="th-center">Failure Rate</th>
+                <th class="th-center">MTTR</th>
+                <th class="th-center">Rework</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of history; let i = index" [class.row--current]="i === 0">
+                <td class="metric-name">
+                  {{ m.periodEnd | date:'MMM d, y' }}
+                  <span class="current-tag" *ngIf="i === 0">Latest</span>
+                </td>
+                <td class="td-center">
+                  <span class="table-badge" [ngClass]="getRatingBadgeClass(m.deploymentFrequencyRating)">{{ m.deploymentFrequencyRating }}</span>
+                </td>
+                <td class="td-center">
+                  <span class="table-badge" [ngClass]="getRatingBadgeClass(m.leadTimeRating)">{{ m.leadTimeRating }}</span>
+                </td>
+                <td class="td-center">
+                  <span class="table-badge" [ngClass]="getRatingBadgeClass(m.changeFailureRating)">{{ m.changeFailureRating }}</span>
+                </td>
+                <td class="td-center">
+                  <span class="table-badge" [ngClass]="getRatingBadgeClass(m.mttrRating)">{{ m.mttrRating }}</span>
+                </td>
+                <td class="td-center">
+                  <span class="table-badge" [ngClass]="getRatingBadgeClass(m.reworkRateRating)">{{ m.reworkRateRating }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Insights + Score Summary -->
+      <div class="insights-panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><span class="ai-glyph">✦</span> Trend Insights</h3>
+          <span class="panel-sub">vs previous period</span>
+        </div>
+
+        <!-- Trend summary insight -->
+        <div class="insight insight--trend">
+          <span class="insight__icon">◈</span>
+          <div class="insight__body">
+            <strong>Period-over-Period Summary</strong>
+            <p>{{ getTrendInsightText() }}</p>
+          </div>
+        </div>
+
+        <div class="insights-list">
+          <div class="insight" [ngClass]="'insight--' + getInsightType(latest.changeFailureRating)">
+            <span class="insight__icon">{{ getInsightIcon(latest.changeFailureRating) }}</span>
+            <div class="insight__body">
+              <strong>Change Failure Rate — {{ latest.changeFailureRate | number:'1.1-1' }}%</strong>
+              <p>Percentage of changes to production resulting in a degraded service or requiring remediation.</p>
+            </div>
+          </div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(latest.leadTimeRating)">
+            <span class="insight__icon">{{ getInsightIcon(latest.leadTimeRating) }}</span>
+            <div class="insight__body">
+              <strong>Lead Time — {{ formatLeadTime(latest.leadTimeForChangesHours) }} {{ leadTimeUnit(latest.leadTimeForChangesHours) }}</strong>
+              <p>Time from code commit to production deployment. Shorter lead times correlate with higher team agility.</p>
+            </div>
+          </div>
+          <div class="insight" [ngClass]="'insight--' + getInsightType(latest.mttrRating)">
+            <span class="insight__icon">{{ getInsightIcon(latest.mttrRating) }}</span>
+            <div class="insight__body">
+              <strong>MTTR — {{ formatMttr(latest.meanTimeToRestoreHours) }} {{ mttrUnit(latest.meanTimeToRestoreHours) }}</strong>
+              <p>Mean time to restore service after an incident. Elite teams restore in under one hour.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Summary Bars -->
+        <div class="score-summary">
+          <div class="score-item" *ngFor="let s of getMetricScores()">
+            <span class="score-label">{{ s.label }}</span>
+            <div class="score-bar-wrap">
+              <div class="score-bar" [ngClass]="s.cls" [style.--score-pct]="s.score + '%'"></div>
+            </div>
+            <span class="score-val" [ngClass]="s.cls">{{ s.rating }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="dash-footer">
+      <span>Last computed {{ latest.computedAt | date:'medium' }}</span>
+      <span class="dot-sep">·</span>
+      <span>{{ selectedDays }}-day window</span>
+      <span class="dot-sep">·</span>
+      <span>Org: {{ latest.orgId }}</span>
+    </div>
+
+  </div>
+</div>
