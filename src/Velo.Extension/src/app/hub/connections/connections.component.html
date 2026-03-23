@@ -275,6 +275,87 @@
       <div *ngIf="webhookError" class="conn-alert conn-alert--error conn-alert--inline">{{ webhookError }}</div>
     </div>
 
+    <!-- PR Webhook Panel -->
+    <div *ngIf="selectedProjectId" class="conn-card">
+      <div class="panel-header">
+        <div class="panel-header__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        </div>
+        <h3 class="panel-title">Automatic PR Ingestion</h3>
+        <ng-container *ngIf="!isPrHookLoading && prWebhookStatus">
+          <span class="hook-badge hook-badge--active" *ngIf="prWebhookStatus.isRegistered">Active</span>
+          <span class="hook-badge hook-badge--inactive" *ngIf="!prWebhookStatus.isRegistered">Not Registered</span>
+        </ng-container>
+      </div>
+
+      <div *ngIf="isPrHookLoading" class="conn-state conn-state--inline">
+        <div class="spinner-sm"></div>
+        <span class="state-label">Checking PR webhook status…</span>
+      </div>
+
+      <!-- Active -->
+      <div *ngIf="!isPrHookLoading && prWebhookStatus?.isRegistered">
+        <p class="panel-desc">Pull request events are ingested automatically, enabling real cycle time and approval rate metrics.</p>
+        <div class="info-rows">
+          <div class="info-row" *ngIf="prWebhookStatus?.subscriptionId">
+            <span class="info-row__label">Subscription ID</span>
+            <code class="info-row__code">{{ prWebhookStatus?.subscriptionId }}</code>
+          </div>
+          <div class="info-row" *ngIf="prWebhookStatus?.webhookUrl">
+            <span class="info-row__label">Endpoint</span>
+            <code class="info-row__code">{{ prWebhookStatus?.webhookUrl }}</code>
+          </div>
+          <div class="info-row" *ngIf="prWebhookStatus?.createdDate">
+            <span class="info-row__label">Registered</span>
+            <span class="info-row__value">{{ prWebhookStatus?.createdDate | date:'MMM d, y, h:mm a' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__label">Events</span>
+            <span class="info-row__value">
+              <span class="mini-badge mini-badge--info">git.pullrequest.created</span>
+              <span class="mini-badge mini-badge--info" style="margin-left:4px">git.pullrequest.updated</span>
+            </span>
+          </div>
+        </div>
+        <div class="hook-actions">
+          <button class="btn btn-danger btn-sm" (click)="removePrHook()" [disabled]="isPrHookLoading">Remove PR Webhook</button>
+        </div>
+      </div>
+
+      <!-- Not registered -->
+      <div *ngIf="!isPrHookLoading && syncAttempted && prWebhookStatus && !prWebhookStatus.isRegistered">
+        <div *ngIf="prWebhookStatus.registrationError" class="conn-alert conn-alert--error conn-alert--inline">
+          <strong>Registration failed:</strong> {{ prWebhookStatus.registrationError }}
+        </div>
+        <div class="hook-actions">
+          <button class="btn btn-primary btn-sm" (click)="registerPrHook()" [disabled]="isPrHookLoading">Register PR Webhook</button>
+          <a *ngIf="prWebhookStatus.manualSetupUrl" [href]="prWebhookStatus.manualSetupUrl" target="_blank" class="btn btn-ghost btn-sm">
+            Open ADO Service Hooks
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+        <details class="hook-manual" *ngIf="prWebhookStatus.manualSetupUrl">
+          <summary class="hook-manual__toggle">Manual setup instructions</summary>
+          <ol class="hook-manual__steps">
+            <li>Open <a [href]="prWebhookStatus.manualSetupUrl" target="_blank">ADO › Project Settings › Service hooks</a></li>
+            <li>Create subscription → Web Hooks → <strong>Pull request created</strong></li>
+            <li>Repeat for <strong>Pull request updated</strong></li>
+            <li>URL: <code>{{ prWebhookStatus.webhookUrl }}</code></li>
+            <li>Add header: <code>X-Velo-Secret</code> with your <code>Webhook__Secret</code> app setting value</li>
+          </ol>
+        </details>
+      </div>
+
+      <p *ngIf="!isPrHookLoading && !syncAttempted" class="panel-desc">Sync the project above to check and register PR webhooks automatically.</p>
+
+      <div *ngIf="!isPrHookLoading && syncAttempted && !prWebhookStatus" class="conn-alert conn-alert--error conn-alert--inline">
+        PR webhook status could not be determined.
+        <button class="btn btn-ghost btn-sm" (click)="loadPrHookStatus()" [disabled]="isPrHookLoading">Retry</button>
+      </div>
+
+      <div *ngIf="prWebhookError" class="conn-alert conn-alert--error conn-alert--inline">{{ prWebhookError }}</div>
+    </div>
+
     <!-- How It Works -->
     <div class="how-it-works">
       <div class="how-step">

@@ -22,6 +22,11 @@ public interface IMetricsRepository
     Task<TeamHealthDto?> GetTeamHealthAsync(string orgId, string projectId, CancellationToken cancellationToken);
     Task SaveTeamHealthAsync(TeamHealthDto health, CancellationToken cancellationToken);
 
+    // Pull Requests
+    Task SavePrEventAsync(PullRequestEventDto pr, CancellationToken cancellationToken);
+    Task<bool> PrEventExistsAsync(string orgId, string projectId, int prId, string status, CancellationToken cancellationToken);
+    Task<IEnumerable<PullRequestEventDto>> GetPrEventsAsync(string orgId, string projectId, DateTimeOffset from, CancellationToken cancellationToken);
+
     // Organization
     Task<OrgContextDto?> GetOrgContextAsync(string orgId, CancellationToken cancellationToken);
     Task SaveOrgContextAsync(OrgContextDto org, CancellationToken cancellationToken);

@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Velo.Api.Controllers;
 
 /// <summary>
-/// Receives Azure DevOps service hook events (build.complete).
-/// ADO calls this endpoint automatically every time a pipeline run finishes.
+/// Receives Azure DevOps service hook events (build.complete, git.pullrequest.*).
+/// ADO calls this endpoint automatically every time a pipeline run finishes or a PR changes state.
 /// No authentication — validated by the shared secret header instead.
 /// </summary>
 [ApiController]
@@ -29,7 +29,7 @@ public class WebhookController(
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
     [HttpPost("ado")]
-    public async Task<ActionResult> AdoBuildComplete(CancellationToken cancellationToken)
+    public async Task<ActionResult> AdoEvent(CancellationToken cancellationToken)
     {
         // Verify shared secret
         var expectedSecret = config["Webhook:Secret"] ?? "velo-webhook-secret";
@@ -51,6 +51,35 @@ public class WebhookController(
         logger.LogDebug("WEBHOOK: Raw payload ({Length} bytes): {Preview}",
             body.Length, body.Length > 800 ? body[..800] + "..." : body);
 
+        // Peek at eventType to dispatch to the right handler
+        string? eventType = null;
+        try
+        {
+            using var peek = JsonDocument.Parse(body);
+            if (peek.RootElement.TryGetProperty("eventType", out var et))
+                eventType = et.GetString();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "WEBHOOK: Failed to deserialize payload (length={Length})", body.Length);
+            return BadRequest(new { error = "Invalid payload" });
+        }
+
+        logger.LogInformation("WEBHOOK: EventType={EventType}", eventType ?? "(null)");
+
+        return eventType switch
+        {
+            "build.complete"              => await HandleBuildCompleteAsync(body, cancellationToken),
+            "git.pullrequest.created"     => await HandlePrEventAsync(body, cancellationToken),
+            "git.pullrequest.updated"     => await HandlePrEventAsync(body, cancellationToken),
+            _ => Ok(new { skipped = true, eventType })
+        };
+    }
+
+    // ── Build complete handler ──────────────────────────────────────────────────────
+
+    private async Task<ActionResult> HandleBuildCompleteAsync(string body, CancellationToken cancellationToken)
+    {
         // Deserialize
         AdoBuildCompleteEvent? evt;
         try
@@ -59,20 +88,17 @@ public class WebhookController(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "WEBHOOK: Failed to deserialize payload (length={Length})", body.Length);
-            return BadRequest(new { error = "Invalid payload" });
+            logger.LogWarning(ex, "WEBHOOK BUILD: Failed to deserialize payload");
+            return BadRequest(new { error = "Invalid build payload" });
         }
 
-        // Log every field we care about so nothing is silently skipped
         logger.LogInformation(
-            "WEBHOOK: Payload parsed -- EventType={EventType}, HasResource={HasResource}",
-            evt?.EventType ?? "(null)", evt?.Resource != null);
+            "WEBHOOK BUILD: Payload parsed -- HasResource={HasResource}",
+            evt?.Resource != null);
 
-        if (evt?.EventType != "build.complete" || evt.Resource == null)
+        if (evt?.Resource == null)
         {
-            logger.LogInformation(
-                "WEBHOOK: Skipping -- EventType={EventType} is not 'build.complete' or resource is null",
-                evt?.EventType ?? "(null)");
+            logger.LogInformation("WEBHOOK BUILD: Skipping -- resource is null");
             return Ok();
         }
 
@@ -249,6 +275,113 @@ public class WebhookController(
         }
 
         return Ok();
+    }
+
+    // ── Pull Request event handler ─────────────────────────────────────────────────
+
+    private async Task<ActionResult> HandlePrEventAsync(string body, CancellationToken cancellationToken)
+    {
+        AdoPrEvent? evt;
+        try
+        {
+            evt = JsonSerializer.Deserialize<AdoPrEvent>(body, _json);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "WEBHOOK PR: Failed to deserialize payload");
+            return BadRequest(new { error = "Invalid PR payload" });
+        }
+
+        if (evt?.Resource == null)
+        {
+            logger.LogInformation("WEBHOOK PR: Skipping — resource is null");
+            return Ok();
+        }
+
+        var resource = evt.Resource;
+
+        // Org from resourceContainers.account.baseUrl
+        var baseUrl = evt.ResourceContainers?.Account?.BaseUrl
+                   ?? evt.ResourceContainers?.Collection?.BaseUrl
+                   ?? string.Empty;
+
+        var orgName = ParseOrgName(baseUrl);
+
+        // Project from resource.repository.project.name
+        var projectName = resource.Repository?.Project?.Name
+                       ?? evt.ResourceContainers?.Project?.Id
+                       ?? string.Empty;
+
+        if (string.IsNullOrEmpty(orgName) || string.IsNullOrEmpty(projectName))
+        {
+            logger.LogWarning(
+                "WEBHOOK PR: Could not extract org/project. BaseUrl={BaseUrl}, RepoProjName={ProjName}",
+                baseUrl, resource.Repository?.Project?.Name ?? "(null)");
+            return Ok();
+        }
+
+        // Resolve project GUID → name if needed
+        if (Guid.TryParse(projectName, out _))
+        {
+            var resolved = await ResolveProjectNameFromPrAsync(orgName, cancellationToken);
+            if (!string.IsNullOrEmpty(resolved)) projectName = resolved;
+        }
+
+        await SetTenantContextAsync(orgName, cancellationToken);
+
+        var status     = resource.Status ?? "active";
+        var isApproved = resource.Reviewers?.Any(r => r.Vote >= 10) ?? false;
+
+        var prDto = new PullRequestEventDto
+        {
+            Id            = Guid.NewGuid(),
+            OrgId         = orgName,
+            ProjectId     = projectName,
+            PrId          = resource.PullRequestId,
+            Title         = resource.Title,
+            Status        = status,
+            SourceBranch  = resource.SourceRefName,
+            TargetBranch  = resource.TargetRefName,
+            CreatedAt     = resource.CreationDate,
+            ClosedAt      = resource.ClosedDate,
+            IsApproved    = isApproved,
+            ReviewerCount = resource.Reviewers?.Length ?? 0,
+            IngestedAt    = DateTimeOffset.UtcNow
+        };
+
+        try
+        {
+            await repo.SavePrEventAsync(prDto, cancellationToken);
+            logger.LogInformation(
+                "WEBHOOK PR: Saved — Org={Org}, Project={Project}, PrId={PrId}, Status={Status}, Approved={Approved}",
+                orgName, projectName, resource.PullRequestId, status, isApproved);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "WEBHOOK PR: Failed to save — Org={Org}, Project={Project}, PrId={PrId}",
+                orgName, projectName, resource.PullRequestId);
+            return StatusCode(500, new { error = "Failed to save PR event" });
+        }
+
+        return Ok();
+    }
+
+    /// <summary>
+    /// When a PR event arrives with a project GUID, try to resolve the human name
+    /// from existing PipelineRun records (which are stored with human names after sync).
+    /// </summary>
+    private async Task<string?> ResolveProjectNameFromPrAsync(
+        string orgId, CancellationToken cancellationToken)
+    {
+        var candidates = await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId)
+            .Select(r => r.ProjectId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
     }
 
     private static string ParseOrgName(string url)

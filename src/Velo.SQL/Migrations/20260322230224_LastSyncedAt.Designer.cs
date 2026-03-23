@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Velo.SQL;
 
@@ -11,9 +12,11 @@ using Velo.SQL;
 namespace Velo.SQL.Migrations
 {
     [DbContext(typeof(VeloDbContext))]
-    partial class VeloDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260322230224_LastSyncedAt")]
+    partial class LastSyncedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -347,90 +350,6 @@ namespace Velo.SQL.Migrations
                         .HasDatabaseName("IX_PipelineRuns_OrgId_ProjectId_StartTime_DESC");
 
                     b.ToTable("PipelineRuns");
-                });
-
-            modelBuilder.Entity("Velo.SQL.Models.PullRequestEvent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetimeoffset")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<DateTimeOffset>("IngestedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsApproved")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("ModifiedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("OrgId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ProjectId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("PrId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ReviewerCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SourceBranch")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("TargetBranch")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrgId", "ProjectId", "CreatedAt")
-                        .IsDescending(false, false, true)
-                        .HasDatabaseName("IX_PullRequestEvents_OrgId_ProjectId_CreatedAt");
-
-                    b.HasIndex("OrgId", "PrId", "Status")
-                        .HasDatabaseName("IX_PullRequestEvents_OrgId_PrId_Status");
-
-                    b.ToTable("PullRequestEvents");
                 });
 
             modelBuilder.Entity("Velo.SQL.Models.TeamHealth", b =>

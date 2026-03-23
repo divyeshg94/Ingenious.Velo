@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Velo.SQL.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOrgLastSyncedAt : Migration
+    public partial class LastSyncedAt : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

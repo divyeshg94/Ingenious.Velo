@@ -1,0 +1,253 @@
+<div class="velo-health">
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="health-state">
+    <div class="spinner"></div>
+    <p class="state-label">Loading team health…</p>
+  </div>
+
+  <!-- No project selected -->
+  <div *ngIf="!isLoading && !selectedProjectId" class="health-empty">
+    <div class="health-empty__icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </div>
+    <h3 class="health-empty__title">No project selected</h3>
+    <p class="health-empty__sub">Go to the Connections tab and select a project to view team health metrics.</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="!isLoading && errorMessage" class="health-alert health-alert--error">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Main content -->
+  <ng-container *ngIf="!isLoading && health">
+
+    <!-- Header -->
+    <div class="health-header">
+      <div class="health-header__left">
+        <nav class="breadcrumb">
+          <span>Velo</span>
+          <span class="breadcrumb__sep">›</span>
+          <span class="breadcrumb__current">Team Health</span>
+        </nav>
+        <h1 class="health-title">Team Health</h1>
+        <p class="health-subtitle">
+          <span class="chip">{{ health.projectId }}</span>
+          <span class="dot-sep">·</span>
+          <span>30-day snapshot · Computed {{ health.computedAt | date:'MMM d, y, h:mm a' }}</span>
+        </p>
+      </div>
+      <div class="health-header__right">
+        <button class="btn btn-ghost btn-sm" (click)="refresh()" [disabled]="isRecomputing">
+          <svg *ngIf="!isRecomputing" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.63"/></svg>
+          <div *ngIf="isRecomputing" class="spinner-sm"></div>
+          {{ isRecomputing ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Score banner -->
+    <div class="score-banner" [ngClass]="'score-banner--' + getHealthClass()">
+      <div class="score-ring">
+        <svg viewBox="0 0 80 80" width="80" height="80">
+          <circle cx="40" cy="40" r="36" fill="none" stroke="var(--ring-track)" stroke-width="7"/>
+          <circle cx="40" cy="40" r="36" fill="none" stroke="var(--ring-fill)"
+                  stroke-width="7" stroke-linecap="round"
+                  [attr.stroke-dasharray]="getScoreArc()"
+                  transform="rotate(-90 40 40)"/>
+        </svg>
+        <div class="score-ring__value">{{ getHealthScore() }}</div>
+      </div>
+      <div class="score-banner__body">
+        <div class="score-banner__label" [ngClass]="'label--' + getHealthClass()">{{ getHealthLabel() }}</div>
+        <p class="score-banner__desc">
+          Health score derived from test pass rate, flaky test rate, deployment risk, and CI gate approvals.
+        </p>
+      </div>
+    </div>
+
+    <!-- Top row: Cycle time + Quality -->
+    <div class="health-top">
+
+      <!-- Cycle time card -->
+      <div class="health-card">
+        <div class="card-header">
+          <div class="card-header__icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3 class="card-title">Cycle Time Breakdown</h3>
+        </div>
+        <p class="card-desc">Average time spent in each phase over the last 30 days.</p>
+
+        <!-- Phase pipeline visualization -->
+        <div class="cycle-pipeline">
+          <div class="cycle-phase" [style.flex]="getCyclePct(health.codingTimeHours)">
+            <div class="cycle-phase__bar cycle-phase__bar--coding"></div>
+            <div class="cycle-phase__label">
+              <span class="phase-name">Coding</span>
+              <span class="phase-value">{{ formatHours(health.codingTimeHours) }}</span>
+            </div>
+          </div>
+          <div class="cycle-phase" [style.flex]="getCyclePct(health.reviewTimeHours)">
+            <div class="cycle-phase__bar cycle-phase__bar--review"></div>
+            <div class="cycle-phase__label">
+              <span class="phase-name">CI / Review</span>
+              <span class="phase-value">{{ formatHours(health.reviewTimeHours) }}</span>
+            </div>
+          </div>
+          <div class="cycle-phase" [style.flex]="getCyclePct(health.mergeTimeHours)">
+            <div class="cycle-phase__bar cycle-phase__bar--merge"></div>
+            <div class="cycle-phase__label">
+              <span class="phase-name">Merge</span>
+              <span class="phase-value">{{ formatHours(health.mergeTimeHours) }}</span>
+            </div>
+          </div>
+          <div class="cycle-phase" [style.flex]="getCyclePct(health.deployTimeHours)">
+            <div class="cycle-phase__bar cycle-phase__bar--deploy"></div>
+            <div class="cycle-phase__label">
+              <span class="phase-name">Deploy</span>
+              <span class="phase-value">{{ formatHours(health.deployTimeHours) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cycle-total">
+          <span>Total end-to-end</span>
+          <strong>{{ formatHours(getTotalCycleHours()) }}</strong>
+        </div>
+      </div>
+
+      <!-- Quality metrics card -->
+      <div class="health-card">
+        <div class="card-header">
+          <div class="card-header__icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3 class="card-title">Quality Signals</h3>
+        </div>
+        <p class="card-desc">Pipeline-derived stability and risk indicators.</p>
+
+        <div class="quality-metrics">
+
+          <!-- Test pass rate -->
+          <div class="qm-item">
+            <div class="qm-item__header">
+              <span class="qm-item__name">Test Pass Rate</span>
+              <span class="qm-item__value" [ngClass]="'qm--' + getPassClass(health.testPassRate)">
+                {{ health.testPassRate | number:'1.1-1' }}%
+              </span>
+            </div>
+            <div class="qm-track">
+              <div class="qm-fill" [ngClass]="'qm-fill--' + getPassClass(health.testPassRate)"
+                   [style.width.%]="health.testPassRate"></div>
+            </div>
+            <p class="qm-item__hint">Succeeded runs ÷ all completed runs</p>
+          </div>
+
+          <!-- Flaky test rate -->
+          <div class="qm-item">
+            <div class="qm-item__header">
+              <span class="qm-item__name">Flaky Pipeline Rate</span>
+              <span class="qm-item__value" [ngClass]="'qm--' + getFlakyClass(health.flakyTestRate)">
+                {{ health.flakyTestRate | number:'1.1-1' }}%
+              </span>
+            </div>
+            <div class="qm-track">
+              <div class="qm-fill" [ngClass]="'qm-fill--' + getFlakyClass(health.flakyTestRate)"
+                   [style.width.%]="health.flakyTestRate"></div>
+            </div>
+            <p class="qm-item__hint">Pipelines with ≥30 % result-flip rate (lower is better)</p>
+          </div>
+
+          <!-- Deployment risk -->
+          <div class="qm-item">
+            <div class="qm-item__header">
+              <span class="qm-item__name">Deployment Risk Score</span>
+              <span class="qm-item__value" [ngClass]="'qm--' + getRiskClass(health.deploymentRiskScore)">
+                {{ health.deploymentRiskScore | number:'1.1-1' }}
+              </span>
+            </div>
+            <div class="qm-track">
+              <div class="qm-fill" [ngClass]="'qm-fill--' + getRiskClass(health.deploymentRiskScore)"
+                   [style.width.%]="health.deploymentRiskScore"></div>
+            </div>
+            <p class="qm-item__hint">Composite of failure rate, flakiness, deploy duration (lower is better)</p>
+          </div>
+
+          <!-- CI approval rate -->
+          <div class="qm-item">
+            <div class="qm-item__header">
+              <span class="qm-item__name">CI Gate Pass Rate</span>
+              <span class="qm-item__value" [ngClass]="'qm--' + getPassClass(health.prApprovalRate)">
+                {{ health.prApprovalRate | number:'1.1-1' }}%
+              </span>
+            </div>
+            <div class="qm-track">
+              <div class="qm-fill" [ngClass]="'qm-fill--' + getPassClass(health.prApprovalRate)"
+                   [style.width.%]="health.prApprovalRate"></div>
+            </div>
+            <p class="qm-item__hint">Pipeline success used as CI gate approval proxy</p>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Phase 2 PR Metrics (locked) -->
+    <div class="health-card health-card--locked">
+      <div class="card-header">
+        <div class="card-header__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        </div>
+        <h3 class="card-title">Pull Request Insights</h3>
+        <span class="phase-badge">Phase 2</span>
+      </div>
+      <p class="card-desc">Deeper PR signals require GitHub or Azure DevOps Pull Request API integration.</p>
+
+      <div class="locked-metrics">
+        <div class="locked-metric">
+          <div class="locked-metric__icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <div>
+            <div class="locked-metric__name">Avg PR Size</div>
+            <div class="locked-metric__desc">Lines of code changed per pull request</div>
+          </div>
+          <div class="locked-metric__value locked-metric__value--dim">— lines</div>
+        </div>
+        <div class="locked-metric">
+          <div class="locked-metric__icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div>
+            <div class="locked-metric__name">PR Comment Density</div>
+            <div class="locked-metric__desc">Average review comments per pull request</div>
+          </div>
+          <div class="locked-metric__value locked-metric__value--dim">— / PR</div>
+        </div>
+        <div class="locked-metric">
+          <div class="locked-metric__icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div>
+            <div class="locked-metric__name">PR Approval Rate</div>
+            <div class="locked-metric__desc">Pull requests approved on first review</div>
+          </div>
+          <div class="locked-metric__value locked-metric__value--dim">— %</div>
+        </div>
+      </div>
+
+      <div class="locked-cta">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Connect a GitHub or Azure DevOps repo in Phase 2 to unlock PR-level insights</span>
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>
