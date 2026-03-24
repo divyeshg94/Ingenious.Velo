@@ -82,32 +82,36 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             // Set org_id on DbContext for EF Core query filtering
             dbContext.CurrentOrgId = orgId;
 
-            // Set SQL Server session context for RLS enforcement
-            var connection = dbContext.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
+            // Set SQL Server session context for RLS enforcement.
+            // Only applicable when using a relational provider (skipped for InMemory in tests).
+            if (dbContext.Database.IsRelational())
             {
-                await connection.OpenAsync();
-            }
+                var connection = dbContext.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync();
+                }
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
-            command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
+                using var command = connection.CreateCommand();
+                command.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
+                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
 
-            try
-            {
-                await command.ExecuteNonQueryAsync();
-                
-                logger.LogDebug(
-                    "SECURITY: Tenant context resolved - OrgId: {OrgId}, CorrelationId: {CorrelationId}",
-                    orgId, correlationId);
-            }
-            catch (Exception ex)
-            {
-                // SECURITY ALERT: Failed to set RLS context
-                logger.LogError(ex,
-                    "SECURITY: Failed to set SQL Server session context for OrgId: {OrgId}, CorrelationId: {CorrelationId}",
-                    orgId, correlationId);
-                throw;
+                try
+                {
+                    await command.ExecuteNonQueryAsync();
+
+                    logger.LogDebug(
+                        "SECURITY: Tenant context resolved - OrgId: {OrgId}, CorrelationId: {CorrelationId}",
+                        orgId, correlationId);
+                }
+                catch (Exception ex)
+                {
+                    // SECURITY ALERT: Failed to set RLS context
+                    logger.LogError(ex,
+                        "SECURITY: Failed to set SQL Server session context for OrgId: {OrgId}, CorrelationId: {CorrelationId}",
+                        orgId, correlationId);
+                    throw;
+                }
             }
 
             await next(context);
