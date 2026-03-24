@@ -114,12 +114,12 @@ Velo automatically identifies production deployments using:
 
 ## Support & Feedback
 
-- 🐛 [Report an issue](https://github.com/divyeshg94/velo/issues)
-- 💡 [Request a feature](https://github.com/divyeshg94/velo/issues)
-- 📖 [Documentation](https://github.com/divyeshg94/velo/tree/main/docs)
+- 🐛 [Report an issue](https://github.com/divyeshg94/Ingenious.Velo/issues)
+- 💡 [Request a feature](https://github.com/divyeshg94/Ingenious.Velo/issues)
+- 📖 [Documentation](https://github.com/divyeshg94/Ingenious.Velo/tree/master/docs)
 
 ---
 
 ## License
 
-Velo is open-source under the [MIT License](https://github.com/divyeshg94/velo/blob/main/LICENSE).
+Velo is open-source under the [MIT License](https://github.com/divyeshg94/Ingenious.Velo/blob/master/LICENSE).
