@@ -45,7 +45,6 @@ try
         options.UseSqlServer(builder.Configuration.GetConnectionString("VeloDb")));
 
     // Application services
-    builder.Services.AddScoped<IDoraService, DoraService>();
     builder.Services.AddScoped<IPipelineService, PipelineService>();
     builder.Services.AddScoped<IAgentService, AgentService>();
     builder.Services.AddScoped<IConnectionService, ConnectionService>();
