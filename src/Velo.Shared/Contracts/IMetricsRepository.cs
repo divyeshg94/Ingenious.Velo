@@ -30,5 +30,14 @@ public interface IMetricsRepository
     // Organization
     Task<OrgContextDto?> GetOrgContextAsync(string orgId, CancellationToken cancellationToken);
     Task SaveOrgContextAsync(OrgContextDto org, CancellationToken cancellationToken);
+
+    // Team Mappings
+    Task<IEnumerable<TeamMappingDto>> GetTeamMappingsAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    Task<TeamMappingDto?> GetTeamMappingAsync(string orgId, string projectId, string repositoryName, CancellationToken cancellationToken);
+    Task SaveTeamMappingAsync(TeamMappingDto mapping, CancellationToken cancellationToken);
+    Task DeleteTeamMappingAsync(Guid id, string orgId, CancellationToken cancellationToken);
+
+    // Repository discovery
+    Task<IEnumerable<string>> GetDistinctRepositoriesAsync(string orgId, string projectId, CancellationToken cancellationToken);
 }
 

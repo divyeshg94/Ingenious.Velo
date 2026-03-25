@@ -71,6 +71,7 @@ public class AdoPipelineIngestService(
             builds.Value.Length, orgId, projectId);
 
         int saved = 0;
+        Dictionary<int, string?> repoCache = new();
         foreach (var build in builds.Value)
         {
             if (build.StartTime == null || build.FinishTime == null) continue;
@@ -79,6 +80,13 @@ public class AdoPipelineIngestService(
             var alreadyExists = await repo.RunExistsAsync(
                 orgId, projectId, build.Definition?.Id ?? 0, build.BuildNumber ?? string.Empty, cancellationToken);
             if (alreadyExists) continue;
+
+            var defId = build.Definition?.Id ?? 0;
+            if (!repoCache.TryGetValue(defId, out var repoName))
+            {
+                repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
+                repoCache[defId] = repoName;
+            }
 
             var run = new PipelineRunDto
             {
@@ -96,6 +104,7 @@ public class AdoPipelineIngestService(
                     : null,
                 IsDeployment = IsDeploymentPipeline(build),
                 TriggeredBy = build.RequestedBy?.DisplayName,
+                RepositoryName = repoName,
                 IngestedAt = DateTimeOffset.UtcNow
             };
 
@@ -195,6 +204,31 @@ public class AdoPipelineIngestService(
             total, projects.Value.Length, orgId);
 
         return total;
+    }
+
+    private async Task<string?> ResolveRepositoryNameAsync(
+        string orgId, string projectId, int definitionId, string adoAccessToken,
+        HttpClient http, CancellationToken cancellationToken)
+    {
+        if (definitionId == 0) return null;
+
+        var url = $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
+                  $"/_apis/build/definitions/{definitionId}?api-version=7.1&$select=repository";
+
+        try
+        {
+            var response = await http.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var definition = JsonSerializer.Deserialize<AdoBuildDefinition>(json, _json);
+            return definition?.Repository?.Name;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "ADO_INGEST: Could not resolve repository for definition {Id}", definitionId);
+            return null;
+        }
     }
 
     // Heuristic: pipelines with "deploy", "release", "prod" in their name are deployments

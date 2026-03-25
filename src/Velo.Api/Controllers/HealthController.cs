@@ -29,6 +29,8 @@ public class HealthController(
     [HttpGet]
     public async Task<ActionResult<TeamHealthDto>> GetTeamHealth(
         [FromQuery] string projectId,
+        [FromQuery] string? repositoryName = null,
+        [FromQuery] string? teamName = null,
         CancellationToken cancellationToken = default)
     {
         var orgId         = HttpContext.Items["OrgId"]?.ToString();
@@ -49,8 +51,8 @@ public class HealthController(
 
         logger.LogInformation(
             "AUDIT: GetTeamHealth — OrgId={OrgId}, ProjectId={ProjectId}, " +
-            "UserId={UserId}, CorrelationId={CorrelationId}",
-            orgId, projectId, userId, correlationId);
+            "RepositoryName={RepositoryName}, TeamName={TeamName}, UserId={UserId}, CorrelationId={CorrelationId}",
+            orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
 
         try
         {
@@ -82,6 +84,8 @@ public class HealthController(
     [HttpPost("compute")]
     public async Task<ActionResult<TeamHealthDto>> Recompute(
         [FromQuery] string projectId,
+        [FromQuery] string? repositoryName = null,
+        [FromQuery] string? teamName = null,
         CancellationToken cancellationToken = default)
     {
         var orgId         = HttpContext.Items["OrgId"]?.ToString();
@@ -96,8 +100,8 @@ public class HealthController(
 
         logger.LogInformation(
             "AUDIT: ForceComputeHealth — OrgId={OrgId}, ProjectId={ProjectId}, " +
-            "UserId={UserId}, CorrelationId={CorrelationId}",
-            orgId, projectId, userId, correlationId);
+            "RepositoryName={RepositoryName}, TeamName={TeamName}, UserId={UserId}, CorrelationId={CorrelationId}",
+            orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
 
         try
         {

@@ -15,6 +15,7 @@ public class VeloDbContext : DbContext
     public DbSet<TeamHealth> TeamHealth { get; set; } = null!;
     public DbSet<PullRequestEvent> PullRequestEvents { get; set; } = null!;
     public DbSet<LogEvent> LogEvents { get; set; } = null!;
+    public DbSet<TeamMapping> TeamMappings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,7 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<DoraMetrics>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
+        modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
 
         // Configure OrgContext
         modelBuilder.Entity<OrgContext>(eb =>
@@ -49,6 +51,7 @@ public class VeloDbContext : DbContext
         ConfigureAuditable<DoraMetrics>();
         ConfigureAuditable<TeamHealth>();
         ConfigureAuditable<PullRequestEvent>();
+        ConfigureAuditable<TeamMapping>();
 
         // Configure indexes for performance and multi-tenancy
 
@@ -66,6 +69,10 @@ public class VeloDbContext : DbContext
             .HasIndex(r => r.StartTime)
             .IsDescending(true)
             .HasDatabaseName("IX_PipelineRuns_StartTime_DESC");
+
+        modelBuilder.Entity<PipelineRun>()
+            .HasIndex(r => new { r.OrgId, r.ProjectId, r.RepositoryName })
+            .HasDatabaseName("IX_PipelineRuns_OrgId_ProjectId_RepositoryName");
 
         // DoraMetrics indexes
         modelBuilder.Entity<DoraMetrics>()
@@ -98,6 +105,17 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<PullRequestEvent>()
             .HasIndex(p => new { p.OrgId, p.PrId, p.Status })
             .HasDatabaseName("IX_PullRequestEvents_OrgId_PrId_Status");
+
+        // TeamMappings indexes
+        modelBuilder.Entity<TeamMapping>()
+            .HasIndex(m => new { m.OrgId, m.ProjectId })
+            .HasDatabaseName("IX_TeamMappings_OrgId_ProjectId");
+
+        modelBuilder.Entity<TeamMapping>()
+            .HasIndex(m => new { m.OrgId, m.ProjectId, m.RepositoryName })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0")
+            .HasDatabaseName("IX_TeamMappings_OrgId_ProjectId_RepositoryName_Unique");
 
         // LogEvents — no tenant filter (logs are cross-org for ops/audit)
         // Table name matches Serilog MSSqlServer sink tableName in appsettings.json

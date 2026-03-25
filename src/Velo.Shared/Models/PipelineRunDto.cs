@@ -15,5 +15,6 @@ public class PipelineRunDto
     public bool IsDeployment { get; set; }
     public string? StageName { get; set; }
     public string? TriggeredBy { get; set; }
+    public string? RepositoryName { get; set; }
     public DateTimeOffset IngestedAt { get; set; }
 }

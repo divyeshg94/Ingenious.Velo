@@ -30,14 +30,16 @@ export class DoraMetricsService {
     console.log('[DoraMetricsService] Initialized with API URL:', this.apiUrl);
   }
 
-  getLatestMetrics(projectId: string): Observable<DoraMetricsDto> {
-    const url = `${this.apiUrl}/latest?projectId=${encodeURIComponent(projectId)}`;
+  getLatestMetrics(projectId: string, repositoryName?: string): Observable<DoraMetricsDto> {
+    let url = `${this.apiUrl}/latest?projectId=${encodeURIComponent(projectId)}`;
+    if (repositoryName) url += `&repositoryName=${encodeURIComponent(repositoryName)}`;
     console.log('[DoraMetricsService] GET request:', url);
     return this.http.get<DoraMetricsDto>(url);
   }
 
-  getMetricsHistory(projectId: string, days: number = 30): Observable<DoraMetricsDto[]> {
-    const url = `${this.apiUrl}/history?projectId=${encodeURIComponent(projectId)}&days=${days}`;
+  getMetricsHistory(projectId: string, days: number = 30, repositoryName?: string): Observable<DoraMetricsDto[]> {
+    let url = `${this.apiUrl}/history?projectId=${encodeURIComponent(projectId)}&days=${days}`;
+    if (repositoryName) url += `&repositoryName=${encodeURIComponent(repositoryName)}`;
     console.log('[DoraMetricsService] GET request:', url);
     return this.http.get<DoraMetricsDto[]>(url);
   }

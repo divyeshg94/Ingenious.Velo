@@ -227,6 +227,10 @@ public class WebhookController(
             return Ok();
         }
 
+        // Resolve the repository name from previously-ingested runs for this pipeline.
+        // The webhook path has no ADO token, so we rely on the name resolved during sync.
+        var repoName = await ResolveRepoFromExistingRunsAsync(orgName, definitionId, cancellationToken);
+
         // Save the run
         var run = new PipelineRunDto
         {
@@ -244,6 +248,7 @@ public class WebhookController(
                 : null,
             IsDeployment = IsDeploymentPipeline(resource.Definition?.Name),
             TriggeredBy = triggeredBy,
+            RepositoryName = repoName,
             IngestedAt = DateTimeOffset.UtcNow
         };
 
@@ -468,6 +473,22 @@ public class WebhookController(
             .ToListAsync(cancellationToken);
 
         return candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+    }
+
+    /// <summary>
+    /// Looks up the repository name from previously-ingested runs for the same pipeline.
+    /// The webhook path has no ADO token, so we rely on the name resolved during sync.
+    /// Returns null if no previous run has a repository name set.
+    /// </summary>
+    private async Task<string?> ResolveRepoFromExistingRunsAsync(
+        string orgId, int adoPipelineId, CancellationToken cancellationToken)
+    {
+        return await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId && r.AdoPipelineId == adoPipelineId
+                     && r.RepositoryName != null && r.RepositoryName != string.Empty)
+            .Select(r => r.RepositoryName)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static bool IsDeploymentPipeline(string? name)
