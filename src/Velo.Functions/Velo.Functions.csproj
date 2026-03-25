@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Velo.Shared\Velo.Shared.csproj" />
+    <ProjectReference Include="..\Velo.SQL\Velo.SQL.csproj" />
   </ItemGroup>
 
 </Project>

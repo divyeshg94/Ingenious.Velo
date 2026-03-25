@@ -24,7 +24,7 @@ public class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationId
         context.Items["CorrelationId"] = correlationId;
 
         // Add to response headers
-        context.Response.Headers.Add(CorrelationIdHeader, correlationId);
+        context.Response.Headers.Append(CorrelationIdHeader, correlationId);
 
         // Push correlation ID to Serilog context (will be included in all logs for this request)
         using (LogContext.PushProperty("CorrelationId", correlationId))
