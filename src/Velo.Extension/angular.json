@@ -21,7 +21,7 @@
             "outputPath": "dist/velo-extension",
             "index": "src/index.html",
             "main": "src/main.ts",
-            "baseHref": "/",
+            "baseHref": "./",
             "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.json",
             "assets": [
