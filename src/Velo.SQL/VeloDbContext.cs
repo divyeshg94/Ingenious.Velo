@@ -16,6 +16,7 @@ public class VeloDbContext : DbContext
     public DbSet<PullRequestEvent> PullRequestEvents { get; set; } = null!;
     public DbSet<LogEvent> LogEvents { get; set; } = null!;
     public DbSet<TeamMapping> TeamMappings { get; set; } = null!;
+    public DbSet<ProjectMapping> ProjectMappings { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -147,6 +148,15 @@ public class VeloDbContext : DbContext
 
             eb.HasIndex(e => e.CorrelationId)
               .HasDatabaseName("IX_log_events_CorrelationId");
+        });
+
+        // ProjectMappings — no tenant query filter; table is org-scoped but not row-level-secured
+        modelBuilder.Entity<ProjectMapping>(eb =>
+        {
+            eb.Property(p => p.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            eb.HasIndex(p => new { p.OrgId, p.ProjectGuid })
+              .IsUnique()
+              .HasDatabaseName("IX_ProjectMappings_OrgId_ProjectGuid");
         });
 
         base.OnModelCreating(modelBuilder);

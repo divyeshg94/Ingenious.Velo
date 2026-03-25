@@ -1,8 +1,10 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Velo.Shared.Models.Ado;
 using Velo.Shared.Contracts;
 using Velo.Shared.Models;
+using Velo.SQL;
 
 namespace Velo.Api.Services;
 
@@ -14,7 +16,8 @@ public class AdoPipelineIngestService(
     IMetricsRepository repo,
     IHttpClientFactory httpClientFactory,
     DoraComputeService doraComputeService,
-    ILogger<AdoPipelineIngestService> logger)
+    ILogger<AdoPipelineIngestService> logger,
+    VeloDbContext dbContext)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
@@ -176,6 +179,37 @@ public class AdoPipelineIngestService(
         logger.LogInformation(
             "AUTO_SYNC: Found {Count} projects for OrgId={OrgId} — starting per-project ingest",
             projects.Value.Length, orgId);
+
+        // Persist GUID→name mappings so webhooks can resolve project names without an ADO token
+        foreach (var project in projects.Value)
+        {
+            try
+            {
+                var existing = await dbContext.ProjectMappings
+                    .FirstOrDefaultAsync(m => m.OrgId == orgId && m.ProjectGuid == project.Id, CancellationToken.None);
+                if (existing is null)
+                {
+                    dbContext.ProjectMappings.Add(new Velo.SQL.Models.ProjectMapping
+                    {
+                        OrgId = orgId,
+                        ProjectGuid = project.Id,
+                        ProjectName = project.Name,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                }
+                else
+                {
+                    existing.ProjectName = project.Name;
+                    existing.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "AUTO_SYNC: Failed to save project mapping for {Project}", project.Name);
+            }
+        }
+        try { await dbContext.SaveChangesAsync(CancellationToken.None); }
+        catch (Exception ex) { logger.LogWarning(ex, "AUTO_SYNC: Failed to persist project mappings"); }
 
         int total = 0;
         foreach (var project in projects.Value)
