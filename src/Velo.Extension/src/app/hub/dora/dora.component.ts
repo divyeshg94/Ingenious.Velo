@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
+import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
 
 interface MetricScore {
@@ -13,7 +15,7 @@ interface MetricScore {
 @Component({
   selector: 'velo-dora',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dora.component.html',
   styleUrls: ['./dora.component.scss']
 })
@@ -26,6 +28,9 @@ export class DoraComponent implements OnInit, OnDestroy {
   isSyncing = false;
   selectedProjectId: string | null = null;
   selectedDays = 90;
+  repositories: string[] = [];
+  teamMappings: TeamMappingDto[] = [];
+  selectedRepository: string | null = null;
 
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollAttempts = 0;
@@ -37,7 +42,7 @@ export class DoraComponent implements OnInit, OnDestroy {
     { label: '1 year', days: 365 },
   ];
 
-  constructor(private doraService: DoraMetricsService) {}
+  constructor(private doraService: DoraMetricsService, private teamMappingService: TeamMappingService) {}
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
@@ -54,12 +59,35 @@ export class DoraComponent implements OnInit, OnDestroy {
     }
 
     if (this.selectedProjectId) {
+      this.loadRepositories();
       this.loadHistory();
     }
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+  }
+
+  loadRepositories(): void {
+    if (!this.selectedProjectId) return;
+    this.teamMappingService.getMappings(this.selectedProjectId).subscribe({
+      next: mappings => this.teamMappings = mappings,
+      error: () => {}
+    });
+    this.teamMappingService.getRepositories(this.selectedProjectId).subscribe({
+      next: repos => this.repositories = repos,
+      error: () => {}
+    });
+  }
+
+  onRepositoryChange(repo: string | null): void {
+    this.selectedRepository = repo;
+    this.loadHistory();
+  }
+
+  getTeamLabel(repo: string): string {
+    const mapping = this.teamMappings.find(m => m.repositoryName === repo);
+    return mapping ? `${mapping.teamName} (${repo})` : repo;
   }
 
   loadHistory(): void {
@@ -72,7 +100,7 @@ export class DoraComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.gatheringMessage = '';
 
-    this.doraService.getMetricsHistory(this.selectedProjectId, this.selectedDays).subscribe({
+    this.doraService.getMetricsHistory(this.selectedProjectId, this.selectedDays, this.selectedRepository ?? undefined).subscribe({
       next: (data: any) => {
         this.isLoading = false;
 
@@ -143,7 +171,7 @@ export class DoraComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.doraService.getMetricsHistory(this.selectedProjectId!, this.selectedDays).subscribe({
+      this.doraService.getMetricsHistory(this.selectedProjectId!, this.selectedDays, this.selectedRepository ?? undefined).subscribe({
         next: (data: any) => {
           if (Array.isArray(data) && data.length > 0) {
             this.isSyncing = false;

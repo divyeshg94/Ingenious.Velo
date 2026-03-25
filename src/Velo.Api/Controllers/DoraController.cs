@@ -37,6 +37,8 @@ public class DoraController(
     [HttpGet("latest")]
     public async Task<ActionResult<DoraMetricsDto>> GetLatestMetrics(
         [FromQuery] string projectId,
+        [FromQuery] string? repositoryName = null,
+        [FromQuery] string? teamName = null,
         CancellationToken cancellationToken = default)
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
@@ -64,8 +66,9 @@ public class DoraController(
             }
 
             logger.LogInformation(
-                "AUDIT: Fetching latest DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, userId, correlationId);
+                "AUDIT: Fetching latest DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, " +
+                "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
 
             var metrics = await metricsRepository.GetLatestAsync(orgId, projectId, cancellationToken);
 
@@ -85,14 +88,17 @@ public class DoraController(
                     var capturedOrgId = orgId;
                     var capturedProjectId = projectId;
                     var capturedToken = adoToken;
+                    var capturedRepo = repositoryName;
+                    var capturedTeam = teamName;
 
                     _ = Task.Run(async () =>
                     {
                         try
                         {
                             logger.LogInformation(
-                                "AUTO_RECOVERY: Background sync triggered from dora/latest — OrgId={OrgId}, ProjectId={ProjectId}",
-                                capturedOrgId, capturedProjectId);
+                                "AUTO_RECOVERY: Background sync triggered from dora/latest — OrgId={OrgId}, ProjectId={ProjectId}, " +
+                                "RepositoryName={RepositoryName}, TeamName={TeamName}",
+                                capturedOrgId, capturedProjectId, capturedRepo ?? "(all)", capturedTeam ?? "(all)");
 
                             var ingested = await ingestService.IngestAsync(
                                 capturedOrgId, capturedProjectId, capturedToken, CancellationToken.None);
@@ -166,6 +172,8 @@ public class DoraController(
     public async Task<ActionResult<IEnumerable<DoraMetricsDto>>> GetMetricsHistory(
         [FromQuery] string projectId,
         [FromQuery] int days = 30,
+        [FromQuery] string? repositoryName = null,
+        [FromQuery] string? teamName = null,
         CancellationToken cancellationToken = default)
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
@@ -194,8 +202,9 @@ public class DoraController(
             }
 
             logger.LogInformation(
-                "AUDIT: Fetching DORA metrics history - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, days, userId, correlationId);
+                "AUDIT: Fetching DORA metrics history - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
+                "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                orgId, projectId, days, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
 
             var from = DateTimeOffset.UtcNow.AddDays(-days);
             var to = DateTimeOffset.UtcNow;
@@ -203,8 +212,9 @@ public class DoraController(
             var metrics = await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, cancellationToken);
 
             logger.LogInformation(
-                "AUDIT: Successfully returned {MetricsCount} historical DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                metrics.Count(), orgId, projectId, days, userId, correlationId);
+                "AUDIT: Successfully returned {MetricsCount} historical DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
+                "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
+                metrics.Count(), orgId, projectId, days, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
 
             return Ok(metrics);
         }

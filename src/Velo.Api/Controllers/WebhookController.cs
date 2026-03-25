@@ -216,6 +216,21 @@ public class WebhookController(
             }
         }
 
+        // Direct GUID lookup via ProjectMappings (works even before first sync runs per pipeline)
+        if (Guid.TryParse(projectName, out _))
+        {
+            var mapped = await dbContext.ProjectMappings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.OrgId == orgName && m.ProjectGuid == projectName, cancellationToken);
+            if (mapped is not null)
+            {
+                logger.LogInformation(
+                    "WEBHOOK: Resolved project GUID {Guid} -> {Name} via ProjectMappings table",
+                    projectName, mapped.ProjectName);
+                projectName = mapped.ProjectName;
+            }
+        }
+
         var runNumber = resource.BuildNumber ?? string.Empty;
 
         // Deduplicate
@@ -226,6 +241,10 @@ public class WebhookController(
                 orgName, projectName, runNumber);
             return Ok();
         }
+
+        // Resolve the repository name from previously-ingested runs for this pipeline.
+        // The webhook path has no ADO token, so we rely on the name resolved during sync.
+        var repoName = await ResolveRepoFromExistingRunsAsync(orgName, definitionId, cancellationToken);
 
         // Save the run
         var run = new PipelineRunDto
@@ -244,6 +263,7 @@ public class WebhookController(
                 : null,
             IsDeployment = IsDeploymentPipeline(resource.Definition?.Name),
             TriggeredBy = triggeredBy,
+            RepositoryName = repoName,
             IngestedAt = DateTimeOffset.UtcNow
         };
 
@@ -323,7 +343,7 @@ public class WebhookController(
         // Resolve project GUID → name if needed
         if (Guid.TryParse(projectName, out _))
         {
-            var resolved = await ResolveProjectNameFromPrAsync(orgName, cancellationToken);
+            var resolved = await ResolveProjectNameFromPrAsync(orgName, projectName, cancellationToken);
             if (!string.IsNullOrEmpty(resolved)) projectName = resolved;
         }
 
@@ -369,11 +389,13 @@ public class WebhookController(
 
     /// <summary>
     /// When a PR event arrives with a project GUID, try to resolve the human name
-    /// from existing PipelineRun records (which are stored with human names after sync).
+    /// from existing PipelineRun records (which are stored with human names after sync),
+    /// then fall back to the ProjectMappings table populated during sync.
     /// </summary>
     private async Task<string?> ResolveProjectNameFromPrAsync(
-        string orgId, CancellationToken cancellationToken)
+        string orgId, string projectGuid, CancellationToken cancellationToken)
     {
+        // First try: look for a non-GUID ProjectId in existing runs for this org
         var candidates = await dbContext.PipelineRuns
             .AsNoTracking()
             .Where(r => r.OrgId == orgId)
@@ -381,7 +403,14 @@ public class WebhookController(
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+        var fromRuns = candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+        if (!string.IsNullOrEmpty(fromRuns)) return fromRuns;
+
+        // Second try: look up the specific GUID in the ProjectMappings table
+        var mapping = await dbContext.ProjectMappings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.OrgId == orgId && m.ProjectGuid == projectGuid, cancellationToken);
+        return mapping?.ProjectName;
     }
 
     private static string ParseOrgName(string url)
@@ -460,6 +489,7 @@ public class WebhookController(
     private async Task<string?> ResolveProjectNameAsync(
         string orgId, int adoPipelineId, CancellationToken cancellationToken)
     {
+        // First try: look for a non-GUID ProjectId in existing runs for this pipeline
         var candidates = await dbContext.PipelineRuns
             .AsNoTracking()
             .Where(r => r.OrgId == orgId && r.AdoPipelineId == adoPipelineId)
@@ -467,7 +497,36 @@ public class WebhookController(
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+        var fromRuns = candidates.FirstOrDefault(p => !Guid.TryParse(p, out _));
+        if (!string.IsNullOrEmpty(fromRuns)) return fromRuns;
+
+        // Second try: look up any GUID candidate in the ProjectMappings table
+        var guidCandidates = candidates.Where(p => Guid.TryParse(p, out _)).ToList();
+        foreach (var guid in guidCandidates)
+        {
+            var mapping = await dbContext.ProjectMappings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.OrgId == orgId && m.ProjectGuid == guid, cancellationToken);
+            if (mapping is not null) return mapping.ProjectName;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Looks up the repository name from previously-ingested runs for the same pipeline.
+    /// The webhook path has no ADO token, so we rely on the name resolved during sync.
+    /// Returns null if no previous run has a repository name set.
+    /// </summary>
+    private async Task<string?> ResolveRepoFromExistingRunsAsync(
+        string orgId, int adoPipelineId, CancellationToken cancellationToken)
+    {
+        return await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId && r.AdoPipelineId == adoPipelineId
+                     && r.RepositoryName != null && r.RepositoryName != string.Empty)
+            .Select(r => r.RepositoryName)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static bool IsDeploymentPipeline(string? name)

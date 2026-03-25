@@ -27,10 +27,10 @@ export class TeamHealthService {
   constructor(private http: HttpClient) {}
 
   /** Fetch the latest team health snapshot for a project (auto-computes if none exists). */
-  getTeamHealth(projectId: string): Observable<TeamHealthDto> {
-    return this.http.get<TeamHealthDto>(
-      `${this.apiUrl}?projectId=${encodeURIComponent(projectId)}`
-    );
+  getTeamHealth(projectId: string, repositoryName?: string): Observable<TeamHealthDto> {
+    let url = `${this.apiUrl}?projectId=${encodeURIComponent(projectId)}`;
+    if (repositoryName) url += `&repositoryName=${encodeURIComponent(repositoryName)}`;
+    return this.http.get<TeamHealthDto>(url);
   }
 
   /** Force a fresh recomputation. Called when the user clicks "Refresh". */

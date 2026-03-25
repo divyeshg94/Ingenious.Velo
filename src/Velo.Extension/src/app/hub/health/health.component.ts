@@ -1,12 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { TeamHealthService, TeamHealthDto } from '../../shared/services/team-health.service';
+import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { isRunningInADO, getSDK } from '../../shared/services/sdk-initializer.service';
 
 @Component({
   selector: 'velo-health',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, DatePipe],
+  imports: [CommonModule, DecimalPipe, DatePipe, FormsModule],
   templateUrl: './health.component.html',
   styleUrls: ['./health.component.scss'],
 })
@@ -16,8 +18,11 @@ export class HealthComponent implements OnInit {
   isRecomputing = false;
   errorMessage = '';
   selectedProjectId: string | null = null;
+  repositories: string[] = [];
+  teamMappings: TeamMappingDto[] = [];
+  selectedRepository: string | null = null;
 
-  constructor(private healthService: TeamHealthService) {}
+  constructor(private healthService: TeamHealthService, private teamMappingService: TeamMappingService) {}
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
@@ -28,14 +33,39 @@ export class HealthComponent implements OnInit {
         sessionStorage.setItem('selectedProjectId', this.selectedProjectId!);
       }
     }
-    if (this.selectedProjectId) this.load();
+    if (this.selectedProjectId) {
+      this.loadRepositories();
+      this.load();
+    }
+  }
+
+  loadRepositories(): void {
+    if (!this.selectedProjectId) return;
+    this.teamMappingService.getMappings(this.selectedProjectId).subscribe({
+      next: mappings => this.teamMappings = mappings,
+      error: () => {}
+    });
+    this.teamMappingService.getRepositories(this.selectedProjectId).subscribe({
+      next: repos => this.repositories = repos,
+      error: () => {}
+    });
+  }
+
+  onRepositoryChange(repo: string | null): void {
+    this.selectedRepository = repo;
+    this.load();
+  }
+
+  getTeamLabel(repo: string): string {
+    const mapping = this.teamMappings.find(m => m.repositoryName === repo);
+    return mapping ? `${mapping.teamName} (${repo})` : repo;
   }
 
   load(): void {
     if (!this.selectedProjectId) return;
     this.isLoading = true;
     this.errorMessage = '';
-    this.healthService.getTeamHealth(this.selectedProjectId).subscribe({
+    this.healthService.getTeamHealth(this.selectedProjectId, this.selectedRepository ?? undefined).subscribe({
       next: (h) => { this.health = h; this.isLoading = false; },
       error: (err) => {
         this.errorMessage = err.message || 'Failed to load team health metrics.';

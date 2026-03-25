@@ -90,6 +90,26 @@
       </div>
     </div>
 
+    <!-- Repository / Team filter -->
+    <div class="filter-bar" *ngIf="repositories.length > 0">
+      <label class="filter-bar__label">Filter by repository</label>
+      <div class="filter-bar__chips">
+        <button
+          class="chip"
+          [class.chip--active]="selectedRepository === null"
+          (click)="onRepositoryChange(null)">
+          All repos
+        </button>
+        <button
+          *ngFor="let repo of repositories"
+          class="chip"
+          [class.chip--active]="selectedRepository === repo"
+          (click)="onRepositoryChange(repo)">
+          {{ getTeamLabel(repo) }}
+        </button>
+      </div>
+    </div>
+
     <!-- ── Multi-Metric Trend Chart ──────────────────────── -->
     <div class="trend-chart" *ngIf="history.length >= 2">
       <div class="panel-header">

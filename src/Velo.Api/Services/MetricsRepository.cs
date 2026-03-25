@@ -153,7 +153,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 IsDeployment = runDto.IsDeployment,
                 StageName = runDto.StageName,
                 TriggeredBy = runDto.TriggeredBy,
-                IngestedAt = runDto.IngestedAt
+                IngestedAt = runDto.IngestedAt,
+                RepositoryName = runDto.RepositoryName
             };
 
             dbContext.PipelineRuns.Add(run);
@@ -430,7 +431,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         IsDeployment = run.IsDeployment,
         StageName = run.StageName,
         TriggeredBy = run.TriggeredBy,
-        IngestedAt = run.IngestedAt
+        IngestedAt = run.IngestedAt,
+        RepositoryName = run.RepositoryName
     };
 
     private static TeamHealthDto MapTeamHealthToDto(TeamHealth health) => new()
@@ -462,4 +464,102 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         LastSeenAt = org.LastSeenAt,
         LastSyncedAt = org.LastSyncedAt
     };
+
+    // ── Repository Discovery ───────────────────────────────────────────────────────
+
+    public async Task<IEnumerable<string>> GetDistinctRepositoriesAsync(
+        string orgId, string projectId, CancellationToken cancellationToken)
+    {
+        return await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId && r.ProjectId == projectId
+                     && r.RepositoryName != null && r.RepositoryName != string.Empty)
+            .Select(r => r.RepositoryName!)
+            .Distinct()
+            .OrderBy(r => r)
+            .ToListAsync(cancellationToken);
+    }
+
+    // ── Team Mappings ──────────────────────────────────────────────────────────────
+
+    public async Task<IEnumerable<TeamMappingDto>> GetTeamMappingsAsync(
+        string orgId, string projectId, CancellationToken cancellationToken)
+    {
+        var mappings = await dbContext.TeamMappings
+            .AsNoTracking()
+            .Where(m => m.OrgId == orgId && m.ProjectId == projectId && !m.IsDeleted)
+            .OrderBy(m => m.TeamName).ThenBy(m => m.RepositoryName)
+            .ToListAsync(cancellationToken);
+
+        return mappings.Select(m => new TeamMappingDto
+        {
+            Id = m.Id,
+            OrgId = m.OrgId,
+            ProjectId = m.ProjectId,
+            RepositoryName = m.RepositoryName,
+            TeamName = m.TeamName
+        });
+    }
+
+    public async Task<TeamMappingDto?> GetTeamMappingAsync(
+        string orgId, string projectId, string repositoryName, CancellationToken cancellationToken)
+    {
+        var m = await dbContext.TeamMappings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.OrgId == orgId && m.ProjectId == projectId
+                && m.RepositoryName == repositoryName && !m.IsDeleted, cancellationToken);
+
+        return m is null ? null : new TeamMappingDto
+        {
+            Id = m.Id,
+            OrgId = m.OrgId,
+            ProjectId = m.ProjectId,
+            RepositoryName = m.RepositoryName,
+            TeamName = m.TeamName
+        };
+    }
+
+    public async Task SaveTeamMappingAsync(TeamMappingDto dto, CancellationToken cancellationToken)
+    {
+        // Upsert: find existing active mapping for this repo
+        var existing = await dbContext.TeamMappings
+            .FirstOrDefaultAsync(m => m.OrgId == dto.OrgId && m.ProjectId == dto.ProjectId
+                && m.RepositoryName == dto.RepositoryName && !m.IsDeleted, cancellationToken);
+
+        if (existing is not null)
+        {
+            existing.TeamName = dto.TeamName;
+            existing.ModifiedBy = "api";
+            existing.ModifiedDate = DateTimeOffset.UtcNow;
+        }
+        else
+        {
+            dbContext.TeamMappings.Add(new Velo.SQL.Models.TeamMapping
+            {
+                Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                OrgId = dto.OrgId,
+                ProjectId = dto.ProjectId,
+                RepositoryName = dto.RepositoryName,
+                TeamName = dto.TeamName,
+                CreatedBy = "api",
+                ModifiedBy = "api",
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteTeamMappingAsync(Guid id, string orgId, CancellationToken cancellationToken)
+    {
+        var mapping = await dbContext.TeamMappings
+            .FirstOrDefaultAsync(m => m.Id == id && m.OrgId == orgId, cancellationToken);
+
+        if (mapping is not null)
+        {
+            mapping.IsDeleted = true;
+            mapping.ModifiedBy = "api";
+            mapping.ModifiedDate = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

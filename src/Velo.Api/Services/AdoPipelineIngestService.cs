@@ -1,8 +1,10 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Velo.Shared.Models.Ado;
 using Velo.Shared.Contracts;
 using Velo.Shared.Models;
+using Velo.SQL;
 
 namespace Velo.Api.Services;
 
@@ -14,7 +16,8 @@ public class AdoPipelineIngestService(
     IMetricsRepository repo,
     IHttpClientFactory httpClientFactory,
     DoraComputeService doraComputeService,
-    ILogger<AdoPipelineIngestService> logger)
+    ILogger<AdoPipelineIngestService> logger,
+    VeloDbContext dbContext)
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
@@ -71,6 +74,7 @@ public class AdoPipelineIngestService(
             builds.Value.Length, orgId, projectId);
 
         int saved = 0;
+        Dictionary<int, string?> repoCache = new();
         foreach (var build in builds.Value)
         {
             if (build.StartTime == null || build.FinishTime == null) continue;
@@ -79,6 +83,13 @@ public class AdoPipelineIngestService(
             var alreadyExists = await repo.RunExistsAsync(
                 orgId, projectId, build.Definition?.Id ?? 0, build.BuildNumber ?? string.Empty, cancellationToken);
             if (alreadyExists) continue;
+
+            var defId = build.Definition?.Id ?? 0;
+            if (!repoCache.TryGetValue(defId, out var repoName))
+            {
+                repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
+                repoCache[defId] = repoName;
+            }
 
             var run = new PipelineRunDto
             {
@@ -96,6 +107,7 @@ public class AdoPipelineIngestService(
                     : null,
                 IsDeployment = IsDeploymentPipeline(build),
                 TriggeredBy = build.RequestedBy?.DisplayName,
+                RepositoryName = repoName,
                 IngestedAt = DateTimeOffset.UtcNow
             };
 
@@ -168,6 +180,37 @@ public class AdoPipelineIngestService(
             "AUTO_SYNC: Found {Count} projects for OrgId={OrgId} — starting per-project ingest",
             projects.Value.Length, orgId);
 
+        // Persist GUID→name mappings so webhooks can resolve project names without an ADO token
+        foreach (var project in projects.Value)
+        {
+            try
+            {
+                var existing = await dbContext.ProjectMappings
+                    .FirstOrDefaultAsync(m => m.OrgId == orgId && m.ProjectGuid == project.Id, CancellationToken.None);
+                if (existing is null)
+                {
+                    dbContext.ProjectMappings.Add(new Velo.SQL.Models.ProjectMapping
+                    {
+                        OrgId = orgId,
+                        ProjectGuid = project.Id,
+                        ProjectName = project.Name,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                }
+                else
+                {
+                    existing.ProjectName = project.Name;
+                    existing.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "AUTO_SYNC: Failed to save project mapping for {Project}", project.Name);
+            }
+        }
+        try { await dbContext.SaveChangesAsync(CancellationToken.None); }
+        catch (Exception ex) { logger.LogWarning(ex, "AUTO_SYNC: Failed to persist project mappings"); }
+
         int total = 0;
         foreach (var project in projects.Value)
         {
@@ -195,6 +238,31 @@ public class AdoPipelineIngestService(
             total, projects.Value.Length, orgId);
 
         return total;
+    }
+
+    private async Task<string?> ResolveRepositoryNameAsync(
+        string orgId, string projectId, int definitionId, string adoAccessToken,
+        HttpClient http, CancellationToken cancellationToken)
+    {
+        if (definitionId == 0) return null;
+
+        var url = $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
+                  $"/_apis/build/definitions/{definitionId}?api-version=7.1&$select=repository";
+
+        try
+        {
+            var response = await http.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var definition = JsonSerializer.Deserialize<AdoBuildDefinition>(json, _json);
+            return definition?.Repository?.Name;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "ADO_INGEST: Could not resolve repository for definition {Id}", definitionId);
+            return null;
+        }
     }
 
     // Heuristic: pipelines with "deploy", "release", "prod" in their name are deployments

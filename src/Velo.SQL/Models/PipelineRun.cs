@@ -38,5 +38,8 @@ public class PipelineRun : AuditableEntity
     [MaxLength(200)]
     public string? TriggeredBy { get; set; }
 
+    [MaxLength(200)]
+    public string? RepositoryName { get; set; }
+
     public DateTimeOffset IngestedAt { get; set; } = DateTimeOffset.UtcNow;
 }
