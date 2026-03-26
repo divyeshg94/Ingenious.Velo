@@ -11,7 +11,9 @@ using Velo.Shared.Contracts;
 using Velo.SQL;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Velo.Agent;
 using Velo.Api.Interface;
+using Velo.Api.Services;
 
 // Bootstrap logger — console only, used until the host is built and
 // the full configuration (including MSSqlServer sink) is loaded.
@@ -47,6 +49,8 @@ try
     // Application services
     builder.Services.AddScoped<IPipelineService, PipelineService>();
     builder.Services.AddScoped<IAgentService, AgentService>();
+    builder.Services.AddScoped<IAgentConfigService, AgentConfigService>();
+    builder.Services.AddScoped<IAgentDataProvider, DbAgentDataProvider>();
     builder.Services.AddScoped<IConnectionService, ConnectionService>();
     builder.Services.AddScoped<IMetricsRepository, MetricsRepository>();
     builder.Services.AddScoped<IProjectService, ProjectService>();

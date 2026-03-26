@@ -24,6 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.AI.Projects" Version="1.*" />
+    <PackageReference Include="Azure.Identity" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Velo.Agent\Velo.Agent.csproj" />
     <ProjectReference Include="..\Velo.Shared\Velo.Shared.csproj" />
     <ProjectReference Include="..\Velo.SQL\Velo.SQL.csproj" />
   </ItemGroup>
