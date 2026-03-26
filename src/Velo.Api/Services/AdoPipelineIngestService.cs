@@ -79,24 +79,26 @@ public class AdoPipelineIngestService(
         {
             if (build.StartTime == null || build.FinishTime == null) continue;
 
-            // Skip if already stored
-            var alreadyExists = await repo.RunExistsAsync(
-                orgId, projectId, build.Definition?.Id ?? 0, build.BuildNumber ?? string.Empty, cancellationToken);
-            if (alreadyExists) continue;
-
             var defId = build.Definition?.Id ?? 0;
+
+            // Resolve repo name once per definition (cached for the whole sync pass)
             if (!repoCache.TryGetValue(defId, out var repoName))
             {
                 repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
                 repoCache[defId] = repoName;
             }
 
+            // Skip if already stored
+            var alreadyExists = await repo.RunExistsAsync(
+                orgId, projectId, defId, build.BuildNumber ?? string.Empty, cancellationToken);
+            if (alreadyExists) continue;
+
             var run = new PipelineRunDto
             {
                 Id = Guid.NewGuid(),
                 OrgId = orgId,
                 ProjectId = projectId,
-                AdoPipelineId = build.Definition?.Id ?? 0,
+                AdoPipelineId = defId,
                 PipelineName = build.Definition?.Name ?? "Unknown",
                 RunNumber = build.BuildNumber ?? string.Empty,
                 Result = build.Result ?? "unknown",
@@ -114,6 +116,26 @@ public class AdoPipelineIngestService(
             await repo.SaveRunAsync(run, cancellationToken);
             saved++;
         }
+
+        // Backfill RepositoryName on pre-existing runs that were ingested before the column existed.
+        // Resolve each distinct pipeline definition that still has NULL and bulk-update in one pass.
+        var nullRepoPipelineIds = await repo.GetPipelineIdsWithNullRepositoryAsync(orgId, projectId, cancellationToken);
+        int backfilled = 0;
+        foreach (var defId in nullRepoPipelineIds)
+        {
+            if (!repoCache.TryGetValue(defId, out var repoName))
+            {
+                repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
+                repoCache[defId] = repoName;
+            }
+            if (string.IsNullOrEmpty(repoName)) continue;
+            await repo.BackfillRepositoryNameAsync(orgId, projectId, defId, repoName, cancellationToken);
+            backfilled++;
+        }
+        if (backfilled > 0)
+            logger.LogInformation(
+                "ADO_INGEST: Backfilled RepositoryName for {Count} pipeline definition(s). OrgId={OrgId}, ProjectId={ProjectId}",
+                backfilled, orgId, projectId);
 
         logger.LogInformation(
             "ADO_INGEST: Saved {Saved}/{Total} runs for OrgId={OrgId}, ProjectId={ProjectId}",

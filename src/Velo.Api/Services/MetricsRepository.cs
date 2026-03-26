@@ -467,6 +467,40 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
     // ── Repository Discovery ───────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Returns all distinct pipeline definition IDs whose runs have a NULL RepositoryName
+    /// for the given org/project — used during sync to backfill the column.
+    /// </summary>
+    public async Task<IEnumerable<int>> GetPipelineIdsWithNullRepositoryAsync(
+        string orgId, string projectId, CancellationToken cancellationToken)
+    {
+        return await dbContext.PipelineRuns
+            .AsNoTracking()
+            .Where(r => r.OrgId == orgId && r.ProjectId == projectId
+                     && (r.RepositoryName == null || r.RepositoryName == string.Empty))
+            .Select(r => r.AdoPipelineId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets RepositoryName on all runs for a given pipeline definition that currently have NULL.
+    /// </summary>
+    public async Task BackfillRepositoryNameAsync(
+        string orgId, string projectId, int adoPipelineId, string repositoryName,
+        CancellationToken cancellationToken)
+    {
+        var runs = await dbContext.PipelineRuns
+            .Where(r => r.OrgId == orgId && r.ProjectId == projectId
+                     && r.AdoPipelineId == adoPipelineId
+                     && (r.RepositoryName == null || r.RepositoryName == string.Empty))
+            .ToListAsync(cancellationToken);
+
+        if (runs.Count == 0) return;
+        foreach (var r in runs) r.RepositoryName = repositoryName;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<string>> GetDistinctRepositoriesAsync(
         string orgId, string projectId, CancellationToken cancellationToken)
     {

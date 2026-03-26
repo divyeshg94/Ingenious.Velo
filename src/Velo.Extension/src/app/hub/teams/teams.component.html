@@ -146,7 +146,8 @@
               <option *ngFor="let r of rows" [value]="r.repositoryName">{{ r.repositoryName }}</option>
             </optgroup>
           </select>
-          <p *ngIf="repositories.length === 0" class="form-hint">
+          <!-- always rendered to keep row height stable; hidden when repos are present -->
+          <p class="form-hint" [style.visibility]="repositories.length === 0 ? 'visible' : 'hidden'">
             No repositories found. Run a sync first so pipeline runs are ingested.
           </p>
         </div>

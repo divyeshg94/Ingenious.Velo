@@ -39,5 +39,7 @@ public interface IMetricsRepository
 
     // Repository discovery
     Task<IEnumerable<string>> GetDistinctRepositoriesAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    Task<IEnumerable<int>> GetPipelineIdsWithNullRepositoryAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    Task BackfillRepositoryNameAsync(string orgId, string projectId, int adoPipelineId, string repositoryName, CancellationToken cancellationToken);
 }
 
