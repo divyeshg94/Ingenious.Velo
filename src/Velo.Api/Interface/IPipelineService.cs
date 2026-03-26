@@ -37,7 +37,8 @@ public class PipelineService(VeloDbContext db) : IPipelineService
             IsDeployment = r.IsDeployment,
             StageName = r.StageName,
             TriggeredBy = r.TriggeredBy,
-            IngestedAt = r.IngestedAt
+            IngestedAt = r.IngestedAt,
+            RepositoryName = r.RepositoryName
         });
     }
 }

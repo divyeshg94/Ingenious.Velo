@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
+import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
 
 interface MetricScore {
@@ -13,7 +15,7 @@ interface MetricScore {
 @Component({
   selector: 'velo-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -23,8 +25,11 @@ export class DashboardComponent implements OnInit {
   errorMessage = '';
   gatheringMessage = '';
   selectedProjectId: string | null = null;
+  repositories: string[] = [];
+  teamMappings: TeamMappingDto[] = [];
+  selectedRepository: string | null = null;
 
-  constructor(private doraService: DoraMetricsService) {}
+  constructor(private doraService: DoraMetricsService, private teamMappingService: TeamMappingService) {}
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
@@ -44,8 +49,31 @@ export class DashboardComponent implements OnInit {
     }
 
     if (this.selectedProjectId) {
+      this.loadRepositories();
       this.loadMetrics();
     }
+  }
+
+  loadRepositories(): void {
+    if (!this.selectedProjectId) return;
+    this.teamMappingService.getMappings(this.selectedProjectId).subscribe({
+      next: mappings => this.teamMappings = mappings,
+      error: () => {}
+    });
+    this.teamMappingService.getRepositories(this.selectedProjectId).subscribe({
+      next: repos => this.repositories = repos,
+      error: () => {}
+    });
+  }
+
+  onRepositoryChange(repo: string | null): void {
+    this.selectedRepository = repo;
+    this.loadMetrics();
+  }
+
+  getTeamLabel(repo: string): string {
+    const mapping = this.teamMappings.find(m => m.repositoryName === repo);
+    return mapping ? `${mapping.teamName} (${repo})` : repo;
   }
 
   loadMetrics(): void {
@@ -58,7 +86,7 @@ export class DashboardComponent implements OnInit {
     this.errorMessage = '';
     this.gatheringMessage = '';
 
-    this.doraService.getLatestMetrics(this.selectedProjectId).subscribe({
+    this.doraService.getLatestMetrics(this.selectedProjectId, this.selectedRepository ?? undefined).subscribe({
       next: (response: any) => {
         if (response?.status === 'gathering') {
           this.gatheringMessage = response.message;
