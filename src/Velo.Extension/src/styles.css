@@ -176,3 +176,67 @@ a:hover {
   background-color: var(--card-background);
   border-color: var(--text-secondary-color);
 }
+
+/* ── Shared filter bar (DORA, Health, Pipelines) ─────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 16px;
+}
+
+.filter-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.filter-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Filter toggle chip — inactive */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--card-background);
+  color: var(--text-secondary-color);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.filter-chip:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: rgba(0, 120, 212, 0.05);
+}
+
+/* Filter toggle chip — active/selected */
+.filter-chip--active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.filter-chip--active:hover {
+  opacity: 0.9;
+  color: #ffffff;
+}

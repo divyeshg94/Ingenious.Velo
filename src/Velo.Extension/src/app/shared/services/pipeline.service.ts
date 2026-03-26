@@ -17,6 +17,7 @@ export interface PipelineRunDto {
   isDeployment: boolean;
   stageName?: string;
   triggeredBy?: string;
+  repositoryName?: string;
   ingestedAt: string;
 }
 

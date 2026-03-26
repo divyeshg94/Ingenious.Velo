@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PipelineService, PipelineRunDto } from '../../shared/services/pipeline.service';
+import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 
 @Component({
   selector: 'velo-pipelines',
@@ -19,18 +20,47 @@ export class PipelinesComponent implements OnInit {
   page = 1;
   pageSize = 50;
   hasMore = false;
+  repositories: string[] = [];
+  teamMappings: TeamMappingDto[] = [];
+  selectedRepository: string | null = null;
 
   get filteredRuns(): PipelineRunDto[] {
-    return this.showDeploymentsOnly ? this.runs.filter(r => r.isDeployment) : this.runs;
+    let runs = this.showDeploymentsOnly ? this.runs.filter(r => r.isDeployment) : this.runs;
+    if (this.selectedRepository) {
+      runs = runs.filter(r => r.repositoryName === this.selectedRepository);
+    }
+    return runs;
   }
 
-  constructor(private pipelineService: PipelineService) {}
+  constructor(private pipelineService: PipelineService, private teamMappingService: TeamMappingService) {}
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
     if (this.selectedProjectId) {
+      this.loadRepositories();
       this.loadRuns();
     }
+  }
+
+  loadRepositories(): void {
+    if (!this.selectedProjectId) return;
+    this.teamMappingService.getMappings(this.selectedProjectId).subscribe({
+      next: mappings => this.teamMappings = mappings,
+      error: () => {}
+    });
+    this.teamMappingService.getRepositories(this.selectedProjectId).subscribe({
+      next: repos => this.repositories = repos,
+      error: () => {}
+    });
+  }
+
+  onRepositoryChange(repo: string | null): void {
+    this.selectedRepository = repo;
+  }
+
+  getTeamLabel(repo: string): string {
+    const mapping = this.teamMappings.find(m => m.repositoryName === repo);
+    return mapping ? `${mapping.teamName} (${repo})` : repo;
   }
 
   loadRuns(): void {

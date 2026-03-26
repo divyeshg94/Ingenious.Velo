@@ -92,18 +92,18 @@
 
     <!-- Repository / Team filter -->
     <div class="filter-bar" *ngIf="repositories.length > 0">
-      <label class="filter-bar__label">Filter by repository</label>
+      <span class="filter-bar__label">Filter by team / repo</span>
       <div class="filter-bar__chips">
         <button
-          class="chip"
-          [class.chip--active]="selectedRepository === null"
+          class="filter-chip"
+          [class.filter-chip--active]="selectedRepository === null"
           (click)="onRepositoryChange(null)">
           All repos
         </button>
         <button
           *ngFor="let repo of repositories"
-          class="chip"
-          [class.chip--active]="selectedRepository === repo"
+          class="filter-chip"
+          [class.filter-chip--active]="selectedRepository === repo"
           (click)="onRepositoryChange(repo)">
           {{ getTeamLabel(repo) }}
         </button>

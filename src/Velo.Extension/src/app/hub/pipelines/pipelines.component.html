@@ -50,6 +50,26 @@
       </span>
     </div>
 
+    <!-- Repository / Team filter -->
+    <div class="filter-bar" *ngIf="repositories.length > 0">
+      <span class="filter-bar__label">Filter by team / repo</span>
+      <div class="filter-bar__chips">
+        <button
+          class="filter-chip"
+          [class.filter-chip--active]="selectedRepository === null"
+          (click)="onRepositoryChange(null)">
+          All repos
+        </button>
+        <button
+          *ngFor="let repo of repositories"
+          class="filter-chip"
+          [class.filter-chip--active]="selectedRepository === repo"
+          (click)="onRepositoryChange(repo)">
+          {{ getTeamLabel(repo) }}
+        </button>
+      </div>
+    </div>
+
     <!-- Error -->
     <div *ngIf="errorMessage" class="pipes-alert pipes-alert--error">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
