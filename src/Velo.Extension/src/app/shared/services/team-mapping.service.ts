@@ -3,6 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+/** Nil GUID sent to the API to signal "generate a new ID server-side". */
+export const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+
 export interface TeamMappingDto {
   id: string;
   orgId: string;
@@ -26,7 +29,9 @@ export class TeamMappingService {
   }
 
   saveMapping(dto: TeamMappingDto): Observable<TeamMappingDto> {
-    return this.http.post<TeamMappingDto>(this.apiUrl, dto);
+    // Ensure id is always a valid GUID string; empty string breaks .NET model binding.
+    const payload = { ...dto, id: dto.id || EMPTY_GUID };
+    return this.http.post<TeamMappingDto>(this.apiUrl, payload);
   }
 
   deleteMapping(id: string): Observable<void> {
