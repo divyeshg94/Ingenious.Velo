@@ -11,10 +11,48 @@ namespace Velo.SQL.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameIndex(
-                name: "IX_PullRequestEvents_OrgId_ProjectId_CreatedAt",
-                table: "PullRequestEvents",
-                newName: "IX_PullRequestEvents_OrgId_ProjectId_CreatedAt_DESC");
+            // PullRequestEvents was introduced by a hand-written migration that may never have
+            // been applied to the database.  Create it if absent; otherwise just rename the index.
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[PullRequestEvents]') AND type = 'U')
+BEGIN
+    CREATE TABLE [PullRequestEvents] (
+        [Id]            uniqueidentifier NOT NULL,
+        [OrgId]         nvarchar(100)    NOT NULL,
+        [ProjectId]     nvarchar(100)    NOT NULL,
+        [PrId]          int              NOT NULL,
+        [Title]         nvarchar(500)    NULL,
+        [Status]        nvarchar(50)     NOT NULL,
+        [SourceBranch]  nvarchar(500)    NULL,
+        [TargetBranch]  nvarchar(500)    NULL,
+        [CreatedAt]     datetimeoffset   NOT NULL,
+        [ClosedAt]      datetimeoffset   NULL,
+        [IsApproved]    bit              NOT NULL DEFAULT CAST(0 AS bit),
+        [ReviewerCount] int              NOT NULL DEFAULT 0,
+        [IngestedAt]    datetimeoffset   NOT NULL,
+        [CreatedBy]     nvarchar(200)    NULL,
+        [CreatedDate]   datetimeoffset   NOT NULL DEFAULT (SYSUTCDATETIME()),
+        [ModifiedBy]    nvarchar(200)    NULL,
+        [ModifiedDate]  datetimeoffset   NULL,
+        [IsDeleted]     bit              NOT NULL DEFAULT CAST(0 AS bit),
+        CONSTRAINT [PK_PullRequestEvents] PRIMARY KEY ([Id])
+    );
+    CREATE INDEX [IX_PullRequestEvents_OrgId_ProjectId_CreatedAt_DESC]
+        ON [PullRequestEvents] ([OrgId], [ProjectId], [CreatedAt] DESC);
+    CREATE INDEX [IX_PullRequestEvents_OrgId_PrId_Status]
+        ON [PullRequestEvents] ([OrgId], [PrId], [Status]);
+END
+ELSE IF EXISTS (
+    SELECT 1 FROM sys.indexes i
+    JOIN  sys.objects  o ON i.object_id = o.object_id
+    WHERE o.name = 'PullRequestEvents'
+      AND i.name = 'IX_PullRequestEvents_OrgId_ProjectId_CreatedAt'
+)
+BEGIN
+    EXEC sp_rename N'[PullRequestEvents].[IX_PullRequestEvents_OrgId_ProjectId_CreatedAt]',
+                   N'IX_PullRequestEvents_OrgId_ProjectId_CreatedAt_DESC', 'INDEX';
+END;
+");
 
             migrationBuilder.AddColumn<string>(
                 name: "RepositoryName",
