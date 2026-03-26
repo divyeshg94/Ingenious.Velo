@@ -37,6 +37,11 @@ export const routes: Routes = [
       import('./hub/connections/connections.component').then((m) => m.ConnectionsComponent),
   },
   {
+    path: 'teams',
+    loadComponent: () =>
+      import('./hub/teams/teams.component').then((m) => m.TeamsComponent),
+  },
+  {
     path: '**',
     redirectTo: 'dashboard',
   },

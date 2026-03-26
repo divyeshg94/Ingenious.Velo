@@ -1,0 +1,212 @@
+// ═══════════════════════════════════════════════════════════
+// Velo Team Mappings — component styles
+// ═══════════════════════════════════════════════════════════
+
+.velo-teams { min-height: 100%; }
+
+// ── Loading / empty states ────────────────────────────────
+.teams-state {
+  display: flex; align-items: center; gap: 10px;
+  justify-content: center; padding: 72px 20px;
+}
+.state-label { font-size: 13px; color: var(--text-secondary-color); margin: 0; }
+
+.teams-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 80px 20px; text-align: center;
+  gap: 8px;
+  &__icon { color: var(--text-disabled-color); }
+  &__title { font-size: 17px; font-weight: 600; color: var(--heading-color); margin: 0; }
+  &__sub   { font-size: 13px; color: var(--text-secondary-color); max-width: 340px; margin: 0; }
+}
+
+// ── Spinner ───────────────────────────────────────────────
+.spinner {
+  display: inline-block;
+  width: 22px; height: 22px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin .75s linear infinite;
+  &--sm { width: 12px; height: 12px; border-width: 2px; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+// ── Alerts ────────────────────────────────────────────────
+.teams-alert {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 4px; font-size: 12px;
+  margin-bottom: 12px;
+  &--error   { background: rgba(239,68,68,.08);  border-left: 3px solid #ef4444; color: var(--text-primary-color); }
+  &--success { background: rgba(34,197,94,.08);  border-left: 3px solid #22c55e; color: var(--text-primary-color); }
+}
+
+// ── Breadcrumb ────────────────────────────────────────────
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-secondary-color); margin-bottom: 6px;
+  &__sep { opacity: .5; }
+  &__current { color: var(--text-primary-color); font-weight: 500; }
+}
+
+// ── Header ────────────────────────────────────────────────
+.teams-header {
+  margin-bottom: 20px;
+  &__row { display: flex; align-items: flex-start; justify-content: space-between; }
+}
+.teams-title    { font-size: 20px; font-weight: 700; color: var(--heading-color); margin: 0 0 4px; }
+.teams-subtitle { font-size: 13px; color: var(--text-secondary-color); margin: 0; max-width: 560px; }
+
+// ── Card ──────────────────────────────────────────────────
+.teams-card {
+  background: var(--card-background, #fff);
+  border: 1px solid var(--card-border, rgba(0,0,0,.1));
+  border-radius: 6px;
+  margin-bottom: 16px;
+  overflow: hidden;
+
+  &__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-color);
+  }
+  &__title {
+    font-size: 13px; font-weight: 600; color: var(--heading-color);
+  }
+
+  &--add .teams-card__header { border-bottom: 1px solid var(--border-color); }
+}
+
+.teams-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  background: var(--primary-color); color: #fff;
+  font-size: 11px; font-weight: 600;
+}
+
+// ── Table ─────────────────────────────────────────────────
+.table-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 32px; color: var(--text-secondary-color);
+  font-size: 13px;
+  svg { opacity: .4; }
+}
+
+.mapping-table {
+  width: 100%; border-collapse: collapse;
+
+  thead tr {
+    background: var(--background-color);
+  }
+  th {
+    padding: 8px 16px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-secondary-color);
+    text-align: left; border-bottom: 1px solid var(--border-color);
+  }
+  td {
+    padding: 10px 16px; font-size: 13px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--background-color); }
+  tr.row--editing td { background: rgba(0,120,212,.03); }
+
+  .col-actions { width: 180px; text-align: right; }
+}
+
+.cell-repo {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 12px; color: var(--text-primary-color);
+  td & { display: table-cell; }
+}
+.repo-icon { opacity: .5; flex-shrink: 0; vertical-align: middle; margin-right: 6px; }
+
+.team-chip {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  background: rgba(0,120,212,.1); color: var(--primary-color);
+  font-size: 12px; font-weight: 600;
+}
+
+.team-input {
+  width: 100%; max-width: 220px;
+  padding: 5px 8px; border-radius: 3px;
+  border: 1px solid var(--primary-color);
+  background: var(--background-color);
+  color: var(--text-primary-color);
+  font-size: 12px; outline: none;
+  &:focus { box-shadow: 0 0 0 2px rgba(0,120,212,.2); }
+}
+
+.cell-actions {
+  text-align: right;
+  display: flex; justify-content: flex-end; gap: 6px; flex-wrap: nowrap;
+  td & { display: table-cell; }
+}
+
+// ── Buttons ───────────────────────────────────────────────
+.btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid transparent; border-radius: 3px;
+  cursor: pointer; font-size: 12px; font-weight: 600;
+  padding: 5px 10px; transition: opacity .15s, background .15s;
+  &:disabled { opacity: .5; cursor: not-allowed; }
+
+  &--primary {
+    background: var(--primary-color, #0078d4); color: #fff;
+    border-color: var(--primary-color, #0078d4);
+    &:hover:not(:disabled) { opacity: .88; }
+  }
+  &--ghost {
+    background: transparent; color: var(--text-primary-color);
+    border-color: var(--border-color);
+    &:hover:not(:disabled) { background: var(--background-color); }
+  }
+  &--danger {
+    background: transparent; color: #ef4444;
+    border-color: rgba(239,68,68,.3);
+    &:hover:not(:disabled) { background: rgba(239,68,68,.06); }
+  }
+  &--lg { padding: 8px 16px; font-size: 13px; }
+}
+
+// ── Add form ──────────────────────────────────────────────
+.add-form {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  padding: 16px;
+}
+
+.form-field {
+  display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 180px;
+
+  &--action { flex: 0 0 auto; padding-bottom: 1px; }
+}
+.form-label {
+  font-size: 11px; font-weight: 600; color: var(--text-secondary-color);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.form-hint {
+  font-size: 11px; color: var(--text-secondary-color); margin: 2px 0 0;
+}
+.form-select,
+.form-input {
+  padding: 7px 10px; border-radius: 3px;
+  border: 1px solid var(--border-color);
+  background: var(--background-color);
+  color: var(--text-primary-color);
+  font-size: 13px; outline: none;
+  &:focus { border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(0,120,212,.15); }
+}
+.form-select { min-width: 220px; }
+
+// ── Info banner ───────────────────────────────────────────
+.teams-info {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 12px 14px; border-radius: 4px;
+  background: rgba(0,120,212,.06); border: 1px solid rgba(0,120,212,.2);
+  font-size: 12px; color: var(--text-secondary-color); line-height: 1.5;
+  svg { flex-shrink: 0; margin-top: 1px; color: var(--primary-color); }
+  strong { color: var(--text-primary-color); }
+}

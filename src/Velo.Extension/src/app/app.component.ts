@@ -25,6 +25,7 @@ import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
         <a routerLink="/health" routerLinkActive="active">Team Health</a>
         <a routerLink="/agent" routerLinkActive="active">AI Agent</a>
         <a routerLink="/pipelines" routerLinkActive="active">Pipelines</a>
+        <a routerLink="/teams" routerLinkActive="active">Teams</a>
         <a routerLink="/connections" routerLinkActive="active">Connections</a>
       </nav>
       <main class="velo-content">

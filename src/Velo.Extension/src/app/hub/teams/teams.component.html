@@ -1,0 +1,187 @@
+<div class="velo-teams">
+
+  <!-- ── Loading ─────────────────────────────────────────────────── -->
+  <div *ngIf="isLoading" class="teams-state">
+    <div class="spinner"></div>
+    <p class="state-label">Loading team mappings…</p>
+  </div>
+
+  <!-- ── No project selected ─────────────────────────────────────── -->
+  <div *ngIf="!isLoading && !selectedProjectId" class="teams-empty">
+    <svg class="teams-empty__icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    <p class="teams-empty__title">No project selected</p>
+    <p class="teams-empty__sub">Go to the Connections tab and select a project first.</p>
+  </div>
+
+  <!-- ── Main content ────────────────────────────────────────────── -->
+  <div *ngIf="!isLoading && selectedProjectId">
+
+    <!-- Header -->
+    <div class="teams-header">
+      <div class="breadcrumb">
+        <span>Velo</span>
+        <span class="breadcrumb__sep">›</span>
+        <span class="breadcrumb__current">Team Mappings</span>
+      </div>
+      <div class="teams-header__row">
+        <div>
+          <h1 class="teams-title">Team Mappings</h1>
+          <p class="teams-subtitle">
+            Label each repository with a team name so DORA and Health metrics can be
+            filtered per team. Repositories are discovered automatically from your pipeline runs.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div *ngIf="errorMessage" class="teams-alert teams-alert--error">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {{ errorMessage }}
+    </div>
+    <div *ngIf="successMessage" class="teams-alert teams-alert--success">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      {{ successMessage }}
+    </div>
+
+    <!-- ── Mapping table ──────────────────────────────────────────── -->
+    <div class="teams-card">
+      <div class="teams-card__header">
+        <span class="teams-card__title">Repository → Team</span>
+        <span class="teams-badge">{{ rows.length }} mapping{{ rows.length !== 1 ? 's' : '' }}</span>
+      </div>
+
+      <!-- Empty state -->
+      <div *ngIf="rows.length === 0" class="table-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>
+          <line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>
+        </svg>
+        <p>No mappings yet. Add one below.</p>
+      </div>
+
+      <!-- Table -->
+      <table *ngIf="rows.length > 0" class="mapping-table">
+        <thead>
+          <tr>
+            <th>Repository</th>
+            <th>Team Name</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of rows" [class.row--editing]="row.editing">
+
+            <!-- Repository name (never editable) -->
+            <td class="cell-repo">
+              <svg class="repo-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              {{ row.repositoryName }}
+            </td>
+
+            <!-- Team name: display or inline edit -->
+            <td class="cell-team">
+              <span *ngIf="!row.editing" class="team-chip">{{ row.teamName }}</span>
+              <input *ngIf="row.editing"
+                     class="team-input"
+                     type="text"
+                     [(ngModel)]="row.draft"
+                     placeholder="Team name"
+                     (keyup.enter)="saveEdit(row)"
+                     (keyup.escape)="cancelEdit(row)"
+                     autofocus />
+            </td>
+
+            <!-- Actions -->
+            <td class="cell-actions">
+              <!-- View mode -->
+              <ng-container *ngIf="!row.editing">
+                <button class="btn btn--ghost" (click)="startEdit(row)" title="Edit">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Edit
+                </button>
+                <button class="btn btn--danger" (click)="deleteRow(row)" [disabled]="row.deleting" title="Remove">
+                  <svg *ngIf="!row.deleting" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  <span *ngIf="row.deleting" class="spinner spinner--sm"></span>
+                  Remove
+                </button>
+              </ng-container>
+
+              <!-- Edit mode -->
+              <ng-container *ngIf="row.editing">
+                <button class="btn btn--primary" (click)="saveEdit(row)" [disabled]="row.saving || !row.draft.trim()">
+                  <span *ngIf="row.saving" class="spinner spinner--sm"></span>
+                  Save
+                </button>
+                <button class="btn btn--ghost" (click)="cancelEdit(row)" [disabled]="row.saving">Cancel</button>
+              </ng-container>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Add new mapping ────────────────────────────────────────── -->
+    <div class="teams-card teams-card--add">
+      <div class="teams-card__header">
+        <span class="teams-card__title">Add Mapping</span>
+      </div>
+      <div class="add-form">
+
+        <!-- Repository selector -->
+        <div class="form-field">
+          <label class="form-label">Repository</label>
+          <select class="form-select" [(ngModel)]="newRepo">
+            <option value="" disabled>Select a repository…</option>
+            <optgroup *ngIf="unmappedRepos.length > 0" label="Unmapped">
+              <option *ngFor="let r of unmappedRepos" [value]="r">{{ r }}</option>
+            </optgroup>
+            <optgroup *ngIf="repositories.length > unmappedRepos.length" label="Already mapped (update)">
+              <option *ngFor="let r of rows" [value]="r.repositoryName">{{ r.repositoryName }}</option>
+            </optgroup>
+          </select>
+          <p *ngIf="repositories.length === 0" class="form-hint">
+            No repositories found. Run a sync first so pipeline runs are ingested.
+          </p>
+        </div>
+
+        <!-- Team name input -->
+        <div class="form-field">
+          <label class="form-label">Team Name</label>
+          <input class="form-input"
+                 type="text"
+                 [(ngModel)]="newTeam"
+                 placeholder="e.g. Platform, Payments, Core…"
+                 (keyup.enter)="addMapping()" />
+        </div>
+
+        <!-- Save button -->
+        <div class="form-field form-field--action">
+          <button class="btn btn--primary btn--lg"
+                  (click)="addMapping()"
+                  [disabled]="adding || !newRepo || !newTeam.trim()">
+            <span *ngIf="adding" class="spinner spinner--sm"></span>
+            <svg *ngIf="!adding" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Mapping
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Info banner ────────────────────────────────────────────── -->
+    <div class="teams-info">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>
+        Once mapped, the <strong>DORA Metrics</strong> and <strong>Team Health</strong> tabs will show a
+        <em>Filter by Team</em> dropdown so you can view metrics scoped to a single team's repositories.
+      </span>
+    </div>
+
+  </div>
+</div>
