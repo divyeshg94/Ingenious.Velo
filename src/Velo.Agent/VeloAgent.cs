@@ -51,11 +51,19 @@ public class VeloAgent(
             If data is missing or says "No data available", acknowledge it and suggest how to populate it (e.g. trigger a sync).
             """;
 
-        // 2. Connect to Azure AI Foundry using Managed Identity (DefaultAzureCredential)
-        //    Local dev: uses Azure CLI credentials; production: Container App managed identity.
-        var credential = new DefaultAzureCredential();
-        var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), credential);
-        var agentsClient = projectClient.GetAgentsClient();
+        // 2. Connect to Azure AI Foundry.
+        //    • API key present  → customer-supplied AzureKeyCredential (cross-tenant, no RBAC setup needed)
+        //    • No API key       → DefaultAzureCredential (Velo Managed Identity must have Foundry access)
+        AgentsClient agentsClient;
+        if (!string.IsNullOrEmpty(config.ApiKey))
+        {
+            agentsClient = new AgentsClient(new Uri(config.FoundryEndpoint), new AzureKeyCredential(config.ApiKey));
+        }
+        else
+        {
+            var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), new DefaultAzureCredential());
+            agentsClient = projectClient.GetAgentsClient();
+        }
 
         // 3. Create a new thread for this conversation (stateless — history replayed per request)
         var thread = (await agentsClient.CreateThreadAsync(cancellationToken)).Value;

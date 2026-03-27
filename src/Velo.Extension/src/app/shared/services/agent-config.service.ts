@@ -10,12 +10,18 @@ export interface AgentConfigDto {
   agentId: string;
   displayName?: string;
   isEnabled: boolean;
+  /** Write-only: sent when saving. Never returned by the server. */
+  apiKey?: string;
+  /** True when an encrypted API key is stored. Returned by server on GET. */
+  hasApiKey: boolean;
   updatedAt?: string;
 }
 
 export interface AgentConfigTestRequest {
   foundryEndpoint: string;
   agentId: string;
+  /** Plaintext key used only during the test — never persisted by this call. */
+  apiKey?: string;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -4,6 +4,12 @@ public class AgentConfig
 {
     public string FoundryEndpoint { get; set; } = string.Empty;
     public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Plaintext API key (decrypted by AgentConfigService before passing here).
+    /// When set, VeloAgent uses AzureKeyCredential instead of DefaultAzureCredential.
+    /// </summary>
+    public string? ApiKey { get; set; }
     public string DeploymentName { get; set; } = "gpt-4o";
     public int DailyTokenBudgetPerOrg { get; set; } = 50_000;
 

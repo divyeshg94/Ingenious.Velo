@@ -18,5 +18,17 @@ public class AgentConfigurationDto
 
     public bool IsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Write-only: supply a plaintext API key when saving. The server encrypts it before storage.
+    /// Never populated on GET responses — check <see cref="HasApiKey"/> instead.
+    /// </summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>
+    /// True when an encrypted API key is stored for this org.
+    /// Returned by GET; allows the UI to show "key saved" without exposing the value.
+    /// </summary>
+    public bool HasApiKey { get; set; }
+
     public DateTimeOffset? UpdatedAt { get; set; }
 }

@@ -43,6 +43,30 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">
+            API Key <span class="optional">(from Azure AI Studio → Settings → Keys)</span>
+          </label>
+          <!-- Show "key saved" hint when editing an existing config with a key stored -->
+          <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
+            <span class="key-saved-icon">🔑</span>
+            API key saved — leave blank to keep it, or enter a new key to replace it.
+          </div>
+          <input
+            class="form-input"
+            type="password"
+            [(ngModel)]="formApiKey"
+            [placeholder]="config?.hasApiKey ? 'Enter new key to replace existing…' : 'Paste your Azure AI Studio API key'"
+            autocomplete="new-password" />
+          <div class="security-notice">
+            <span class="security-notice__icon">🔒</span>
+            <span>
+              Your API key is <strong>encrypted before storage</strong> using ASP.NET Core Data Protection
+              and is only accessible within your organization's context. Velo staff cannot read it.
+            </span>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Display Name <span class="optional">(optional)</span></label>
           <input
             class="form-input"

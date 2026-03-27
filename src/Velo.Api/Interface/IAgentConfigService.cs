@@ -1,3 +1,7 @@
+using Azure;
+using Azure.AI.Projects;
+using Azure.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Velo.Shared.Models;
 using Velo.SQL;
@@ -10,11 +14,20 @@ public interface IAgentConfigService
     Task<AgentConfigurationDto?> GetConfigAsync(string orgId, CancellationToken ct = default);
     Task<AgentConfigurationDto> SaveConfigAsync(string orgId, AgentConfigurationDto dto, CancellationToken ct = default);
     Task DeleteConfigAsync(string orgId, CancellationToken ct = default);
-    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string agentId, CancellationToken ct = default);
+    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string agentId, string? apiKey, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the decrypted API key for internal agent use. Never exposed to the client.
+    /// </summary>
+    Task<string?> GetDecryptedApiKeyAsync(string orgId, CancellationToken ct = default);
 }
 
-public class AgentConfigService(VeloDbContext db) : IAgentConfigService
+public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataProtection) : IAgentConfigService
 {
+    // Purpose-limited protector — key material is isolated to this use case
+    private readonly IDataProtector _protector =
+        dataProtection.CreateProtector("Velo.AgentConfig.ApiKey.v1");
+
     public async Task<AgentConfigurationDto?> GetConfigAsync(string orgId, CancellationToken ct = default)
     {
         var cfg = await db.AgentConfigurations
@@ -41,6 +54,11 @@ public class AgentConfigService(VeloDbContext db) : IAgentConfigService
         existing.IsEnabled = dto.IsEnabled;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
 
+        // Only overwrite the stored key when the client sends a new one.
+        // Sending ApiKey = null / "" means "keep the existing key".
+        if (!string.IsNullOrWhiteSpace(dto.ApiKey))
+            existing.ApiKey = _protector.Protect(dto.ApiKey.Trim());
+
         await db.SaveChangesAsync(ct);
         return ToDto(existing);
     }
@@ -57,14 +75,33 @@ public class AgentConfigService(VeloDbContext db) : IAgentConfigService
         }
     }
 
+    public async Task<string?> GetDecryptedApiKeyAsync(string orgId, CancellationToken ct = default)
+    {
+        var cfg = await db.AgentConfigurations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.OrgId == orgId, ct);
+
+        if (cfg?.ApiKey is null) return null;
+
+        return _protector.Unprotect(cfg.ApiKey);
+    }
+
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string agentId, CancellationToken ct = default)
+        string endpoint, string agentId, string? apiKey, CancellationToken ct = default)
     {
         try
         {
-            var credential = new Azure.Identity.DefaultAzureCredential();
-            var client = new Azure.AI.Projects.AIProjectClient(new Uri(endpoint), credential);
-            var agentsClient = client.GetAgentsClient();
+            AgentsClient agentsClient;
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                agentsClient = new AgentsClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+            }
+            else
+            {
+                var projectClient = new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential());
+                agentsClient = projectClient.GetAgentsClient();
+            }
+
             var agent = await agentsClient.GetAgentAsync(agentId, ct);
             var name = agent.Value?.Name ?? agentId;
             return (true, $"Connected successfully to agent '{name}'.");
@@ -75,6 +112,7 @@ public class AgentConfigService(VeloDbContext db) : IAgentConfigService
         }
     }
 
+    // API key is never returned to the client — HasApiKey signals its presence
     private static AgentConfigurationDto ToDto(AgentConfiguration cfg) => new()
     {
         Id = cfg.Id,
@@ -83,6 +121,7 @@ public class AgentConfigService(VeloDbContext db) : IAgentConfigService
         AgentId = cfg.AgentId,
         DisplayName = cfg.DisplayName,
         IsEnabled = cfg.IsEnabled,
+        HasApiKey = !string.IsNullOrEmpty(cfg.ApiKey),
         UpdatedAt = cfg.UpdatedAt
     };
 }

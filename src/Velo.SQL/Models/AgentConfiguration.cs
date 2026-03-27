@@ -38,6 +38,14 @@ public class AgentConfiguration
     /// <summary>Allows admins to disable the agent without deleting the config.</summary>
     public bool IsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// ASP.NET Core Data Protection-encrypted API key from Azure AI Studio.
+    /// Null when the org relies on Velo's Managed Identity instead.
+    /// Never returned to the client — use HasApiKey on the DTO.
+    /// </summary>
+    [MaxLength(1000)]
+    public string? ApiKey { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
