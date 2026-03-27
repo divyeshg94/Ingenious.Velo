@@ -21,9 +21,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   formEndpoint = '';
   formAgentId = '';
   formDisplayName = '';
-  formTenantId = '';
-  formClientId = '';
-  formClientSecret = '';
+  formApiKey = '';
   isTesting = false;
   isSaving = false;
   testResult: { ok: boolean; message: string } | null = null;
@@ -62,7 +60,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.config = cfg;
         this.isConfigured = true;
         this.formEndpoint = cfg.foundryEndpoint;
-        this.formAgentId = cfg.agentId;
+        this.formAgentId = cfg.agentId ?? '';
         this.formDisplayName = cfg.displayName ?? '';
         this.isLoadingConfig = false;
       },
@@ -78,17 +76,15 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   }
 
   testConnection(): void {
-    if (!this.formEndpoint || !this.formAgentId) return;
+    if (!this.formEndpoint) return;
     this.isTesting = true;
     this.testResult = null;
 
     this.configService
       .testConnection({
         foundryEndpoint: this.formEndpoint,
-        agentId: this.formAgentId,
-        tenantId: this.formTenantId || undefined,
-        clientId: this.formClientId || undefined,
-        clientSecret: this.formClientSecret || undefined,
+        agentId: this.formAgentId || undefined,
+        apiKey: this.formApiKey || undefined,
       })
       .subscribe({
         next: (res) => {
@@ -104,7 +100,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   }
 
   saveConfig(): void {
-    if (!this.formEndpoint || !this.formAgentId) return;
+    if (!this.formEndpoint) return;
     this.isSaving = true;
     this.saveError = '';
 
@@ -112,14 +108,12 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       id: this.config?.id ?? '00000000-0000-0000-0000-000000000000',
       orgId: '',
       foundryEndpoint: this.formEndpoint,
-      agentId: this.formAgentId,
+      agentId: this.formAgentId || undefined,
       displayName: this.formDisplayName || undefined,
       isEnabled: true,
-      hasServicePrincipal: false,
-      // Only send credentials if the user typed them; blank = keep existing values
-      tenantId: this.formTenantId || undefined,
-      clientId: this.formClientId || undefined,
-      clientSecret: this.formClientSecret || undefined,
+      hasApiKey: false,
+      // Only send the API key if the user typed one; blank = keep existing value
+      apiKey: this.formApiKey || undefined,
     };
 
     this.configService.saveConfig(dto).subscribe({
@@ -146,9 +140,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.formEndpoint = '';
         this.formAgentId = '';
         this.formDisplayName = '';
-        this.formTenantId = '';
-        this.formClientId = '';
-        this.formClientSecret = '';
+        this.formApiKey = '';
         this.testResult = null;
       },
       error: (err) => console.error('[AgentComponent] Delete config failed:', err),

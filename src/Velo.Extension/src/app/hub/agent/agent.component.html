@@ -45,56 +45,36 @@
           </span>
         </div>
 
-        <!-- Service principal credentials (optional — for customer-owned Foundry resources) -->
+        <!-- API Key (optional — for customer-owned Foundry resources) -->
         <div class="form-group-section">
           <div class="form-section-header">
-            Service Principal <span class="optional">(optional — required for cross-tenant Foundry access)</span>
+            API Key <span class="optional">(optional — for your own Azure AI Foundry resource)</span>
           </div>
           <div class="form-section-hint">
-            If your Azure AI Foundry resource lives in a different Azure AD tenant, provide a service principal
-            with <strong>Azure AI User</strong> role on the Foundry resource. Leave blank to use Velo's Managed Identity.
+            If your Azure AI Foundry resource requires an API key, paste it here.
+            Leave blank to use Velo's Managed Identity for authentication.
           </div>
 
-          <!-- Saved credentials hint -->
-          <div *ngIf="config?.hasServicePrincipal && !formClientSecret" class="key-saved-hint">
+          <!-- Saved key hint -->
+          <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
             <span class="key-saved-icon">🔑</span>
-            Credentials saved — leave blank to keep them, or fill all three fields to replace.
+            API key saved — leave blank to keep it, or paste a new key to replace.
           </div>
 
           <div class="form-group">
-            <label class="form-label">Tenant ID</label>
-            <input
-              class="form-input"
-              type="text"
-              [(ngModel)]="formTenantId"
-              [placeholder]="config?.hasServicePrincipal ? 'Leave blank to keep existing' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'"
-              autocomplete="off" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Client (App) ID</label>
-            <input
-              class="form-input"
-              type="text"
-              [(ngModel)]="formClientId"
-              [placeholder]="config?.hasServicePrincipal ? 'Leave blank to keep existing' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'"
-              autocomplete="off" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Client Secret</label>
+            <label class="form-label">API Key</label>
             <input
               class="form-input"
               type="password"
-              [(ngModel)]="formClientSecret"
-              [placeholder]="config?.hasServicePrincipal ? 'Enter new secret to replace existing…' : 'Paste client secret value'"
+              [(ngModel)]="formApiKey"
+              [placeholder]="config?.hasApiKey ? 'Enter new key to replace existing…' : 'Paste your Foundry API key'"
               autocomplete="new-password" />
           </div>
 
           <div class="security-notice">
             <span class="security-notice__icon">🔒</span>
             <span>
-              The client secret is <strong>encrypted before storage</strong> using ASP.NET Core Data Protection
+              The API key is <strong>encrypted before storage</strong> using ASP.NET Core Data Protection
               and is only accessible within your organization's context. Velo staff cannot read it.
             </span>
           </div>

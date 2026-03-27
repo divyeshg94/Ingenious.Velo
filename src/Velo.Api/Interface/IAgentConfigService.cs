@@ -1,5 +1,6 @@
 using Azure.AI.Agents.Persistent;
 using Azure.AI.Projects;
+using Azure.Core;
 using Azure.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -18,12 +19,12 @@ public interface IAgentConfigService
     /// Tests connectivity to the Foundry endpoint. agentId is optional — when null/empty
     /// the test only verifies the endpoint and credentials are reachable (skips agent lookup).
     /// </summary>
-    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string? agentId, string? tenantId, string? clientId, string? clientSecret, CancellationToken ct = default);
+    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string? agentId, string? apiKey, CancellationToken ct = default);
 
     /// <summary>
-    /// Returns decrypted service principal credentials for internal agent use. Never exposed to the client.
+    /// Returns the decrypted API key for internal agent use. Never exposed to the client.
     /// </summary>
-    Task<(string? TenantId, string? ClientId, string? ClientSecret)> GetDecryptedCredentialsAsync(string orgId, CancellationToken ct = default);
+    Task<string?> GetDecryptedApiKeyAsync(string orgId, CancellationToken ct = default);
 }
 
 public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataProtection) : IAgentConfigService
@@ -61,16 +62,10 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         existing.IsEnabled = dto.IsEnabled;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
 
-        // Only overwrite stored credentials when the client sends new values.
-        // Sending null / "" means "keep the existing credentials".
-        if (!string.IsNullOrWhiteSpace(dto.TenantId))
-            existing.TenantId = dto.TenantId.Trim();
-
-        if (!string.IsNullOrWhiteSpace(dto.ClientId))
-            existing.ClientId = dto.ClientId.Trim();
-
-        if (!string.IsNullOrWhiteSpace(dto.ClientSecret))
-            existing.ClientSecret = _protector.Protect(dto.ClientSecret.Trim());
+        // Only overwrite the stored API key when the client sends a new value.
+        // Sending null / "" means "keep the existing key".
+        if (!string.IsNullOrWhiteSpace(dto.ApiKey))
+            existing.ApiKey = _protector.Protect(dto.ApiKey.Trim());
 
         await db.SaveChangesAsync(ct);
         return ToDto(existing);
@@ -88,40 +83,26 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         }
     }
 
-    public async Task<(string? TenantId, string? ClientId, string? ClientSecret)> GetDecryptedCredentialsAsync(
-        string orgId, CancellationToken ct = default)
+    public async Task<string?> GetDecryptedApiKeyAsync(string orgId, CancellationToken ct = default)
     {
         var cfg = await db.AgentConfigurations
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.OrgId == orgId, ct);
 
-        if (cfg is null) return (null, null, null);
+        if (cfg is null || cfg.ApiKey is null) return null;
 
-        var secret = cfg.ClientSecret is not null ? _protector.Unprotect(cfg.ClientSecret) : null;
-        return (cfg.TenantId, cfg.ClientId, secret);
+        return _protector.Unprotect(cfg.ApiKey);
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId,
-        string? tenantId, string? clientId, string? clientSecret,
+        string endpoint, string? agentId, string? apiKey,
         CancellationToken ct = default)
     {
         try
         {
-            Azure.Core.TokenCredential credential;
-            if (!string.IsNullOrWhiteSpace(tenantId)
-                && !string.IsNullOrWhiteSpace(clientId)
-                && !string.IsNullOrWhiteSpace(clientSecret))
-            {
-                credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-            }
-            else
-            {
-                credential = new DefaultAzureCredential();
-            }
-
-            var projectClient = new AIProjectClient(new Uri(endpoint), credential);
-            var agentsClient = projectClient.GetPersistentAgentsClient();
+            PersistentAgentsClient agentsClient = !string.IsNullOrWhiteSpace(apiKey)
+                ? new PersistentAgentsClient(endpoint, new ApiKeyTokenCredential(apiKey))
+                : new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential()).GetPersistentAgentsClient();
 
             // When an Agent ID is provided, verify it exists. Otherwise just confirm the
             // endpoint and credentials are reachable by listing agents (lightweight call).
@@ -144,7 +125,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         }
     }
 
-    // Service principal values are never returned to the client — HasServicePrincipal signals their presence
+    // The API key is never returned to the client — HasApiKey signals its presence
     private static AgentConfigurationDto ToDto(AgentConfiguration cfg) => new()
     {
         Id = cfg.Id,
@@ -153,7 +134,21 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         AgentId = cfg.AgentId,
         DisplayName = cfg.DisplayName,
         IsEnabled = cfg.IsEnabled,
-        HasServicePrincipal = !string.IsNullOrEmpty(cfg.ClientSecret),
+        HasApiKey = !string.IsNullOrEmpty(cfg.ApiKey),
         UpdatedAt = cfg.UpdatedAt
     };
+
+    /// <summary>
+    /// Wraps an Azure AI Foundry API key as a <see cref="TokenCredential"/> so it can be passed
+    /// to SDK clients that only accept <see cref="TokenCredential"/>. The key is sent as the
+    /// Bearer token value in the Authorization header, which Azure AI Services validates.
+    /// </summary>
+    private sealed class ApiKeyTokenCredential(string apiKey) : TokenCredential
+    {
+        public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)
+            => new(apiKey, DateTimeOffset.MaxValue);
+
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
+            => ValueTask.FromResult(new AccessToken(apiKey, DateTimeOffset.MaxValue));
+    }
 }

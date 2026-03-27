@@ -40,20 +40,13 @@ public class AgentConfiguration
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
-    /// Service principal credentials for cross-tenant Foundry access.
-    /// All three encrypted via ASP.NET Core Data Protection before storage.
+    /// Optional API key for authenticating against the Azure AI Foundry endpoint.
+    /// Encrypted via ASP.NET Core Data Protection before storage.
     /// Null when the org relies on Velo's Managed Identity instead.
-    /// Never returned to the client — use HasServicePrincipal on the DTO.
+    /// Never returned to the client — use HasApiKey on the DTO.
     /// </summary>
-    [MaxLength(200)]
-    public string? TenantId { get; set; }
-
-    [MaxLength(200)]
-    public string? ClientId { get; set; }
-
-    /// <summary>Encrypted client secret — max length allows for Data Protection overhead.</summary>
     [MaxLength(1000)]
-    public string? ClientSecret { get; set; }
+    public string? ApiKey { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
