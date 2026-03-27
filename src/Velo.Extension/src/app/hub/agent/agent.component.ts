@@ -21,6 +21,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   formEndpoint = '';
   formAgentId = '';
   formDisplayName = '';
+  formApiKey = '';
   isTesting = false;
   isSaving = false;
   testResult: { ok: boolean; message: string } | null = null;
@@ -80,7 +81,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
     this.testResult = null;
 
     this.configService
-      .testConnection({ foundryEndpoint: this.formEndpoint, agentId: this.formAgentId })
+      .testConnection({ foundryEndpoint: this.formEndpoint, agentId: this.formAgentId, apiKey: this.formApiKey || undefined })
       .subscribe({
         next: (res) => {
           this.testResult = { ok: true, message: res.message };
@@ -106,6 +107,9 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       agentId: this.formAgentId,
       displayName: this.formDisplayName || undefined,
       isEnabled: true,
+      hasApiKey: false,
+      // Only send the key if the user typed one; blank = keep existing key
+      apiKey: this.formApiKey || undefined,
     };
 
     this.configService.saveConfig(dto).subscribe({
@@ -132,6 +136,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.formEndpoint = '';
         this.formAgentId = '';
         this.formDisplayName = '';
+        this.formApiKey = '';
         this.testResult = null;
       },
       error: (err) => console.error('[AgentComponent] Delete config failed:', err),

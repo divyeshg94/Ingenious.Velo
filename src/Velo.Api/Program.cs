@@ -13,7 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Velo.Agent;
 using Velo.Api.Interface;
-using Velo.Api.Services;
 
 // Bootstrap logger — console only, used until the host is built and
 // the full configuration (including MSSqlServer sink) is loaded.
@@ -41,6 +40,7 @@ try
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
+    builder.Services.AddDataProtection();
 
     // Database
     builder.Services.AddDbContext<VeloDbContext>(options =>

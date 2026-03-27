@@ -33,10 +33,13 @@ public class AgentService(
                 "Foundry agent is not configured for this organization. " +
                 "Please connect an agent in the Agent tab first.");
 
+        var decryptedKey = await configService.GetDecryptedApiKeyAsync(orgId, cancellationToken);
+
         var agentConfig = new AgentConfig
         {
             FoundryEndpoint = config.FoundryEndpoint,
             AgentId = config.AgentId,
+            ApiKey = decryptedKey,
         };
 
         var pipelineTool = new PipelineAnalysisTool(dataProvider);
