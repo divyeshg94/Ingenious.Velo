@@ -11,8 +11,11 @@ public class AgentConfigurationDto
     /// <summary>Azure AI Foundry project endpoint URL.</summary>
     public string FoundryEndpoint { get; set; } = string.Empty;
 
-    /// <summary>Agent ID from Azure AI Studio.</summary>
-    public string AgentId { get; set; } = string.Empty;
+    /// <summary>
+    /// Foundry agent ID (e.g. asst_xxxx). Optional — null means the agent will be
+    /// auto-created by Velo on first chat request and persisted automatically.
+    /// </summary>
+    public string? AgentId { get; set; }
 
     public string? DisplayName { get; set; }
 

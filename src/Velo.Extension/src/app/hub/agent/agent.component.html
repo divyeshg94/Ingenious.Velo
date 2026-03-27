@@ -32,14 +32,17 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Agent ID <span class="required">*</span></label>
+          <label class="form-label">Agent ID <span class="optional">(optional)</span></label>
           <input
             class="form-input"
             type="text"
             [(ngModel)]="formAgentId"
-            placeholder="asst_xxxxxxxxxxxxxxxxxxxxxxxx"
+            placeholder="asst_xxxxxxxxxxxxxxxxxxxxxxxx — leave blank to auto-create"
             autocomplete="off" />
-          <span class="form-hint">Found in Azure AI Studio → Agents → your agent → Agent ID</span>
+          <span class="form-hint">
+            Leave blank and Velo will create a managed agent automatically on first use.
+            Or paste an existing Agent ID from Azure AI Studio → Agents → your agent.
+          </span>
         </div>
 
         <!-- Service principal credentials (optional — for customer-owned Foundry resources) -->
@@ -116,14 +119,14 @@
           <button
             class="btn btn--secondary"
             (click)="testConnection()"
-            [disabled]="isTesting || !formEndpoint || !formAgentId">
+            [disabled]="isTesting || !formEndpoint">
             <span *ngIf="isTesting" class="spinner-sm"></span>
             {{ isTesting ? 'Testing…' : 'Test Connection' }}
           </button>
           <button
             class="btn btn--primary"
             (click)="saveConfig()"
-            [disabled]="isSaving || !formEndpoint || !formAgentId">
+            [disabled]="isSaving || !formEndpoint">
             <span *ngIf="isSaving" class="spinner-sm"></span>
             {{ isSaving ? 'Connecting…' : 'Connect Agent' }}
           </button>

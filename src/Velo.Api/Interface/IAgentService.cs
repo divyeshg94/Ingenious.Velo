@@ -37,8 +37,9 @@ public class AgentService(
 
         var agentConfig = new AgentConfig
         {
+            OrgId = orgId,
             FoundryEndpoint = config.FoundryEndpoint,
-            AgentId = config.AgentId,
+            AgentId = string.IsNullOrWhiteSpace(config.AgentId) ? null : config.AgentId,
             TenantId = tenantId,
             ClientId = clientId,
             ClientSecret = clientSecret,
@@ -47,7 +48,7 @@ public class AgentService(
         var pipelineTool = new PipelineAnalysisTool(dataProvider);
         var codeTool = new CodeAnalysisTool(dataProvider);
         var recommendationTool = new RecommendationTool(dataProvider);
-        var agent = new VeloAgent(agentConfig, pipelineTool, codeTool, recommendationTool);
+        var agent = new VeloAgent(agentConfig, dataProvider, pipelineTool, codeTool, recommendationTool);
 
         var agentHistory = history.Select(m => new AgentMessage(m.Role, m.Content));
         var request = new AgentRequest(orgId, projectId, message, agentHistory);

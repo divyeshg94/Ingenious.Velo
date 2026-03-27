@@ -25,11 +25,12 @@ public class AgentConfiguration
     public string FoundryEndpoint { get; set; } = string.Empty;
 
     /// <summary>
-    /// The Agent ID created in Azure AI Studio.
-    /// Example: asst_xxxxxxxxxxxxxxxxxxxxxxxx
+    /// The Foundry agent ID (e.g. asst_xxxx).
+    /// Null when the agent has not yet been auto-created. VeloAgent sets this on first use
+    /// via IAgentDataProvider.SaveAgentIdAsync so subsequent calls reuse the same agent.
     /// </summary>
-    [Required, MaxLength(200)]
-    public string AgentId { get; set; } = string.Empty;
+    [MaxLength(200)]
+    public string? AgentId { get; set; }
 
     /// <summary>Optional friendly display name shown in the chat header.</summary>
     [MaxLength(200)]

@@ -14,4 +14,10 @@ public interface IAgentDataProvider
 
     /// <summary>Returns a formatted summary of recent pull request events.</summary>
     Task<string> GetPrContextAsync(string orgId, string projectId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Persists the Foundry agent ID that was auto-created by VeloAgent on first use.
+    /// Subsequent calls will use this ID instead of creating a new agent.
+    /// </summary>
+    Task SaveAgentIdAsync(string orgId, string agentId, CancellationToken ct = default);
 }

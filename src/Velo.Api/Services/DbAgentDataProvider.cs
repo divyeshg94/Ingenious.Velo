@@ -90,4 +90,18 @@ public class DbAgentDataProvider(VeloDbContext db) : IAgentDataProvider
 
         return sb.ToString();
     }
+
+    public async Task SaveAgentIdAsync(string orgId, string agentId, CancellationToken ct = default)
+    {
+        db.CurrentOrgId = orgId;
+
+        var cfg = await db.AgentConfigurations
+            .FirstOrDefaultAsync(a => a.OrgId == orgId, ct);
+
+        if (cfg is null) return; // config must exist (it was just used to get here)
+
+        cfg.AgentId = agentId;
+        cfg.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

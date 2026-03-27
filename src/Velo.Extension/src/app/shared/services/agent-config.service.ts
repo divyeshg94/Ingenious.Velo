@@ -7,7 +7,8 @@ export interface AgentConfigDto {
   id: string;
   orgId: string;
   foundryEndpoint: string;
-  agentId: string;
+  /** Optional — null means Velo will auto-create the agent on first chat. */
+  agentId?: string;
   displayName?: string;
   isEnabled: boolean;
   /** Write-only: Azure AD Tenant ID for the service principal. Never returned by the server. */
@@ -23,7 +24,8 @@ export interface AgentConfigDto {
 
 export interface AgentConfigTestRequest {
   foundryEndpoint: string;
-  agentId: string;
+  /** Optional — null means Velo will auto-create the agent on first chat. */
+  agentId?: string;
   /** Used only during the test — never persisted by this call. */
   tenantId?: string;
   clientId?: string;
