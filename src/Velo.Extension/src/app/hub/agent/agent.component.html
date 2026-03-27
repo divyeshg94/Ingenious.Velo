@@ -45,6 +45,19 @@
           </span>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">Model Deployment Name</label>
+          <input
+            class="form-input"
+            type="text"
+            [(ngModel)]="formDeploymentModel"
+            placeholder="gpt-4o" />
+          <span class="form-hint">
+            The Azure OpenAI deployment name in your Foundry project (e.g. <code>gpt-4o</code>, <code>gpt-4o-mini</code>).
+            Used when Velo auto-creates the agent. Must match a deployment that exists in your project.
+          </span>
+        </div>
+
         <!-- Authentication method selector -->
         <div class="form-group-section">
           <div class="form-section-header">

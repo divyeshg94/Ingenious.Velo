@@ -20,6 +20,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   // Connection form
   formEndpoint = '';
   formAgentId = '';
+  formDeploymentModel = 'gpt-4o';
   formDisplayName = '';
   /** 'none' | 'apikey' | 'sp' */
   formAuthMethod: 'none' | 'apikey' | 'sp' = 'none';
@@ -68,6 +69,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.isConfigured = true;
         this.formEndpoint = cfg.foundryEndpoint;
         this.formAgentId = cfg.agentId ?? '';
+        this.formDeploymentModel = cfg.deploymentName || 'gpt-4o';
         this.formDisplayName = cfg.displayName ?? '';
         // Restore auth method indicator from server flags
         if (cfg.hasApiKey) this.formAuthMethod = 'apikey';
@@ -123,6 +125,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       orgId: '',
       foundryEndpoint: this.formEndpoint,
       agentId: this.formAgentId || undefined,
+      deploymentName: this.formDeploymentModel || 'gpt-4o',
       displayName: this.formDisplayName || undefined,
       isEnabled: true,
       hasApiKey: false,
@@ -157,6 +160,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.messages = [];
         this.formEndpoint = '';
         this.formAgentId = '';
+        this.formDeploymentModel = 'gpt-4o';
         this.formDisplayName = '';
         this.formAuthMethod = 'none';
         this.formApiKey = '';

@@ -36,6 +36,13 @@ public class AgentConfiguration
     [MaxLength(200)]
     public string? DisplayName { get; set; }
 
+    /// <summary>
+    /// Azure OpenAI model deployment name used when auto-creating the Foundry agent.
+    /// Defaults to "gpt-4o". Must match a deployment that exists in the Foundry project.
+    /// </summary>
+    [MaxLength(100)]
+    public string DeploymentName { get; set; } = "gpt-4o";
+
     /// <summary>Allows admins to disable the agent without deleting the config.</summary>
     public bool IsEnabled { get; set; } = true;
 

@@ -1,7 +1,4 @@
 using Azure.AI.Agents.Persistent;
-using Azure.AI.Projects;
-using Azure.Core;
-using Azure.Identity;
 using Velo.Agent.Tools;
 
 namespace Velo.Agent;
@@ -10,10 +7,10 @@ namespace Velo.Agent;
 /// Foundry AI agent orchestration entry point.
 /// Uses Azure.AI.Agents.Persistent (GA) + AIProjectClient.GetPersistentAgentsClient().
 ///
-/// Authentication (first match wins):
-///   1. API key present                    → ApiKeyTokenCredential (simplest)
-///   2. TenantId + ClientId + ClientSecret → ClientSecretCredential (cross-tenant SP)
-///   3. None                               → DefaultAzureCredential (Velo Managed Identity)
+/// Authentication — see <see cref="FoundryClientFactory"/> for credential priority:
+///   1. API key  → api-key HTTP header (NOT Bearer token — Foundry requires the header)
+///   2. Service principal → ClientSecretCredential
+///   3. None     → DefaultAzureCredential (Velo Managed Identity)
 ///
 /// Agent ID:
 ///   • Provided in config → used directly
@@ -67,8 +64,8 @@ public class VeloAgent(
             {prContext}
             """;
 
-        // 2. Build the agents client — API key takes precedence over Managed Identity
-        PersistentAgentsClient agentsClient = ResolveAgentsClient(config);
+        // 2. Build the agents client via the shared factory (API key → SP → Managed Identity)
+        PersistentAgentsClient agentsClient = FoundryClientFactory.Create(config);
 
         // 3. Resolve (or auto-create) the Foundry agent
         var agentId = await ResolveAgentIdAsync(agentsClient, request.OrgId, cancellationToken);
@@ -163,44 +160,7 @@ public class VeloAgent(
         return newAgentId;
     }
 
-    /// <summary>
-    /// Resolves the Foundry PersistentAgentsClient using the first matching credential:
-    ///   1. API key            → ApiKeyTokenCredential (single-field, simplest)
-    ///   2. Service principal  → ClientSecretCredential (cross-tenant SP)
-    ///   3. Fallback           → DefaultAzureCredential via AIProjectClient (Velo Managed Identity)
-    /// </summary>
-    private static PersistentAgentsClient ResolveAgentsClient(AgentConfig config)
-    {
-        if (!string.IsNullOrEmpty(config.ApiKey))
-            return new PersistentAgentsClient(
-                config.FoundryEndpoint,
-                new ApiKeyTokenCredential(config.ApiKey));
-
-        if (!string.IsNullOrEmpty(config.TenantId)
-            && !string.IsNullOrEmpty(config.ClientId)
-            && !string.IsNullOrEmpty(config.ClientSecret))
-            return new PersistentAgentsClient(
-                config.FoundryEndpoint,
-                new ClientSecretCredential(config.TenantId, config.ClientId, config.ClientSecret));
-
-        var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), new DefaultAzureCredential());
-        return projectClient.GetPersistentAgentsClient();
-    }
-
-    /// <summary>
-    /// Wraps an Azure AI Foundry API key as a <see cref="TokenCredential"/>.
-    /// Azure AI Services accepts the resource key as a Bearer token value in addition
-    /// to the standard <c>api-key</c> header, so this allows the SDK's built-in
-    /// HTTP pipeline to carry the key without modification.
-    /// </summary>
-    private sealed class ApiKeyTokenCredential(string apiKey) : TokenCredential
-    {
-        public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)
-            => new(apiKey, DateTimeOffset.MaxValue);
-
-        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
-            => ValueTask.FromResult(new AccessToken(apiKey, DateTimeOffset.MaxValue));
-    }
+    // Credential resolution is delegated to FoundryClientFactory (see FoundryClientFactory.cs).
 }
 
 public record AgentRequest(string OrgId, string ProjectId, string Message, IEnumerable<AgentMessage> History);
