@@ -1,3 +1,4 @@
+using Azure.AI.Agents.Persistent;
 using Azure.AI.Projects;
 using Azure.Identity;
 using Velo.Agent.Tools;
@@ -6,14 +7,17 @@ namespace Velo.Agent;
 
 /// <summary>
 /// Foundry AI agent orchestration entry point.
-/// Wraps the Azure AI Projects AgentsClient and exposes a simplified chat interface
-/// for use by Velo.Api's AgentController.
+/// Uses Azure.AI.Agents.Persistent (GA) + AIProjectClient.GetPersistentAgentsClient().
+///
+/// Authentication:
+///   • Service principal credentials present → ClientSecretCredential (cross-tenant, customer's own Foundry)
+///   • No credentials                         → DefaultAzureCredential (Velo Managed Identity)
 ///
 /// Architecture:
-///   1. Tools gather DB context via IAgentDataProvider (injected from Velo.Api)
-///   2. Context is prepended to the user message as a structured system block
+///   1. Tools gather DB context via IAgentDataProvider
+///   2. Context is prepended to the user message as a structured block
 ///   3. A stateless thread is created per request (history replayed each time)
-///   4. The Azure AI Foundry agent runs and responds; thread is cleaned up after
+///   4. The agent runs, we poll until terminal state, then clean up the thread
 /// </summary>
 public class VeloAgent(
     AgentConfig config,
@@ -48,25 +52,19 @@ public class VeloAgent(
 
             Use the data above to give specific, actionable recommendations grounded in the actual numbers.
             When the user asks a general question, reference the most relevant data points from the context above.
-            If data is missing or says "No data available", acknowledge it and suggest how to populate it (e.g. trigger a sync).
+            If data is missing or says "No data available", acknowledge it and suggest how to populate it.
             """;
 
-        // 2. Connect to Azure AI Foundry.
-        //    • API key present  → customer-supplied AzureKeyCredential (cross-tenant, no RBAC setup needed)
-        //    • No API key       → DefaultAzureCredential (Velo Managed Identity must have Foundry access)
-        AgentsClient agentsClient;
-        if (!string.IsNullOrEmpty(config.ApiKey))
-        {
-            agentsClient = new AgentsClient(new Uri(config.FoundryEndpoint), new AzureKeyCredential(config.ApiKey));
-        }
-        else
-        {
-            var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), new DefaultAzureCredential());
-            agentsClient = projectClient.GetAgentsClient();
-        }
+        // 2. Resolve credential and build the agents client.
+        //    PersistentAgentsClient only accepts TokenCredential (GA SDK constraint).
+        //    • Service principal configured → ClientSecretCredential (customer's own Foundry resource, cross-tenant)
+        //    • No service principal         → DefaultAzureCredential (Velo Managed Identity must have Foundry access)
+        var credential = ResolveCredential(config);
+        var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), credential);
+        PersistentAgentsClient agentsClient = projectClient.GetPersistentAgentsClient();
 
         // 3. Create a new thread for this conversation (stateless — history replayed per request)
-        var thread = (await agentsClient.CreateThreadAsync(cancellationToken)).Value;
+        PersistentAgentThread thread = await agentsClient.Threads.CreateThreadAsync(cancellationToken: cancellationToken);
 
         try
         {
@@ -76,43 +74,38 @@ public class VeloAgent(
                 var role = string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase)
                     ? MessageRole.Agent
                     : MessageRole.User;
-                await agentsClient.CreateMessageAsync(
+                await agentsClient.Messages.CreateMessageAsync(
                     thread.Id, role, msg.Content, cancellationToken: cancellationToken);
             }
 
             // 5. Add the current user message with the Velo context block prepended
             var contextualMessage = $"[VELO_CONTEXT]\n{systemContext}\n[/VELO_CONTEXT]\n\n{request.Message}";
-            await agentsClient.CreateMessageAsync(
+            await agentsClient.Messages.CreateMessageAsync(
                 thread.Id, MessageRole.User, contextualMessage, cancellationToken: cancellationToken);
 
             // 6. Create and poll the agent run until it reaches a terminal state
-            var run = (await agentsClient.CreateRunAsync(
-                thread.Id, config.AgentId, cancellationToken: cancellationToken)).Value;
+            ThreadRun run = await agentsClient.Runs.CreateRunAsync(
+                thread.Id, config.AgentId, cancellationToken: cancellationToken);
 
             while (run.Status == RunStatus.Queued
                 || run.Status == RunStatus.InProgress
                 || run.Status == RunStatus.Cancelling)
             {
                 await Task.Delay(1200, cancellationToken);
-                run = (await agentsClient.GetRunAsync(thread.Id, run.Id, cancellationToken)).Value;
+                run = await agentsClient.Runs.GetRunAsync(thread.Id, run.Id, cancellationToken);
             }
 
             if (run.Status == RunStatus.Failed)
                 throw new InvalidOperationException(
                     $"Foundry agent run failed: {run.LastError?.Message ?? "Unknown error"}");
 
-            if (run.Status is RunStatus.Cancelled or RunStatus.Expired)
+            if (run.Status == RunStatus.Cancelled || run.Status == RunStatus.Expired)
                 throw new InvalidOperationException(
                     $"Foundry agent run ended with status: {run.Status}");
 
-            // 7. Extract the last assistant message
-            var messages = (await agentsClient.GetMessagesAsync(
-                thread.Id, cancellationToken: cancellationToken)).Value;
-
-            var lastAssistant = messages.Data
-                .Where(m => m.Role == MessageRole.Agent)
-                .OrderByDescending(m => m.CreatedAt)
-                .FirstOrDefault();
+            // 7. Extract the last assistant message (newest first)
+            var messages = agentsClient.Messages.GetMessages(thread.Id, order: ListSortOrder.Descending);
+            var lastAssistant = messages.FirstOrDefault(m => m.Role == MessageRole.Agent);
 
             var content = lastAssistant?.ContentItems
                 .OfType<MessageTextContent>()
@@ -120,15 +113,28 @@ public class VeloAgent(
                 ?? "I was unable to generate a response. Please try again.";
 
             var tokensUsed = run.Usage?.TotalTokens ?? 0;
-
             return new AgentResponse(content, [], (int)tokensUsed);
         }
         finally
         {
             // Best-effort thread cleanup to avoid accumulation in the Foundry project
-            try { await agentsClient.DeleteThreadAsync(thread.Id, cancellationToken); }
+            try { await agentsClient.Threads.DeleteThreadAsync(thread.Id, cancellationToken); }
             catch { /* intentionally swallowed — thread will expire naturally */ }
         }
+    }
+
+    private static Azure.Core.TokenCredential ResolveCredential(AgentConfig config)
+    {
+        // Service principal credentials present → use ClientSecretCredential (cross-tenant)
+        if (!string.IsNullOrEmpty(config.TenantId)
+            && !string.IsNullOrEmpty(config.ClientId)
+            && !string.IsNullOrEmpty(config.ClientSecret))
+        {
+            return new ClientSecretCredential(config.TenantId, config.ClientId, config.ClientSecret);
+        }
+
+        // Fallback: Velo Managed Identity (customer must grant it Foundry access)
+        return new DefaultAzureCredential();
     }
 }
 

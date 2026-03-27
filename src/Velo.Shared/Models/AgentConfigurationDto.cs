@@ -18,17 +18,23 @@ public class AgentConfigurationDto
 
     public bool IsEnabled { get; set; } = true;
 
-    /// <summary>
-    /// Write-only: supply a plaintext API key when saving. The server encrypts it before storage.
-    /// Never populated on GET responses — check <see cref="HasApiKey"/> instead.
-    /// </summary>
-    public string? ApiKey { get; set; }
+    /// <summary>Write-only: Azure AD Tenant ID for the service principal. Never returned by GET.</summary>
+    public string? TenantId { get; set; }
+
+    /// <summary>Write-only: Service principal Client (App) ID. Never returned by GET.</summary>
+    public string? ClientId { get; set; }
 
     /// <summary>
-    /// True when an encrypted API key is stored for this org.
-    /// Returned by GET; allows the UI to show "key saved" without exposing the value.
+    /// Write-only: plaintext client secret when saving. The server encrypts it before storage.
+    /// Never populated on GET responses — check <see cref="HasServicePrincipal"/> instead.
     /// </summary>
-    public bool HasApiKey { get; set; }
+    public string? ClientSecret { get; set; }
+
+    /// <summary>
+    /// True when service principal credentials are stored for this org.
+    /// Returned by GET; allows the UI to show "credentials saved" without exposing them.
+    /// </summary>
+    public bool HasServicePrincipal { get; set; }
 
     public DateTimeOffset? UpdatedAt { get; set; }
 }
