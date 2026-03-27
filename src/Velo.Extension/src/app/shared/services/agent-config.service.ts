@@ -11,10 +11,21 @@ export interface AgentConfigDto {
   agentId?: string;
   displayName?: string;
   isEnabled: boolean;
+  // ── Auth option 1: API key ──────────────────────────────────────────────────
   /** Write-only: sent when saving. The server encrypts it before storage. Never returned by the server. */
   apiKey?: string;
   /** True when an encrypted API key is stored. Returned by server on GET. */
   hasApiKey: boolean;
+
+  // ── Auth option 2: Service principal ────────────────────────────────────────
+  /** Write-only: Azure AD Tenant ID. Never returned by the server. */
+  tenantId?: string;
+  /** Write-only: Service principal Client (App) ID. Never returned by the server. */
+  clientId?: string;
+  /** Write-only: Client secret (server encrypts before storage). Never returned by the server. */
+  clientSecret?: string;
+  /** True when encrypted service principal credentials are stored. Returned by server on GET. */
+  hasServicePrincipal: boolean;
   updatedAt?: string;
 }
 
@@ -22,8 +33,12 @@ export interface AgentConfigTestRequest {
   foundryEndpoint: string;
   /** Optional — null means Velo will auto-create the agent on first chat. */
   agentId?: string;
-  /** Used only during the test — never persisted by this call. */
+  /** Auth option 1 — used only during the test, never persisted. */
   apiKey?: string;
+  /** Auth option 2 — used only during the test, never persisted. */
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string;
 }
 
 @Injectable({ providedIn: 'root' })

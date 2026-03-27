@@ -33,7 +33,8 @@ public class AgentService(
                 "Foundry agent is not configured for this organization. " +
                 "Please connect an agent in the Agent tab first.");
 
-        var apiKey = await configService.GetDecryptedApiKeyAsync(orgId, cancellationToken);
+        var (apiKey, tenantId, clientId, clientSecret) =
+            await configService.GetDecryptedCredentialsAsync(orgId, cancellationToken);
 
         var agentConfig = new AgentConfig
         {
@@ -41,6 +42,9 @@ public class AgentService(
             FoundryEndpoint = config.FoundryEndpoint,
             AgentId = string.IsNullOrWhiteSpace(config.AgentId) ? null : config.AgentId,
             ApiKey = apiKey,
+            TenantId = tenantId,
+            ClientId = clientId,
+            ClientSecret = clientSecret,
         };
 
         var pipelineTool = new PipelineAnalysisTool(dataProvider);

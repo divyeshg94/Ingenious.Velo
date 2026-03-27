@@ -21,7 +21,14 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   formEndpoint = '';
   formAgentId = '';
   formDisplayName = '';
+  /** 'none' | 'apikey' | 'sp' */
+  formAuthMethod: 'none' | 'apikey' | 'sp' = 'none';
+  // Auth option 1 — API key
   formApiKey = '';
+  // Auth option 2 — Service principal
+  formTenantId = '';
+  formClientId = '';
+  formClientSecret = '';
   isTesting = false;
   isSaving = false;
   testResult: { ok: boolean; message: string } | null = null;
@@ -62,6 +69,10 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.formEndpoint = cfg.foundryEndpoint;
         this.formAgentId = cfg.agentId ?? '';
         this.formDisplayName = cfg.displayName ?? '';
+        // Restore auth method indicator from server flags
+        if (cfg.hasApiKey) this.formAuthMethod = 'apikey';
+        else if (cfg.hasServicePrincipal) this.formAuthMethod = 'sp';
+        else this.formAuthMethod = 'none';
         this.isLoadingConfig = false;
       },
       error: (err) => {
@@ -84,7 +95,10 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       .testConnection({
         foundryEndpoint: this.formEndpoint,
         agentId: this.formAgentId || undefined,
-        apiKey: this.formApiKey || undefined,
+        apiKey: this.formAuthMethod === 'apikey' ? (this.formApiKey || undefined) : undefined,
+        tenantId: this.formAuthMethod === 'sp' ? (this.formTenantId || undefined) : undefined,
+        clientId: this.formAuthMethod === 'sp' ? (this.formClientId || undefined) : undefined,
+        clientSecret: this.formAuthMethod === 'sp' ? (this.formClientSecret || undefined) : undefined,
       })
       .subscribe({
         next: (res) => {
@@ -112,8 +126,12 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       displayName: this.formDisplayName || undefined,
       isEnabled: true,
       hasApiKey: false,
-      // Only send the API key if the user typed one; blank = keep existing value
-      apiKey: this.formApiKey || undefined,
+      hasServicePrincipal: false,
+      // Only send credential fields for the selected auth method; blank = keep existing values
+      apiKey: this.formAuthMethod === 'apikey' ? (this.formApiKey || undefined) : undefined,
+      tenantId: this.formAuthMethod === 'sp' ? (this.formTenantId || undefined) : undefined,
+      clientId: this.formAuthMethod === 'sp' ? (this.formClientId || undefined) : undefined,
+      clientSecret: this.formAuthMethod === 'sp' ? (this.formClientSecret || undefined) : undefined,
     };
 
     this.configService.saveConfig(dto).subscribe({
@@ -140,7 +158,11 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         this.formEndpoint = '';
         this.formAgentId = '';
         this.formDisplayName = '';
+        this.formAuthMethod = 'none';
         this.formApiKey = '';
+        this.formTenantId = '';
+        this.formClientId = '';
+        this.formClientSecret = '';
         this.testResult = null;
       },
       error: (err) => console.error('[AgentComponent] Delete config failed:', err),

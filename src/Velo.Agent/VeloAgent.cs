@@ -10,9 +10,10 @@ namespace Velo.Agent;
 /// Foundry AI agent orchestration entry point.
 /// Uses Azure.AI.Agents.Persistent (GA) + AIProjectClient.GetPersistentAgentsClient().
 ///
-/// Authentication:
-///   • API key present → AzureKeyCredential passed to AIProjectClient
-///   • No API key      → DefaultAzureCredential (Velo Managed Identity)
+/// Authentication (first match wins):
+///   1. API key present                    → ApiKeyTokenCredential (simplest)
+///   2. TenantId + ClientId + ClientSecret → ClientSecretCredential (cross-tenant SP)
+///   3. None                               → DefaultAzureCredential (Velo Managed Identity)
 ///
 /// Agent ID:
 ///   • Provided in config → used directly
@@ -163,9 +164,10 @@ public class VeloAgent(
     }
 
     /// <summary>
-    /// Resolves the Foundry PersistentAgentsClient.
-    ///   • API key present → ApiKeyTokenCredential shim (sends key as Bearer token).
-    ///   • No API key      → DefaultAzureCredential via AIProjectClient (Velo Managed Identity).
+    /// Resolves the Foundry PersistentAgentsClient using the first matching credential:
+    ///   1. API key            → ApiKeyTokenCredential (single-field, simplest)
+    ///   2. Service principal  → ClientSecretCredential (cross-tenant SP)
+    ///   3. Fallback           → DefaultAzureCredential via AIProjectClient (Velo Managed Identity)
     /// </summary>
     private static PersistentAgentsClient ResolveAgentsClient(AgentConfig config)
     {
@@ -173,6 +175,13 @@ public class VeloAgent(
             return new PersistentAgentsClient(
                 config.FoundryEndpoint,
                 new ApiKeyTokenCredential(config.ApiKey));
+
+        if (!string.IsNullOrEmpty(config.TenantId)
+            && !string.IsNullOrEmpty(config.ClientId)
+            && !string.IsNullOrEmpty(config.ClientSecret))
+            return new PersistentAgentsClient(
+                config.FoundryEndpoint,
+                new ClientSecretCredential(config.TenantId, config.ClientId, config.ClientSecret));
 
         var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), new DefaultAzureCredential());
         return projectClient.GetPersistentAgentsClient();

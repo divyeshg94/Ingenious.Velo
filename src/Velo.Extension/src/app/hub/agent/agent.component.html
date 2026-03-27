@@ -45,38 +45,108 @@
           </span>
         </div>
 
-        <!-- API Key (optional — for customer-owned Foundry resources) -->
+        <!-- Authentication method selector -->
         <div class="form-group-section">
           <div class="form-section-header">
-            API Key <span class="optional">(optional — for your own Azure AI Foundry resource)</span>
+            Authentication <span class="optional">(optional — defaults to Velo Managed Identity)</span>
           </div>
           <div class="form-section-hint">
-            If your Azure AI Foundry resource requires an API key, paste it here.
-            Leave blank to use Velo's Managed Identity for authentication.
+            Choose how Velo authenticates to your Azure AI Foundry resource.
+            If the resource is in Velo's own subscription, leave this as Managed Identity.
           </div>
 
-          <!-- Saved key hint -->
-          <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
-            <span class="key-saved-icon">🔑</span>
-            API key saved — leave blank to keep it, or paste a new key to replace.
+          <div class="auth-method-tabs">
+            <button
+              class="auth-tab"
+              [class.auth-tab--active]="formAuthMethod === 'none'"
+              (click)="formAuthMethod = 'none'"
+              type="button">
+              🔐 Managed Identity
+            </button>
+            <button
+              class="auth-tab"
+              [class.auth-tab--active]="formAuthMethod === 'apikey'"
+              (click)="formAuthMethod = 'apikey'"
+              type="button">
+              🗝️ API Key
+              <span *ngIf="config?.hasApiKey" class="auth-tab__badge" title="Saved">●</span>
+            </button>
+            <button
+              class="auth-tab"
+              [class.auth-tab--active]="formAuthMethod === 'sp'"
+              (click)="formAuthMethod = 'sp'"
+              type="button">
+              🏢 Service Principal
+              <span *ngIf="config?.hasServicePrincipal" class="auth-tab__badge" title="Saved">●</span>
+            </button>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input
-              class="form-input"
-              type="password"
-              [(ngModel)]="formApiKey"
-              [placeholder]="config?.hasApiKey ? 'Enter new key to replace existing…' : 'Paste your Foundry API key'"
-              autocomplete="new-password" />
+          <!-- Managed Identity (no extra fields) -->
+          <div *ngIf="formAuthMethod === 'none'" class="auth-panel">
+            <p class="auth-panel__info">
+              Velo will use its own <strong>Managed Identity</strong> to authenticate.
+              The Foundry resource must grant the Velo service principal <em>Azure AI User</em> access.
+            </p>
           </div>
 
-          <div class="security-notice">
-            <span class="security-notice__icon">🔒</span>
-            <span>
-              The API key is <strong>encrypted before storage</strong> using ASP.NET Core Data Protection
-              and is only accessible within your organization's context. Velo staff cannot read it.
-            </span>
+          <!-- API Key panel -->
+          <div *ngIf="formAuthMethod === 'apikey'" class="auth-panel">
+            <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
+              <span class="key-saved-icon">🔑</span>
+              API key saved — leave blank to keep it, or paste a new key to replace.
+            </div>
+            <div class="form-group">
+              <label class="form-label">API Key</label>
+              <input
+                class="form-input"
+                type="password"
+                [(ngModel)]="formApiKey"
+                [placeholder]="config?.hasApiKey ? 'Enter new key to replace existing…' : 'Paste your Foundry API key'"
+                autocomplete="new-password" />
+            </div>
+            <div class="security-notice">
+              <span class="security-notice__icon">🔒</span>
+              <span>Encrypted before storage using ASP.NET Core Data Protection. Never exposed to Velo staff.</span>
+            </div>
+          </div>
+
+          <!-- Service principal panel -->
+          <div *ngIf="formAuthMethod === 'sp'" class="auth-panel">
+            <div *ngIf="config?.hasServicePrincipal && !formClientSecret" class="key-saved-hint">
+              <span class="key-saved-icon">🔑</span>
+              Service principal saved — leave fields blank to keep existing credentials, or fill all three to replace.
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tenant ID</label>
+              <input
+                class="form-input"
+                type="text"
+                [(ngModel)]="formTenantId"
+                [placeholder]="config?.hasServicePrincipal ? 'Leave blank to keep existing' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'"
+                autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Client (App) ID</label>
+              <input
+                class="form-input"
+                type="text"
+                [(ngModel)]="formClientId"
+                [placeholder]="config?.hasServicePrincipal ? 'Leave blank to keep existing' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'"
+                autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Client Secret</label>
+              <input
+                class="form-input"
+                type="password"
+                [(ngModel)]="formClientSecret"
+                [placeholder]="config?.hasServicePrincipal ? 'Enter new secret to replace existing…' : 'Paste client secret value'"
+                autocomplete="new-password" />
+            </div>
+            <div class="security-notice">
+              <span class="security-notice__icon">🔒</span>
+              <span>All three values are <strong>encrypted before storage</strong>. Never exposed to Velo staff.</span>
+            </div>
           </div>
         </div>
 

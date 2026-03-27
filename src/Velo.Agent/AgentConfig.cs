@@ -12,11 +12,17 @@ public class AgentConfig
     public string? AgentId { get; set; }
 
     /// <summary>
-    /// Optional API key for authenticating against the Azure AI Foundry endpoint.
-    /// Decrypted by AgentConfigService before passing here — never stored in plaintext.
-    /// When absent, VeloAgent falls back to DefaultAzureCredential (Velo Managed Identity).
+    /// Authentication credentials for Foundry access. Priority order used by VeloAgent:
+    ///   1. API key present                      → ApiKeyTokenCredential (simplest)
+    ///   2. TenantId + ClientId + ClientSecret   → ClientSecretCredential (cross-tenant SP)
+    ///   3. None                                 → DefaultAzureCredential (Velo Managed Identity)
+    /// Values are decrypted by AgentConfigService before passing here — never stored in plaintext.
     /// </summary>
     public string? ApiKey { get; set; }
+
+    public string? TenantId { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
     public string DeploymentName { get; set; } = "gpt-4o";
     public int DailyTokenBudgetPerOrg { get; set; } = 50_000;
 
