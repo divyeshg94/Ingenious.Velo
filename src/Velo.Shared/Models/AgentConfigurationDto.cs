@@ -19,6 +19,12 @@ public class AgentConfigurationDto
 
     public string? DisplayName { get; set; }
 
+    /// <summary>
+    /// Azure OpenAI model deployment name (e.g. "gpt-4o", "gpt-4o-mini").
+    /// Used when Velo auto-creates the Foundry agent on first chat.
+    /// </summary>
+    public string DeploymentName { get; set; } = "gpt-4o";
+
     public bool IsEnabled { get; set; } = true;
 
     // ── Option 1: API key ──────────────────────────────────────────────────────

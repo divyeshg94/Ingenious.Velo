@@ -41,6 +41,7 @@ public class AgentService(
             OrgId = orgId,
             FoundryEndpoint = config.FoundryEndpoint,
             AgentId = string.IsNullOrWhiteSpace(config.AgentId) ? null : config.AgentId,
+            DeploymentName = string.IsNullOrWhiteSpace(config.DeploymentName) ? "gpt-4o" : config.DeploymentName,
             ApiKey = apiKey,
             TenantId = tenantId,
             ClientId = clientId,

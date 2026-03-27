@@ -66,6 +66,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         if (!string.IsNullOrWhiteSpace(dto.AgentId))
             existing.AgentId = dto.AgentId.Trim();
         existing.DisplayName = dto.DisplayName?.Trim();
+        existing.DeploymentName = string.IsNullOrWhiteSpace(dto.DeploymentName) ? "gpt-4o" : dto.DeploymentName.Trim();
         existing.IsEnabled = dto.IsEnabled;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -171,6 +172,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         AgentId = cfg.AgentId,
         DisplayName = cfg.DisplayName,
         IsEnabled = cfg.IsEnabled,
+        DeploymentName = cfg.DeploymentName,
         HasApiKey = !string.IsNullOrEmpty(cfg.ApiKey),
         HasServicePrincipal = !string.IsNullOrEmpty(cfg.ClientSecret),
         UpdatedAt = cfg.UpdatedAt

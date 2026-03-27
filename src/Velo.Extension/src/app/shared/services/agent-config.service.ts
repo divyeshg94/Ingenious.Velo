@@ -10,6 +10,8 @@ export interface AgentConfigDto {
   /** Optional — null means Velo will auto-create the agent on first chat. */
   agentId?: string;
   displayName?: string;
+  /** Azure OpenAI model deployment name (e.g. "gpt-4o"). Used when auto-creating the agent. */
+  deploymentName: string;
   isEnabled: boolean;
   // ── Auth option 1: API key ──────────────────────────────────────────────────
   /** Write-only: sent when saving. The server encrypts it before storage. Never returned by the server. */
