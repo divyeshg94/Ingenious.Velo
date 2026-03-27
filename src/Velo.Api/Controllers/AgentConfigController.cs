@@ -5,7 +5,7 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Controllers;
 
-public record AgentConfigTestRequest(string FoundryEndpoint, string AgentId, string? TenantId, string? ClientId, string? ClientSecret);
+public record AgentConfigTestRequest(string FoundryEndpoint, string? AgentId, string? TenantId, string? ClientId, string? ClientSecret);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -38,8 +38,7 @@ public class AgentConfigController(
 
         if (string.IsNullOrWhiteSpace(dto.FoundryEndpoint))
             return BadRequest(new { error = "foundryEndpoint is required" });
-        if (string.IsNullOrWhiteSpace(dto.AgentId))
-            return BadRequest(new { error = "agentId is required" });
+        // AgentId is optional — Velo auto-creates the agent on first chat when not supplied
 
         var saved = await configService.SaveConfigAsync(orgId, dto, ct);
         logger.LogInformation("AGENT_CONFIG: Saved config for OrgId={OrgId}", orgId);

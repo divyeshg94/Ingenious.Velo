@@ -14,7 +14,11 @@ public interface IAgentConfigService
     Task<AgentConfigurationDto?> GetConfigAsync(string orgId, CancellationToken ct = default);
     Task<AgentConfigurationDto> SaveConfigAsync(string orgId, AgentConfigurationDto dto, CancellationToken ct = default);
     Task DeleteConfigAsync(string orgId, CancellationToken ct = default);
-    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string agentId, string? tenantId, string? clientId, string? clientSecret, CancellationToken ct = default);
+    /// <summary>
+    /// Tests connectivity to the Foundry endpoint. agentId is optional — when null/empty
+    /// the test only verifies the endpoint and credentials are reachable (skips agent lookup).
+    /// </summary>
+    Task<(bool Ok, string Message)> TestConnectionAsync(string endpoint, string? agentId, string? tenantId, string? clientId, string? clientSecret, CancellationToken ct = default);
 
     /// <summary>
     /// Returns decrypted service principal credentials for internal agent use. Never exposed to the client.
@@ -49,7 +53,10 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         }
 
         existing.FoundryEndpoint = dto.FoundryEndpoint.Trim();
-        existing.AgentId = dto.AgentId.Trim();
+        // Only overwrite AgentId if the client provides one explicitly.
+        // Null/empty means "let Velo auto-create it" — preserve any previously auto-created value.
+        if (!string.IsNullOrWhiteSpace(dto.AgentId))
+            existing.AgentId = dto.AgentId.Trim();
         existing.DisplayName = dto.DisplayName?.Trim();
         existing.IsEnabled = dto.IsEnabled;
         existing.UpdatedAt = DateTimeOffset.UtcNow;
@@ -95,7 +102,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string agentId,
+        string endpoint, string? agentId,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default)
     {
@@ -116,9 +123,20 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
             var projectClient = new AIProjectClient(new Uri(endpoint), credential);
             var agentsClient = projectClient.GetPersistentAgentsClient();
 
-            var agent = agentsClient.Administration.GetAgent(agentId);
-            var name = agent?.Value?.Name ?? agentId;
-            return (true, $"Connected successfully to agent '{name}'.");
+            // When an Agent ID is provided, verify it exists. Otherwise just confirm the
+            // endpoint and credentials are reachable by listing agents (lightweight call).
+            if (!string.IsNullOrWhiteSpace(agentId))
+            {
+                var agent = agentsClient.Administration.GetAgent(agentId);
+                var name = agent?.Value?.Name ?? agentId;
+                return (true, $"Connected successfully. Agent '{name}' found.");
+            }
+            else
+            {
+                // List agents to confirm connectivity — auto-create will happen on first chat
+                var agents = agentsClient.Administration.GetAgents();
+                return (true, "Connected successfully. Agent will be created automatically on first chat.");
+            }
         }
         catch (Exception ex)
         {

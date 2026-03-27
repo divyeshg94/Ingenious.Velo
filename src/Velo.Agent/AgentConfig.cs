@@ -2,8 +2,14 @@ namespace Velo.Agent;
 
 public class AgentConfig
 {
+    public string OrgId { get; set; } = string.Empty;
     public string FoundryEndpoint { get; set; } = string.Empty;
-    public string AgentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Foundry agent ID (e.g. asst_xxxx). Nullable — when null VeloAgent auto-creates
+    /// the agent on first use and persists the returned ID via IAgentDataProvider.
+    /// </summary>
+    public string? AgentId { get; set; }
 
     /// <summary>
     /// Service principal credentials for cross-tenant Foundry access (customer's own resource).

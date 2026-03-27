@@ -13,6 +13,12 @@ namespace Velo.Agent;
 ///   • Service principal credentials present → ClientSecretCredential (cross-tenant, customer's own Foundry)
 ///   • No credentials                         → DefaultAzureCredential (Velo Managed Identity)
 ///
+/// Agent ID:
+///   • Provided in config → used directly
+///   • Null/empty         → agent is auto-created with Velo's default system prompt on first call;
+///                          the returned ID is persisted via IAgentDataProvider.SaveAgentIdAsync
+///                          so subsequent calls reuse it.
+///
 /// Architecture:
 ///   1. Tools gather DB context via IAgentDataProvider
 ///   2. Context is prepended to the user message as a structured block
@@ -21,10 +27,21 @@ namespace Velo.Agent;
 /// </summary>
 public class VeloAgent(
     AgentConfig config,
+    IAgentDataProvider dataProvider,
     PipelineAnalysisTool pipelineTool,
     CodeAnalysisTool codeTool,
     RecommendationTool recommendationTool)
 {
+    private const string SystemPrompt = """
+        You are Velo, an AI engineering intelligence assistant embedded in Azure DevOps.
+        You help DevOps engineers improve their pipelines and engineering practices using
+        real data from their ADO environment.
+
+        Use any pipeline, DORA, and PR data provided in [VELO_CONTEXT] blocks to give
+        specific, actionable recommendations grounded in the actual numbers.
+        When data is missing, acknowledge it and suggest how to populate it (e.g. run a sync).
+        """;
+
     public async Task<AgentResponse> ChatAsync(AgentRequest request, CancellationToken cancellationToken)
     {
         // 1. Build rich context strings from DB via tools
@@ -38,9 +55,6 @@ public class VeloAgent(
             request.OrgId, request.ProjectId, cancellationToken);
 
         var systemContext = $"""
-            You are Velo, an AI engineering intelligence assistant embedded in Azure DevOps.
-            You help DevOps engineers improve their pipelines and engineering practices using real data from their ADO environment.
-
             ## Pipeline Build History
             {pipelineContext}
 
@@ -49,26 +63,22 @@ public class VeloAgent(
 
             ## Pull Request Insights
             {prContext}
-
-            Use the data above to give specific, actionable recommendations grounded in the actual numbers.
-            When the user asks a general question, reference the most relevant data points from the context above.
-            If data is missing or says "No data available", acknowledge it and suggest how to populate it.
             """;
 
-        // 2. Resolve credential and build the agents client.
-        //    PersistentAgentsClient only accepts TokenCredential (GA SDK constraint).
-        //    • Service principal configured → ClientSecretCredential (customer's own Foundry resource, cross-tenant)
-        //    • No service principal         → DefaultAzureCredential (Velo Managed Identity must have Foundry access)
+        // 2. Resolve credential and build the agents client
         var credential = ResolveCredential(config);
         var projectClient = new AIProjectClient(new Uri(config.FoundryEndpoint), credential);
         PersistentAgentsClient agentsClient = projectClient.GetPersistentAgentsClient();
 
-        // 3. Create a new thread for this conversation (stateless — history replayed per request)
+        // 3. Resolve (or auto-create) the Foundry agent
+        var agentId = await ResolveAgentIdAsync(agentsClient, request.OrgId, cancellationToken);
+
+        // 4. Create a new thread for this conversation (stateless — history replayed per request)
         PersistentAgentThread thread = await agentsClient.Threads.CreateThreadAsync(cancellationToken: cancellationToken);
 
         try
         {
-            // 4. Replay conversation history so the agent has full context
+            // 5. Replay conversation history so the agent has full context
             foreach (var msg in request.History)
             {
                 var role = string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase)
@@ -78,14 +88,14 @@ public class VeloAgent(
                     thread.Id, role, msg.Content, cancellationToken: cancellationToken);
             }
 
-            // 5. Add the current user message with the Velo context block prepended
+            // 6. Add the current user message with the Velo context block prepended
             var contextualMessage = $"[VELO_CONTEXT]\n{systemContext}\n[/VELO_CONTEXT]\n\n{request.Message}";
             await agentsClient.Messages.CreateMessageAsync(
                 thread.Id, MessageRole.User, contextualMessage, cancellationToken: cancellationToken);
 
-            // 6. Create and poll the agent run until it reaches a terminal state
+            // 7. Create and poll the agent run until it reaches a terminal state
             ThreadRun run = await agentsClient.Runs.CreateRunAsync(
-                thread.Id, config.AgentId, cancellationToken: cancellationToken);
+                thread.Id, agentId, cancellationToken: cancellationToken);
 
             while (run.Status == RunStatus.Queued
                 || run.Status == RunStatus.InProgress
@@ -103,7 +113,7 @@ public class VeloAgent(
                 throw new InvalidOperationException(
                     $"Foundry agent run ended with status: {run.Status}");
 
-            // 7. Extract the last assistant message (newest first)
+            // 8. Extract the last assistant message (newest first)
             var messages = agentsClient.Messages.GetMessages(thread.Id, order: ListSortOrder.Descending);
             var lastAssistant = messages.FirstOrDefault(m => m.Role == MessageRole.Agent);
 
@@ -123,9 +133,38 @@ public class VeloAgent(
         }
     }
 
+    /// <summary>
+    /// Returns the agent ID from config if present, otherwise auto-creates a new Foundry
+    /// agent with Velo's default system prompt and persists the ID for future calls.
+    /// </summary>
+    private async Task<string> ResolveAgentIdAsync(
+        PersistentAgentsClient agentsClient,
+        string orgId,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(config.AgentId))
+            return config.AgentId;
+
+        // Auto-create the agent using the configured deployment model
+        var created = await agentsClient.Administration.CreateAgentAsync(
+            model: config.DeploymentName,
+            name: "Velo Engineering Assistant",
+            instructions: SystemPrompt,
+            cancellationToken: ct);
+
+        var newAgentId = created.Value.Id;
+
+        // Persist so subsequent calls reuse the same agent (no per-call re-creation)
+        await dataProvider.SaveAgentIdAsync(orgId, newAgentId, ct);
+
+        // Update in-memory config so the rest of this request uses the new ID
+        config.AgentId = newAgentId;
+
+        return newAgentId;
+    }
+
     private static Azure.Core.TokenCredential ResolveCredential(AgentConfig config)
     {
-        // Service principal credentials present → use ClientSecretCredential (cross-tenant)
         if (!string.IsNullOrEmpty(config.TenantId)
             && !string.IsNullOrEmpty(config.ClientId)
             && !string.IsNullOrEmpty(config.ClientSecret))
@@ -133,7 +172,6 @@ public class VeloAgent(
             return new ClientSecretCredential(config.TenantId, config.ClientId, config.ClientSecret);
         }
 
-        // Fallback: Velo Managed Identity (customer must grant it Foundry access)
         return new DefaultAzureCredential();
     }
 }
