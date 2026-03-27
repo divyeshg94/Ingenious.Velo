@@ -21,7 +21,7 @@ namespace Velo.Api.Controllers;
 public class WebhookController(
     IMetricsRepository repo,
     VeloDbContext dbContext,
-    DoraComputeService doraService,
+    IDoraComputeService doraService,
     IConfiguration config,
     ILogger<WebhookController> logger) : ControllerBase
 {
@@ -542,6 +542,9 @@ public class WebhookController(
     private async Task SetTenantContextAsync(string orgId, CancellationToken cancellationToken)
     {
         dbContext.CurrentOrgId = orgId;
+
+        // sp_set_session_context is SQL Server-specific; skip for non-relational providers (e.g., InMemory in tests)
+        if (!dbContext.Database.IsRelational()) return;
 
         var connection = dbContext.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)

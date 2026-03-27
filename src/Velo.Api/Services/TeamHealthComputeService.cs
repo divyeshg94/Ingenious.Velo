@@ -3,6 +3,11 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Services;
 
+public interface ITeamHealthComputeService
+{
+    Task<TeamHealthDto> ComputeAndSaveAsync(string orgId, string projectId, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Computes Team Health metrics from ingested pipeline run and PR event data.
 ///
@@ -27,7 +32,7 @@ namespace Velo.Api.Services;
 /// </summary>
 public class TeamHealthComputeService(
     IMetricsRepository repo,
-    ILogger<TeamHealthComputeService> logger)
+    ILogger<TeamHealthComputeService> logger) : ITeamHealthComputeService
 {
     private const int PeriodDays = 30;
 

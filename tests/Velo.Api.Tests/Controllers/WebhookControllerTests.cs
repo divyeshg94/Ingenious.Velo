@@ -16,7 +16,7 @@ namespace Velo.Api.Tests.Controllers;
 public class WebhookControllerTests : IDisposable
 {
     private readonly Mock<IMetricsRepository> _repoMock = new();
-    private readonly Mock<DoraComputeService> _doraServiceMock;
+    private readonly Mock<IDoraComputeService> _doraServiceMock = new();
     private readonly VeloDbContext _dbContext;
     private readonly IConfiguration _config;
     private readonly WebhookController _sut;
@@ -25,9 +25,6 @@ public class WebhookControllerTests : IDisposable
 
     public WebhookControllerTests()
     {
-        _doraServiceMock = new Mock<DoraComputeService>(
-            _repoMock.Object,
-            NullLogger<DoraComputeService>.Instance);
 
         var options = new DbContextOptionsBuilder<VeloDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -125,7 +122,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
     }
 
     [Fact]
@@ -150,7 +147,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SaveRunAsync(It.IsAny<Velo.Shared.Models.PipelineRunDto>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -175,7 +172,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
     }
 
     [Fact]
@@ -197,7 +194,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
     }
 
     [Fact]
@@ -230,7 +227,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SaveRunAsync(It.IsAny<Velo.Shared.Models.PipelineRunDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -260,7 +257,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SaveRunAsync(It.IsAny<Velo.Shared.Models.PipelineRunDto>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -326,7 +323,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SavePrEventAsync(It.IsAny<Velo.Shared.Models.PullRequestEventDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -382,7 +379,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SavePrEventAsync(It.IsAny<Velo.Shared.Models.PullRequestEventDto>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -445,7 +442,7 @@ public class WebhookControllerTests : IDisposable
 
         var result = await _sut.AdoEvent(CancellationToken.None);
 
-        result.Should().BeOfType<OkObjectResult>();
+        result.Should().BeOfType<OkResult>();
         _repoMock.Verify(r => r.SaveRunAsync(
             It.Is<Velo.Shared.Models.PipelineRunDto>(r => r.OrgId == "myorg"),
             It.IsAny<CancellationToken>()), Times.Once);

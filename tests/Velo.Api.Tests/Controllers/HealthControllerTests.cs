@@ -14,15 +14,11 @@ namespace Velo.Api.Tests.Controllers;
 public class HealthControllerTests
 {
     private readonly Mock<IMetricsRepository> _repoMock = new();
-    private readonly Mock<TeamHealthComputeService> _healthServiceMock;
+    private readonly Mock<ITeamHealthComputeService> _healthServiceMock = new();
     private readonly HealthController _sut;
 
     public HealthControllerTests()
     {
-        _healthServiceMock = new Mock<TeamHealthComputeService>(
-            _repoMock.Object,
-            NullLogger<TeamHealthComputeService>.Instance);
-
         _sut = new HealthController(
             _repoMock.Object,
             _healthServiceMock.Object,

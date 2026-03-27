@@ -8,6 +8,12 @@ using Velo.SQL;
 
 namespace Velo.Api.Services;
 
+public interface IAdoPipelineIngestService
+{
+    Task<int> IngestAsync(string orgId, string projectId, string adoAccessToken, CancellationToken cancellationToken);
+    Task<int> IngestAllProjectsAsync(string orgId, string orgUrl, string adoAccessToken, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Calls the Azure DevOps Builds REST API and stores pipeline runs in the database.
 /// Uses the user's ADO access token (from SDK.getAccessToken()) — no PAT storage required.
@@ -15,9 +21,9 @@ namespace Velo.Api.Services;
 public class AdoPipelineIngestService(
     IMetricsRepository repo,
     IHttpClientFactory httpClientFactory,
-    DoraComputeService doraComputeService,
+    IDoraComputeService doraComputeService,
     ILogger<AdoPipelineIngestService> logger,
-    VeloDbContext dbContext)
+    VeloDbContext dbContext) : IAdoPipelineIngestService
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 

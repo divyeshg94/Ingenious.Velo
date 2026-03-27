@@ -247,10 +247,10 @@ public class DoraComputeServiceTests
     // ── Ratings ───────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(0.5, "Elite")]   // >= 1/day
-    [InlineData(0.2, "High")]    // >= 1/week
-    [InlineData(0.05, "Medium")] // >= 1/month
-    [InlineData(0.01, "Low")]
+    [InlineData(1.5, "Elite")]   // >= 1/day (1.5/day is Elite)
+    [InlineData(0.2, "High")]    // >= 1/week (0.2/day ≈ 1.4/week)
+    [InlineData(0.05, "Medium")] // >= 1/month (0.05/day ≈ 1.5/month)
+    [InlineData(0.01, "Medium")] // Math.Max(1,...) forces ≥1 run → 1/30 days = Medium
     public async Task DeploymentFrequencyRating_IsCorrect(double frequency, string expected)
     {
         int count = (int)Math.Max(1, Math.Ceiling(frequency * 30));

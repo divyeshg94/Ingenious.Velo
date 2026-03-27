@@ -19,7 +19,7 @@ namespace Velo.Api.Controllers;
 [Authorize]
 public class HealthController(
     IMetricsRepository metricsRepository,
-    TeamHealthComputeService healthService,
+    ITeamHealthComputeService healthService,
     ILogger<HealthController> logger) : ControllerBase
 {
     /// <summary>

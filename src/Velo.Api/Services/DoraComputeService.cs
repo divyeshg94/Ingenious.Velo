@@ -3,13 +3,18 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Services;
 
+public interface IDoraComputeService
+{
+    Task<DoraMetricsDto> ComputeAndSaveAsync(string orgId, string projectId, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Computes DORA metrics from stored pipeline runs and saves them.
 /// Called after each ingestion so the dashboard always has fresh metrics.
 /// </summary>
 public class DoraComputeService(
     IMetricsRepository repo,
-    ILogger<DoraComputeService> logger)
+    ILogger<DoraComputeService> logger) : IDoraComputeService
 {
     private const int PeriodDays = 30;
 

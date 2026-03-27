@@ -15,28 +15,13 @@ namespace Velo.Api.Tests.Controllers;
 public class SyncControllerTests
 {
     private readonly Mock<IMetricsRepository> _repoMock = new();
-    private readonly Mock<AdoPipelineIngestService> _ingestMock;
-    private readonly Mock<DoraComputeService> _doraServiceMock;
-    private readonly Mock<AdoServiceHookService> _hookServiceMock;
+    private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
+    private readonly Mock<IDoraComputeService> _doraServiceMock = new();
+    private readonly Mock<IAdoServiceHookService> _hookServiceMock = new();
     private readonly SyncController _sut;
 
     public SyncControllerTests()
     {
-        _ingestMock = new Mock<AdoPipelineIngestService>(
-            _repoMock.Object,
-            Mock.Of<IHttpClientFactory>(),
-            new DoraComputeService(_repoMock.Object, NullLogger<DoraComputeService>.Instance),
-            NullLogger<AdoPipelineIngestService>.Instance);
-
-        _doraServiceMock = new Mock<DoraComputeService>(
-            _repoMock.Object,
-            NullLogger<DoraComputeService>.Instance);
-
-        _hookServiceMock = new Mock<AdoServiceHookService>(
-            Mock.Of<IHttpClientFactory>(),
-            Mock.Of<IConfiguration>(),
-            NullLogger<AdoServiceHookService>.Instance);
-
         _sut = new SyncController(
             _ingestMock.Object,
             _doraServiceMock.Object,
