@@ -18,8 +18,8 @@ namespace Velo.Api.Controllers;
 [Authorize]
 public class DoraController(
     IMetricsRepository metricsRepository,
-    AdoPipelineIngestService ingestService,
-    DoraComputeService doraComputeService,
+    IAdoPipelineIngestService ingestService,
+    IDoraComputeService doraComputeService,
     ILogger<DoraController> logger) : ControllerBase
 {
     private const string AdoTokenHeader = "X-Ado-Access-Token";

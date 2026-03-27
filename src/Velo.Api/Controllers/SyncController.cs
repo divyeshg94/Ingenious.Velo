@@ -9,9 +9,9 @@ namespace Velo.Api.Controllers;
 [Route("api/[controller]")]
 [Authorize]
 public class SyncController(
-    AdoPipelineIngestService ingestService,
-    DoraComputeService doraService,
-    AdoServiceHookService hookService,
+    IAdoPipelineIngestService ingestService,
+    IDoraComputeService doraService,
+    IAdoServiceHookService hookService,
     ILogger<SyncController> logger) : ControllerBase
 {
     private const string AdoTokenHeader = "X-Ado-Access-Token";

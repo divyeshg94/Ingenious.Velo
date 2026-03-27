@@ -14,22 +14,12 @@ namespace Velo.Api.Tests.Controllers;
 public class DoraControllerTests
 {
     private readonly Mock<IMetricsRepository> _repoMock = new();
-    private readonly Mock<AdoPipelineIngestService> _ingestMock;
-    private readonly Mock<DoraComputeService> _doraComputeMock;
+    private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
+    private readonly Mock<IDoraComputeService> _doraComputeMock = new();
     private readonly DoraController _sut;
 
     public DoraControllerTests()
     {
-        _ingestMock = new Mock<AdoPipelineIngestService>(
-            Mock.Of<IMetricsRepository>(),
-            Mock.Of<IHttpClientFactory>(),
-            Mock.Of<DoraComputeService>(MockBehavior.Loose),
-            NullLogger<AdoPipelineIngestService>.Instance);
-
-        _doraComputeMock = new Mock<DoraComputeService>(
-            Mock.Of<IMetricsRepository>(),
-            NullLogger<DoraComputeService>.Instance);
-
         _sut = new DoraController(
             _repoMock.Object,
             _ingestMock.Object,

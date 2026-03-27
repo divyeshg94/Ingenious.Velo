@@ -54,10 +54,10 @@ try
     builder.Services.AddScoped<IConnectionService, ConnectionService>();
     builder.Services.AddScoped<IMetricsRepository, MetricsRepository>();
     builder.Services.AddScoped<IProjectService, ProjectService>();
-    builder.Services.AddScoped<AdoPipelineIngestService>();
-    builder.Services.AddScoped<DoraComputeService>();
-    builder.Services.AddScoped<TeamHealthComputeService>();
-    builder.Services.AddScoped<AdoServiceHookService>();
+    builder.Services.AddScoped<IDoraComputeService, DoraComputeService>();
+    builder.Services.AddScoped<IAdoPipelineIngestService, AdoPipelineIngestService>();
+    builder.Services.AddScoped<ITeamHealthComputeService, TeamHealthComputeService>();
+    builder.Services.AddScoped<IAdoServiceHookService, AdoServiceHookService>();
     builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration

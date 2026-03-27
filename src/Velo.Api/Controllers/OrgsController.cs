@@ -19,7 +19,7 @@ namespace Velo.Api.Controllers;
 public class OrgsController(
     IMetricsRepository metricsRepository,
     IProjectService projectService,
-    AdoPipelineIngestService ingestService,
+    IAdoPipelineIngestService ingestService,
     ILogger<OrgsController> logger) : ControllerBase
 {
     /// <summary>

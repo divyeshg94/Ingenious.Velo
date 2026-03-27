@@ -5,6 +5,15 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Services;
 
+public interface IAdoServiceHookService
+{
+    Task<WebhookStatusDto> GetStatusAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<WebhookStatusDto> RegisterAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<WebhookStatusDto> GetPrStatusAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<WebhookStatusDto> RegisterPrHookAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<bool> RemoveAsync(string orgId, string subscriptionId, string adoToken, CancellationToken ct);
+}
+
 /// <summary>
 /// Manages Azure DevOps service hook subscriptions for build.complete and PR events.
 /// Requires the extension to declare the vso.hooks_write scope.
@@ -12,7 +21,7 @@ namespace Velo.Api.Services;
 public class AdoServiceHookService(
     IHttpClientFactory httpClientFactory,
     IConfiguration config,
-    ILogger<AdoServiceHookService> logger)
+    ILogger<AdoServiceHookService> logger) : IAdoServiceHookService
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 

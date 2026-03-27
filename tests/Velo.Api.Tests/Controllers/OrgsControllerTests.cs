@@ -16,17 +16,11 @@ public class OrgsControllerTests
 {
     private readonly Mock<IMetricsRepository> _repoMock = new();
     private readonly Mock<IProjectService> _projectServiceMock = new();
-    private readonly Mock<AdoPipelineIngestService> _ingestMock;
+    private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
     private readonly OrgsController _sut;
 
     public OrgsControllerTests()
     {
-        _ingestMock = new Mock<AdoPipelineIngestService>(
-            _repoMock.Object,
-            Mock.Of<IHttpClientFactory>(),
-            new DoraComputeService(_repoMock.Object, NullLogger<DoraComputeService>.Instance),
-            NullLogger<AdoPipelineIngestService>.Instance);
-
         _sut = new OrgsController(
             _repoMock.Object,
             _projectServiceMock.Object,
