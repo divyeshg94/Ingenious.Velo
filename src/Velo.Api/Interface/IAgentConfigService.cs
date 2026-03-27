@@ -1,9 +1,7 @@
 using Azure.AI.Agents.Persistent;
-using Azure.AI.Projects;
-using Azure.Core;
-using Azure.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Velo.Agent;
 using Velo.Shared.Models;
 using Velo.SQL;
 using Velo.SQL.Models;
@@ -122,7 +120,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     {
         try
         {
-            PersistentAgentsClient agentsClient = BuildAgentsClient(endpoint, apiKey, tenantId, clientId, clientSecret);
+            PersistentAgentsClient agentsClient = FoundryClientFactory.Build(endpoint, apiKey, tenantId, clientId, clientSecret);
 
             // When an Agent ID is provided, verify it exists. Otherwise just confirm the
             // endpoint and credentials are reachable by listing agents (lightweight call).
@@ -144,25 +142,6 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         }
     }
 
-    // Shared credential resolution: API key → Service principal → Managed Identity
-    internal static PersistentAgentsClient BuildAgentsClient(
-        string endpoint,
-        string? apiKey,
-        string? tenantId, string? clientId, string? clientSecret)
-    {
-        if (!string.IsNullOrEmpty(apiKey))
-            return new PersistentAgentsClient(endpoint, new ApiKeyTokenCredential(apiKey));
-
-        if (!string.IsNullOrEmpty(tenantId)
-            && !string.IsNullOrEmpty(clientId)
-            && !string.IsNullOrEmpty(clientSecret))
-            return new PersistentAgentsClient(endpoint,
-                new ClientSecretCredential(tenantId, clientId, clientSecret));
-
-        return new AIProjectClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetPersistentAgentsClient();
-    }
-
     // Credential values are never returned to the client — HasApiKey/HasServicePrincipal signal their presence
     private static AgentConfigurationDto ToDto(AgentConfiguration cfg) => new()
     {
@@ -178,17 +157,5 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         UpdatedAt = cfg.UpdatedAt
     };
 
-    /// <summary>
-    /// Wraps an Azure AI Foundry API key as a <see cref="TokenCredential"/> so it can be passed
-    /// to SDK clients that only accept <see cref="TokenCredential"/>. The key is sent as the
-    /// Bearer token value in the Authorization header, which Azure AI Services validates.
-    /// </summary>
-    private sealed class ApiKeyTokenCredential(string apiKey) : TokenCredential
-    {
-        public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)
-            => new(apiKey, DateTimeOffset.MaxValue);
-
-        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
-            => ValueTask.FromResult(new AccessToken(apiKey, DateTimeOffset.MaxValue));
-    }
+    // Client construction delegated to FoundryClientFactory (see Velo.Agent/FoundryClientFactory.cs).
 }
