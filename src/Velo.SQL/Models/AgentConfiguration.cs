@@ -40,11 +40,17 @@ public class AgentConfiguration
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
-    /// Service principal credentials for cross-tenant Foundry access.
-    /// All three encrypted via ASP.NET Core Data Protection before storage.
-    /// Null when the org relies on Velo's Managed Identity instead.
-    /// Never returned to the client — use HasServicePrincipal on the DTO.
+    /// Authentication credentials — exactly one method should be populated per org.
+    /// Priority used by VeloAgent: API key → Service Principal → Managed Identity.
+    /// All values are encrypted via ASP.NET Core Data Protection before storage.
+    /// Never returned to the client — use HasApiKey / HasServicePrincipal on the DTO.
     /// </summary>
+
+    // ── Option 1: API key ──────────────────────────────────────────────────────
+    [MaxLength(1000)]
+    public string? ApiKey { get; set; }
+
+    // ── Option 2: Service principal (cross-tenant customer Foundry resource) ───
     [MaxLength(200)]
     public string? TenantId { get; set; }
 

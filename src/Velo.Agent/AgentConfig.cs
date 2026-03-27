@@ -12,11 +12,14 @@ public class AgentConfig
     public string? AgentId { get; set; }
 
     /// <summary>
-    /// Service principal credentials for cross-tenant Foundry access (customer's own resource).
-    /// All three must be set together; when present VeloAgent uses ClientSecretCredential.
+    /// Authentication credentials for Foundry access. Priority order used by VeloAgent:
+    ///   1. API key present                      → ApiKeyTokenCredential (simplest)
+    ///   2. TenantId + ClientId + ClientSecret   → ClientSecretCredential (cross-tenant SP)
+    ///   3. None                                 → DefaultAzureCredential (Velo Managed Identity)
     /// Values are decrypted by AgentConfigService before passing here — never stored in plaintext.
-    /// When absent, VeloAgent falls back to DefaultAzureCredential (Velo Managed Identity).
     /// </summary>
+    public string? ApiKey { get; set; }
+
     public string? TenantId { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }

@@ -5,7 +5,15 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Controllers;
 
-public record AgentConfigTestRequest(string FoundryEndpoint, string? AgentId, string? TenantId, string? ClientId, string? ClientSecret);
+public record AgentConfigTestRequest(
+    string FoundryEndpoint,
+    string? AgentId,
+    // Auth option 1
+    string? ApiKey,
+    // Auth option 2
+    string? TenantId,
+    string? ClientId,
+    string? ClientSecret);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -70,6 +78,7 @@ public class AgentConfigController(
 
         var (ok, message) = await configService.TestConnectionAsync(
             request.FoundryEndpoint, request.AgentId,
+            request.ApiKey,
             request.TenantId, request.ClientId, request.ClientSecret, ct);
 
         logger.LogInformation(
