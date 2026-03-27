@@ -17,6 +17,7 @@ public class VeloDbContext : DbContext
     public DbSet<LogEvent> LogEvents { get; set; } = null!;
     public DbSet<TeamMapping> TeamMappings { get; set; } = null!;
     public DbSet<ProjectMapping> ProjectMappings { get; set; } = null!;
+    public DbSet<AgentConfiguration> AgentConfigurations { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -157,6 +158,16 @@ public class VeloDbContext : DbContext
             eb.HasIndex(p => new { p.OrgId, p.ProjectGuid })
               .IsUnique()
               .HasDatabaseName("IX_ProjectMappings_OrgId_ProjectGuid");
+        });
+
+        // AgentConfigurations — one row per org, no tenant query filter
+        modelBuilder.Entity<AgentConfiguration>(eb =>
+        {
+            eb.Property(a => a.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            eb.Property(a => a.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            eb.HasIndex(a => a.OrgId)
+              .IsUnique()
+              .HasDatabaseName("IX_AgentConfigurations_OrgId");
         });
 
         base.OnModelCreating(modelBuilder);

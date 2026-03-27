@@ -1,17 +1,62 @@
+using Velo.Agent;
+using Velo.Agent.Tools;
 using Velo.Api.Controllers;
 
 namespace Velo.Api.Interface;
 
 public interface IAgentService
 {
-    Task<AgentChatResponse> ChatAsync(string projectId, string message, IEnumerable<ChatMessage> history, CancellationToken cancellationToken);
+    Task<AgentChatResponse> ChatAsync(
+        string orgId,
+        string projectId,
+        string message,
+        IEnumerable<ChatMessage> history,
+        CancellationToken cancellationToken);
 }
 
-// Phase 2: IConfiguration injected here for Foundry endpoint + Managed Identity setup
-#pragma warning disable CS9113
-public class AgentService(IConfiguration configuration) : IAgentService
-#pragma warning restore CS9113
+public class AgentService(
+    IAgentConfigService configService,
+    IAgentDataProvider dataProvider,
+    ILogger<AgentService> logger) : IAgentService
 {
-    public Task<AgentChatResponse> ChatAsync(string projectId, string message, IEnumerable<ChatMessage> history, CancellationToken cancellationToken)
-        => throw new NotImplementedException();
+    public async Task<AgentChatResponse> ChatAsync(
+        string orgId,
+        string projectId,
+        string message,
+        IEnumerable<ChatMessage> history,
+        CancellationToken cancellationToken)
+    {
+        var config = await configService.GetConfigAsync(orgId, cancellationToken);
+
+        if (config is null || !config.IsEnabled)
+            throw new InvalidOperationException(
+                "Foundry agent is not configured for this organization. " +
+                "Please connect an agent in the Agent tab first.");
+
+        var agentConfig = new AgentConfig
+        {
+            FoundryEndpoint = config.FoundryEndpoint,
+            AgentId = config.AgentId,
+        };
+
+        var pipelineTool = new PipelineAnalysisTool(dataProvider);
+        var codeTool = new CodeAnalysisTool(dataProvider);
+        var recommendationTool = new RecommendationTool(dataProvider);
+        var agent = new VeloAgent(agentConfig, pipelineTool, codeTool, recommendationTool);
+
+        var agentHistory = history.Select(m => new AgentMessage(m.Role, m.Content));
+        var request = new AgentRequest(orgId, projectId, message, agentHistory);
+
+        logger.LogInformation(
+            "AGENT: Chat request — OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+
+        var response = await agent.ChatAsync(request, cancellationToken);
+
+        logger.LogInformation(
+            "AGENT: Chat response — OrgId={OrgId}, TokensUsed={Tokens}", orgId, response.TokensUsed);
+
+        return new AgentChatResponse(
+            new ChatMessage("assistant", response.Content),
+            response.Citations);
+    }
 }

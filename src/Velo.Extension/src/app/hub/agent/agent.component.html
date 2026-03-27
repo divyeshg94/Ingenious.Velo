@@ -1,0 +1,175 @@
+<div class="agent-container">
+
+  <!-- ── Loading ────────────────────────────────────────────── -->
+  <div *ngIf="isLoadingConfig" class="agent-loading">
+    <span class="spinner"></span>
+    Checking agent configuration…
+  </div>
+
+  <!-- ── Connect form (no config yet) ──────────────────────── -->
+  <ng-container *ngIf="!isLoadingConfig && !isConfigured">
+    <div class="agent-connect">
+      <div class="agent-connect__hero">
+        <div class="agent-connect__icon">🤖</div>
+        <h2 class="agent-connect__title">Connect Foundry AI Agent</h2>
+        <p class="agent-connect__subtitle">
+          Connect your Azure AI Foundry agent to get AI-powered pipeline analysis,
+          DORA metric insights, and optimization recommendations — all grounded in
+          your real ADO data.
+        </p>
+      </div>
+
+      <div class="connect-form">
+        <div class="form-group">
+          <label class="form-label">Azure AI Foundry Project Endpoint <span class="required">*</span></label>
+          <input
+            class="form-input"
+            type="url"
+            [(ngModel)]="formEndpoint"
+            placeholder="https://your-project.api.azureml.ms/…"
+            autocomplete="off" />
+          <span class="form-hint">Found in Azure AI Studio → your project → Overview → Project endpoint</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Agent ID <span class="required">*</span></label>
+          <input
+            class="form-input"
+            type="text"
+            [(ngModel)]="formAgentId"
+            placeholder="asst_xxxxxxxxxxxxxxxxxxxxxxxx"
+            autocomplete="off" />
+          <span class="form-hint">Found in Azure AI Studio → Agents → your agent → Agent ID</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Display Name <span class="optional">(optional)</span></label>
+          <input
+            class="form-input"
+            type="text"
+            [(ngModel)]="formDisplayName"
+            placeholder="e.g. Velo Engineering Assistant" />
+        </div>
+
+        <div *ngIf="testResult" class="test-result" [class.test-result--ok]="testResult.ok" [class.test-result--fail]="!testResult.ok">
+          {{ testResult.ok ? '✓' : '✗' }} {{ testResult.message }}
+        </div>
+
+        <div *ngIf="saveError" class="form-error">{{ saveError }}</div>
+
+        <div class="connect-actions">
+          <button
+            class="btn btn--secondary"
+            (click)="testConnection()"
+            [disabled]="isTesting || !formEndpoint || !formAgentId">
+            <span *ngIf="isTesting" class="spinner-sm"></span>
+            {{ isTesting ? 'Testing…' : 'Test Connection' }}
+          </button>
+          <button
+            class="btn btn--primary"
+            (click)="saveConfig()"
+            [disabled]="isSaving || !formEndpoint || !formAgentId">
+            <span *ngIf="isSaving" class="spinner-sm"></span>
+            {{ isSaving ? 'Connecting…' : 'Connect Agent' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ── Chat UI (configured) ───────────────────────────────── -->
+  <ng-container *ngIf="!isLoadingConfig && isConfigured">
+    <div class="chat-layout">
+
+      <!-- Header -->
+      <div class="chat-header">
+        <div class="chat-header__info">
+          <span class="chat-header__icon">🤖</span>
+          <div>
+            <div class="chat-header__name">{{ config?.displayName || 'Velo AI Agent' }}</div>
+            <div class="chat-header__status connected">● Connected to Azure AI Foundry</div>
+          </div>
+        </div>
+        <div class="chat-header__actions">
+          <button class="btn-icon" title="Clear chat" (click)="clearChat()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1H2V4zm2-2h8v1H4V2zm1 4h6v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6zm1 1v6h4V7H6z"/></svg>
+          </button>
+          <button class="btn-icon btn-icon--danger" title="Disconnect agent" (click)="disconnectAgent()">✕</button>
+        </div>
+      </div>
+
+      <!-- Messages area -->
+      <div class="chat-messages" #messagesContainer>
+
+        <!-- Welcome / suggestion chips -->
+        <div *ngIf="messages.length === 0" class="chat-welcome">
+          <p>👋 Hi! I'm your Velo AI Agent. I can help you analyze pipeline performance,
+            interpret DORA metrics, and suggest improvements based on your real ADO data.</p>
+          <p class="chat-welcome__prompt">Try asking:</p>
+          <div class="chat-suggestions">
+            <button class="suggestion-chip" (click)="sendSuggestion('What are my biggest pipeline bottlenecks?')">
+              What are my biggest pipeline bottlenecks?
+            </button>
+            <button class="suggestion-chip" (click)="sendSuggestion('How can I improve my deployment frequency?')">
+              How can I improve my deployment frequency?
+            </button>
+            <button class="suggestion-chip" (click)="sendSuggestion('Analyze my change failure rate and suggest fixes')">
+              Analyze my change failure rate
+            </button>
+            <button class="suggestion-chip" (click)="sendSuggestion('What is my current DORA performance level?')">
+              What is my current DORA performance?
+            </button>
+          </div>
+        </div>
+
+        <!-- Message bubbles -->
+        <div
+          *ngFor="let msg of messages"
+          class="chat-message"
+          [class.chat-message--user]="msg.role === 'user'"
+          [class.chat-message--assistant]="msg.role === 'assistant'">
+          <div class="chat-bubble">
+            <span class="chat-bubble__avatar" *ngIf="msg.role === 'assistant'">🤖</span>
+            <div class="chat-bubble__text">{{ msg.content }}</div>
+          </div>
+        </div>
+
+        <!-- Thinking indicator -->
+        <div *ngIf="isThinking" class="chat-message chat-message--assistant">
+          <div class="chat-bubble chat-bubble--thinking">
+            <span class="chat-bubble__avatar">🤖</span>
+            <div class="thinking-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No project warning -->
+      <div *ngIf="!selectedProjectId" class="chat-no-project">
+        ⚠️ No project selected. Please select a project in the Connections tab first.
+      </div>
+
+      <!-- Input bar -->
+      <div class="chat-input-area" *ngIf="selectedProjectId">
+        <textarea
+          class="chat-input"
+          [(ngModel)]="currentMessage"
+          (keydown)="onKeyDown($event)"
+          placeholder="Ask about your pipelines, DORA metrics, or request optimization recommendations… (Enter to send, Shift+Enter for new line)"
+          rows="2"
+          [disabled]="isThinking">
+        </textarea>
+        <button
+          class="chat-send"
+          (click)="sendMessage()"
+          [disabled]="isThinking || !currentMessage.trim()">
+          <span *ngIf="!isThinking" class="send-icon">▶</span>
+          <span *ngIf="isThinking" class="spinner-sm spinner-sm--light"></span>
+        </button>
+      </div>
+
+    </div>
+  </ng-container>
+
+</div>

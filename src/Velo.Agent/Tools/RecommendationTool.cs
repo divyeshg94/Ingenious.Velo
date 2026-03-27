@@ -1,22 +1,14 @@
 namespace Velo.Agent.Tools;
 
 /// <summary>
-/// Foundry agent tool: generate structured optimization recommendations.
-/// Outputs are cached by pipeline definition hash to control token spend.
+/// Foundry agent tool: generate prioritized optimization recommendations from DORA data.
+/// Uses <see cref="IAgentDataProvider"/> to keep Velo.Agent free of EF Core dependencies.
 /// </summary>
-public class RecommendationTool
+public class RecommendationTool(IAgentDataProvider dataProvider)
 {
-    /// <summary>
-    /// Generates prioritized pipeline optimization recommendations.
-    /// Results are cached by <paramref name="pipelineHash"/> for the configured TTL.
-    /// </summary>
-    public Task<IEnumerable<Recommendation>> GenerateAsync(
-        string orgId,
-        string projectId,
-        int pipelineId,
-        string pipelineHash,
-        CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+    /// <summary>Returns a recommendation context string built from DORA metric ratings.</summary>
+    public Task<string> GetDoraRecommendationsAsync(string orgId, string projectId, CancellationToken cancellationToken = default)
+        => dataProvider.GetDoraContextAsync(orgId, projectId, cancellationToken);
 }
 
 public record Recommendation(
