@@ -10,18 +10,24 @@ export interface AgentConfigDto {
   agentId: string;
   displayName?: string;
   isEnabled: boolean;
-  /** Write-only: sent when saving. Never returned by the server. */
-  apiKey?: string;
-  /** True when an encrypted API key is stored. Returned by server on GET. */
-  hasApiKey: boolean;
+  /** Write-only: Azure AD Tenant ID for the service principal. Never returned by the server. */
+  tenantId?: string;
+  /** Write-only: Service principal Client (App) ID. Never returned by the server. */
+  clientId?: string;
+  /** Write-only: sent when saving. The server encrypts it before storage. Never returned by the server. */
+  clientSecret?: string;
+  /** True when encrypted service principal credentials are stored. Returned by server on GET. */
+  hasServicePrincipal: boolean;
   updatedAt?: string;
 }
 
 export interface AgentConfigTestRequest {
   foundryEndpoint: string;
   agentId: string;
-  /** Plaintext key used only during the test — never persisted by this call. */
-  apiKey?: string;
+  /** Used only during the test — never persisted by this call. */
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string;
 }
 
 @Injectable({ providedIn: 'root' })

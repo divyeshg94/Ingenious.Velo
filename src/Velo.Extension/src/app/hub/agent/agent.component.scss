@@ -141,6 +141,30 @@
   strong { color: var(--text-primary-color, #1e1e1e); }
 }
 
+.form-group-section {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--palette-neutral-10, #e0e0e0);
+  border-radius: 3px;
+  background: var(--palette-neutral-2, #fafafa);
+
+  .form-group:last-child { margin-bottom: 0; }
+}
+
+.form-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary-color, #1e1e1e);
+  margin-bottom: 4px;
+}
+
+.form-section-hint {
+  font-size: 12px;
+  color: var(--text-secondary-color, #666);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
 .form-error {
   background: var(--status-error-background, #fde7e9);
   color: var(--status-error-text, #d4262c);
