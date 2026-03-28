@@ -22,13 +22,21 @@ public class VeloDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Global tenant filter
-        modelBuilder.Entity<PipelineRun>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
-        modelBuilder.Entity<DoraMetrics>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
-        modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
-        modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
-        modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
-        modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
+        // Global tenant filter — FAIL-CLOSED.
+        // When CurrentOrgId is null (unauthenticated code path) NO rows are returned.
+        // This is defence-in-depth: TenantResolutionMiddleware already sets CurrentOrgId before
+        // any controller runs, so null should never be reached in production.
+        modelBuilder.Entity<PipelineRun>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<DoraMetrics>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        // AgentConfigurations and ProjectMappings carry their own OrgId but lacked a global filter.
+        // Adding fail-closed filters here as defence-in-depth; all existing queries still work
+        // because they also pass an explicit .Where(x => x.OrgId == orgId) predicate.
+        modelBuilder.Entity<AgentConfiguration>().HasQueryFilter(a => CurrentOrgId != null && a.OrgId == CurrentOrgId);
+        modelBuilder.Entity<ProjectMapping>().HasQueryFilter(p => CurrentOrgId != null && p.OrgId == CurrentOrgId);
 
         // Configure OrgContext
         modelBuilder.Entity<OrgContext>(eb =>
@@ -38,6 +46,11 @@ public class VeloDbContext : DbContext
             eb.Property(p => p.CreatedDate).HasDefaultValueSql("SYSUTCDATETIME()");
             eb.Property(p => p.ModifiedBy).HasMaxLength(200);
             eb.Property(p => p.IsDeleted).HasDefaultValue(false);
+            // AadTenantId is set once by TenantResolutionMiddleware and never changes.
+            eb.Property(p => p.AadTenantId).HasMaxLength(100);
+            // Index for fast tenant-binding lookups in TenantResolutionMiddleware.
+            eb.HasIndex(o => o.AadTenantId)
+              .HasDatabaseName("IX_Organizations_AadTenantId");
         });
 
         void ConfigureAuditable<T>() where T : AuditableEntity

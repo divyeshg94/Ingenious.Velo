@@ -20,6 +20,8 @@ export interface SyncResult {
   webhook: WebhookStatus;
   /** PR webhook (git.pullrequest.*) status */
   prWebhook?: WebhookStatus;
+  /** Work item webhook (workitem.updated) status */
+  workItemWebhook?: WebhookStatus;
   orgId: string;
   projectId: string;
   syncedAt: string;
@@ -61,6 +63,21 @@ export class SyncService {
 
   /** Reuse the same DELETE endpoint — subscription ID is generic for both build and PR hooks. */
   removePrHook(subscriptionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/hook/${encodeURIComponent(subscriptionId)}`);
+  }
+
+  // ── Work item webhook (workitem.updated → rework-rate tracking) ────────────
+
+  getWorkItemHookStatus(projectId: string): Observable<WebhookStatus> {
+    return this.http.get<WebhookStatus>(`${this.apiUrl}/workitem-hook-status/${encodeURIComponent(projectId)}`);
+  }
+
+  registerWorkItemHook(projectId: string): Observable<WebhookStatus> {
+    return this.http.post<WebhookStatus>(`${this.apiUrl}/workitem-hook/${encodeURIComponent(projectId)}`, {});
+  }
+
+  /** Reuse the same DELETE endpoint — subscription ID is generic across all hook types. */
+  removeWorkItemHook(subscriptionId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/hook/${encodeURIComponent(subscriptionId)}`);
   }
 }

@@ -28,10 +28,13 @@ export class AuthInterceptor implements HttpInterceptor {
       );
     }
 
-    // Local development — synchronous mock token
+    // Local development ONLY — never reaches this branch when running inside ADO.
+    // Mock token is read from localStorage so the Dev Settings modal can override it at runtime.
+    // DEV_MOCK_JWT is a hardcoded structural stub — it carries no real credentials.
     const token = localStorage.getItem('mock-token') || DEV_MOCK_JWT;
     const orgId = localStorage.getItem('mock-org-id') || 'local-org-dev';
-    console.log('[Auth Interceptor] Using local mock token');
+    // Use console.debug (filtered out in production builds / browser devtools by default)
+    console.debug('[Auth] Local dev mode — using mock token');
     const cloned = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`,

@@ -1,26 +1,25 @@
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 using Serilog.Context;
 using Velo.SQL;
-using Microsoft.EntityFrameworkCore;
 
 namespace Velo.Api.Middleware;
 
 /// <summary>
-/// Tenant resolution middleware - extracts org_id from the request and sets it on HttpContext.
-/// SECURITY: Logs all org_id resolution attempts (successful and failed) for audit trail.
-/// CRITICAL: This is where security violations are detected (missing org_id, invalid org_id).
-/// 
-/// Resolution order:
-/// 1. X-Azure-DevOps-OrgId header  (set by the ADO extension frontend via SDK.getHost().name)
-/// 2. JWT 'oid' claim              (Azure AD tokens, if ever used)
-/// 3. JWT NameIdentifier claim     (fallback)
-/// 
-/// This org_id is then used by:
-/// 1. VeloDbContext.CurrentOrgId - automatic EF Core query filtering
-/// 2. SQL Server session context - RLS policy enforcement at database layer
-/// 
-/// SECURITY: This middleware ensures all database queries are automatically scoped to the authenticated org_id.
-/// Never call database without org_id set - it indicates a security misconfiguration.
+/// Resolves the org_id for every authenticated request and binds it to the HTTP context,
+/// the EF Core DbContext (query filters), and SQL Server session context (RLS).
+///
+/// SECURITY — Resolution &amp; validation order:
+///   1. X-Azure-DevOps-OrgId header   — provided by the ADO extension SDK (SDK.getHost().name)
+///   2. JWT 'tid' claim               — AAD tenant GUID carried in VSSO app tokens
+///   3. JWT 'oid' claim               — fallback for older token formats
+///
+/// TENANT BINDING (anti-spoofing):
+///   On the first request for a newly registered org we record the AAD tenant GUID (tid) from the
+///   JWT and store it in the Organizations table (AadTenantId).
+///   On every subsequent request we verify the incoming JWT's tid matches the stored value.
+///   This prevents an attacker from sending a forged X-Azure-DevOps-OrgId header and accessing
+///   a different organisation's data with their own valid token.
 /// </summary>
 public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantResolutionMiddleware> logger)
 {
@@ -32,86 +31,118 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
 
         try
         {
-            // If the user is not authenticated yet, skip tenant resolution entirely.
-            // The [Authorize] attribute on controllers will return the proper 401 challenge.
+            // Unauthenticated requests: let the [Authorize] attribute return the proper 401 challenge.
             if (context.User?.Identity?.IsAuthenticated != true)
             {
                 logger.LogDebug(
-                    "TENANT: Skipping — user not authenticated. Path: {Path}, CorrelationId: {CorrelationId}",
+                    "TENANT: Skipping — user not authenticated. Path={Path}, CorrelationId={CorrelationId}",
                     context.Request.Path, correlationId);
                 await next(context);
                 return;
             }
 
-            // 1. Prefer explicit header from the ADO extension frontend (SDK.getHost().name)
-            var orgId = context.Request.Headers[OrgIdHeader].FirstOrDefault();
+            // ── Step 1: Resolve candidate orgId ──────────────────────────────────
+            // Prefer the explicit header (SDK.getHost().name = org display name).
+            var orgId = context.Request.Headers[OrgIdHeader].FirstOrDefault()?.Trim();
 
-            // 2. VSSO token 'tid' claim — the Azure DevOps tenant/org GUID
-            if (string.IsNullOrEmpty(orgId))
-                orgId = context.User.FindFirst("tid")?.Value;
+            // Extract AAD tenant GUID from the JWT 'tid' claim — used for binding validation.
+            var jwtTid = context.User.FindFirst("tid")?.Value?.Trim();
 
-            // 3. Azure AD 'oid' claim (if Azure AD tokens are ever used)
+            // If the header is absent, fall back to the JWT claims.
             if (string.IsNullOrEmpty(orgId))
-                orgId = context.User.FindFirst("oid")?.Value;
+                orgId = jwtTid;
+
+            if (string.IsNullOrEmpty(orgId))
+                orgId = context.User.FindFirst("oid")?.Value?.Trim();
 
             if (string.IsNullOrEmpty(orgId))
             {
                 logger.LogWarning(
-                    "TENANT: Authenticated user but no org_id found. " +
-                    "Header={Header}, Claims=[{Claims}], Path={Path}, CorrelationId={CorrelationId}",
+                    "TENANT: Authenticated user but no org_id resolved. " +
+                    "Header={Header}, Path={Path}, CorrelationId={CorrelationId}",
                     context.Request.Headers[OrgIdHeader].FirstOrDefault() ?? "(none)",
-                    string.Join(", ", context.User.Claims.Select(c => $"{c.Type}={c.Value}")),
-                    context.Request.Path,
-                    correlationId);
+                    context.Request.Path, correlationId);
 
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsJsonAsync(new { error = "Organization context not found" });
                 return;
             }
 
+            // ── Step 2: Tenant binding validation ────────────────────────────────
+            // Only applies to relational providers (skipped for InMemory in tests).
+            if (dbContext.Database.IsRelational())
+            {
+                var org = await dbContext.Organizations
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.OrgId == orgId && !o.IsDeleted);
+
+                if (org is not null)
+                {
+                    if (!string.IsNullOrEmpty(org.AadTenantId) && !string.IsNullOrEmpty(jwtTid))
+                    {
+                        // Org already has a bound tenant — validate the incoming token belongs to it.
+                        if (!string.Equals(org.AadTenantId, jwtTid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            logger.LogWarning(
+                                "SECURITY: Tenant mismatch — OrgId={OrgId} is bound to tenant {Stored} " +
+                                "but request carries tid={Incoming}. Possible spoofing attempt. " +
+                                "CorrelationId={CorrelationId}",
+                                orgId, org.AadTenantId, jwtTid, correlationId);
+
+                            context.Response.StatusCode = 403;
+                            await context.Response.WriteAsJsonAsync(new { error = "Access denied" });
+                            return;
+                        }
+                    }
+                    else if (string.IsNullOrEmpty(org.AadTenantId) && !string.IsNullOrEmpty(jwtTid))
+                    {
+                        // First authenticated request for this org — bind its AAD tenant.
+                        var orgToUpdate = await dbContext.Organizations
+                            .FirstOrDefaultAsync(o => o.OrgId == orgId && !o.IsDeleted);
+
+                        if (orgToUpdate is not null)
+                        {
+                            orgToUpdate.AadTenantId = jwtTid;
+                            orgToUpdate.ModifiedBy  = "system:tenant-bind";
+                            orgToUpdate.ModifiedDate = DateTimeOffset.UtcNow;
+                            await dbContext.SaveChangesAsync();
+
+                            logger.LogInformation(
+                                "SECURITY: Bound OrgId={OrgId} to AadTenantId={TenantId}. CorrelationId={CorrelationId}",
+                                orgId, jwtTid, correlationId);
+                        }
+                    }
+                }
+                // If org is not found, let the request proceed — controllers will return 404/401 as appropriate.
+            }
+
+            // ── Step 3: Apply tenant context ──────────────────────────────────────
             logger.LogInformation(
-                "TENANT: Resolved OrgId={OrgId} for Path={Path}, CorrelationId={CorrelationId}",
+                "TENANT: Resolved OrgId={OrgId}, Path={Path}, CorrelationId={CorrelationId}",
                 orgId, context.Request.Path, correlationId);
 
-            // Store org_id on HttpContext for use in controllers
             context.Items["OrgId"] = orgId;
-
-            // Push to Serilog context (all subsequent logs will include this org_id)
             LogContext.PushProperty("OrgId", orgId);
-
-            // Set org_id on DbContext for EF Core query filtering
             dbContext.CurrentOrgId = orgId;
 
             // Set SQL Server session context for RLS enforcement.
-            // Only applicable when using a relational provider (skipped for InMemory in tests).
             if (dbContext.Database.IsRelational())
             {
                 var connection = dbContext.Database.GetDbConnection();
                 if (connection.State != System.Data.ConnectionState.Open)
-                {
                     await connection.OpenAsync();
-                }
 
                 using var command = connection.CreateCommand();
                 command.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
                 command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
 
-                try
-                {
-                    await command.ExecuteNonQueryAsync();
+                // SECURITY: If we cannot set the RLS session context we MUST abort the request.
+                // Continuing without it would allow the request to read/write rows for ALL orgs.
+                await command.ExecuteNonQueryAsync();
 
-                    logger.LogDebug(
-                        "SECURITY: Tenant context resolved - OrgId: {OrgId}, CorrelationId: {CorrelationId}",
-                        orgId, correlationId);
-                }
-                catch (Exception ex)
-                {
-                    // SECURITY ALERT: Failed to set RLS context
-                    logger.LogError(ex,
-                        "SECURITY: Failed to set SQL Server session context for OrgId: {OrgId}, CorrelationId: {CorrelationId}",
-                        orgId, correlationId);
-                    throw;
-                }
+                logger.LogDebug(
+                    "SECURITY: RLS session context set — OrgId={OrgId}, CorrelationId={CorrelationId}",
+                    orgId, correlationId);
             }
 
             await next(context);
@@ -119,7 +150,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
         catch (Exception ex)
         {
             logger.LogError(ex,
-                "SECURITY: Unhandled exception in tenant resolution middleware, CorrelationId: {CorrelationId}",
+                "SECURITY: Unhandled exception in TenantResolutionMiddleware. CorrelationId={CorrelationId}",
                 correlationId);
             throw;
         }

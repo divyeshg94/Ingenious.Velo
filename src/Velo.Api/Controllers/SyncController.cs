@@ -72,20 +72,39 @@ public class SyncController(
                 };
             }
 
+            // Work item webhook registration — best-effort (workitem.updated → rework-rate tracking)
+            WebhookStatusDto workItemHookStatus;
+            try
+            {
+                workItemHookStatus = await hookService.RegisterWorkItemHookAsync(orgId, projectId, adoToken, webhookBase, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "SYNC: Work item hook registration threw — returning error status");
+                workItemHookStatus = new WebhookStatusDto
+                {
+                    IsRegistered = false,
+                    RegistrationError = ex.Message,
+                    ManualSetupUrl = $"https://dev.azure.com/{orgId}/_settings/serviceHooks"
+                };
+            }
+
             logger.LogInformation(
-                "SYNC: Done — {Ingested} runs ingested, buildHook={BHook}, prHook={PHook}, " +
+                "SYNC: Done — {Ingested} runs ingested, buildHook={BHook}, prHook={PHook}, workItemHook={WIHook}, " +
                 "OrgId={OrgId}, ProjectId={ProjectId}",
-                ingested, hookStatus.IsRegistered, prHookStatus.IsRegistered, orgId, projectId);
+                ingested, hookStatus.IsRegistered, prHookStatus.IsRegistered, workItemHookStatus.IsRegistered,
+                orgId, projectId);
 
             return Ok(new
             {
                 ingested,
                 metrics,
-                webhook   = hookStatus,
-                prWebhook = prHookStatus,
+                webhook        = hookStatus,
+                prWebhook      = prHookStatus,
+                workItemWebhook = workItemHookStatus,
                 orgId,
                 projectId,
-                syncedAt  = DateTimeOffset.UtcNow
+                syncedAt       = DateTimeOffset.UtcNow
             });
         }
         catch (InvalidOperationException ex)
@@ -160,6 +179,32 @@ public class SyncController(
 
         var webhookBase = $"{Request.Scheme}://{Request.Host}";
         var status = await hookService.RegisterPrHookAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
+        return status.IsRegistered ? Ok(status) : StatusCode(422, status);
+    }
+
+    // ── Work item webhook endpoints ────────────────────────────────────────────
+
+    /// <summary>GET /api/sync/workitem-hook-status/{projectId} — check workitem.updated webhook status.</summary>
+    [HttpGet("workitem-hook-status/{projectId}")]
+    public async Task<ActionResult> GetWorkItemHookStatus(string projectId, CancellationToken cancellationToken)
+    {
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
+
+        var webhookBase = $"{Request.Scheme}://{Request.Host}";
+        var status = await hookService.GetWorkItemHookStatusAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
+        return Ok(status);
+    }
+
+    /// <summary>POST /api/sync/workitem-hook/{projectId} — register (or re-register) the workitem.updated webhook.</summary>
+    [HttpPost("workitem-hook/{projectId}")]
+    public async Task<ActionResult> RegisterWorkItemHook(string projectId, CancellationToken cancellationToken)
+    {
+        var (orgId, adoToken, error) = GetOrgAndToken();
+        if (error != null) return error;
+
+        var webhookBase = $"{Request.Scheme}://{Request.Host}";
+        var status = await hookService.RegisterWorkItemHookAsync(orgId!, projectId, adoToken!, webhookBase, cancellationToken);
         return status.IsRegistered ? Ok(status) : StatusCode(422, status);
     }
 

@@ -11,6 +11,8 @@ public interface IAdoServiceHookService
     Task<WebhookStatusDto> RegisterAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
     Task<WebhookStatusDto> GetPrStatusAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
     Task<WebhookStatusDto> RegisterPrHookAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<WebhookStatusDto> GetWorkItemHookStatusAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
+    Task<WebhookStatusDto> RegisterWorkItemHookAsync(string orgId, string projectId, string adoToken, string callbackBase, CancellationToken ct);
     Task<bool> RemoveAsync(string orgId, string subscriptionId, string adoToken, CancellationToken ct);
 }
 
@@ -311,6 +313,146 @@ public class AdoServiceHookService(
         {
             IsRegistered = false,
             RegistrationError = string.Join(" | ", errors),
+            ManualSetupUrl = ManualSetupUrl(orgName)
+        };
+    }
+
+    // ── Work Item Hook Status ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Checks whether a workitem.updated subscription pointing to our webhook URL is active.
+    /// </summary>
+    public async Task<WebhookStatusDto> GetWorkItemHookStatusAsync(
+        string orgName, string projectName, string adoToken,
+        string webhookBaseUrl, CancellationToken cancellationToken)
+    {
+        var webhookUrl = $"{webhookBaseUrl.TrimEnd('/')}/api/webhook/ado";
+        using var http = CreateClient(adoToken);
+        var listUrl = $"https://dev.azure.com/{orgName}/_apis/hooks/subscriptions?api-version=7.1";
+        var listResp = await http.GetAsync(listUrl, cancellationToken);
+
+        if (!listResp.IsSuccessStatusCode)
+        {
+            var err = await listResp.Content.ReadAsStringAsync(cancellationToken);
+            return new WebhookStatusDto
+            {
+                IsRegistered = false,
+                RegistrationError = $"Could not query subscriptions ({(int)listResp.StatusCode}): {ExtractMessage(err)}",
+                ManualSetupUrl = ManualSetupUrl(orgName)
+            };
+        }
+
+        using var doc = JsonDocument.Parse(await listResp.Content.ReadAsStringAsync(cancellationToken));
+        if (!doc.RootElement.TryGetProperty("value", out var subs))
+            return NotRegistered(orgName, webhookUrl);
+
+        foreach (var sub in subs.EnumerateArray())
+        {
+            var eventType = sub.TryGetProperty("eventType", out var et) ? et.GetString() : null;
+            if (!string.Equals(eventType, "workitem.updated", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var ci = sub.TryGetProperty("consumerInputs", out var c) ? c : default;
+            var url = ci.ValueKind == JsonValueKind.Object &&
+                      ci.TryGetProperty("url", out var u) ? u.GetString() : null;
+
+            if (!string.Equals(url, webhookUrl, StringComparison.OrdinalIgnoreCase)) continue;
+
+            return new WebhookStatusDto
+            {
+                IsRegistered   = true,
+                SubscriptionId = sub.TryGetProperty("id", out var id) ? id.GetString() : null,
+                WebhookUrl     = webhookUrl,
+                ProjectId      = projectName,
+                CreatedDate    = sub.TryGetProperty("createdDate", out var cd) ? cd.GetString() : null
+            };
+        }
+
+        return NotRegistered(orgName, webhookUrl);
+    }
+
+    // ── Register Work Item Hook ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Registers a workitem.updated service hook subscription so that rework-rate
+    /// (done → active state regressions) can be computed from real ADO work item events.
+    /// Requires the extension's token to have the vso.hooks_write + vso.work_write scope.
+    /// </summary>
+    public async Task<WebhookStatusDto> RegisterWorkItemHookAsync(
+        string orgName, string projectName, string adoToken,
+        string webhookBaseUrl, CancellationToken cancellationToken)
+    {
+        var webhookUrl = $"{webhookBaseUrl.TrimEnd('/')}/api/webhook/ado";
+        using var http = CreateClient(adoToken);
+
+        var projectId = await GetProjectIdAsync(http, orgName, projectName, cancellationToken);
+        if (projectId == null)
+        {
+            return new WebhookStatusDto
+            {
+                IsRegistered = false,
+                RegistrationError = $"Could not resolve project '{projectName}' in org '{orgName}'.",
+                ManualSetupUrl = ManualSetupUrl(orgName)
+            };
+        }
+
+        var secret = config["Webhook:Secret"] ?? "velo-webhook-secret";
+        var payload = new
+        {
+            publisherId = "tfs",
+            eventType = "workitem.updated",
+            resourceVersion = "1.0",
+            consumerId = "webHooks",
+            consumerActionId = "httpRequest",
+            publisherInputs = new
+            {
+                projectId,
+                workItemType = "",   // empty = all work item types
+                areaPath     = "",   // empty = all area paths
+                changedFields = "System.State"  // only fire when State field changes
+            },
+            consumerInputs = new
+            {
+                url = webhookUrl,
+                httpHeaders = $"X-Velo-Secret:{secret}",
+                resourceDetailsToSend = "All",
+                messagesToSend = "None",
+                detailedMessagesToSend = "None"
+            }
+        };
+
+        var body = new StringContent(JsonSerializer.Serialize(payload, _json), Encoding.UTF8, "application/json");
+        var regUrl = $"https://dev.azure.com/{orgName}/_apis/hooks/subscriptions?api-version=7.1";
+        var regResp = await http.PostAsync(regUrl, body, cancellationToken);
+
+        if (regResp.IsSuccessStatusCode)
+        {
+            using var doc = JsonDocument.Parse(await regResp.Content.ReadAsStringAsync(cancellationToken));
+            var newId = doc.RootElement.TryGetProperty("id", out var id) ? id.GetString() : null;
+
+            logger.LogInformation(
+                "HOOK WI: Registered workitem.updated subscription {Id} org={Org}, project={Project}",
+                newId, orgName, projectName);
+
+            return new WebhookStatusDto
+            {
+                IsRegistered   = true,
+                SubscriptionId = newId,
+                WebhookUrl     = webhookUrl,
+                ProjectId      = projectName
+            };
+        }
+
+        var errorBody = await regResp.Content.ReadAsStringAsync(cancellationToken);
+        var errorMsg = (int)regResp.StatusCode is 401 or 403
+            ? $"Permission denied ({(int)regResp.StatusCode}) for workitem.updated. " +
+              "The extension needs 'vso.hooks_write' scope. Re-publish and re-authorize, then try again."
+            : $"ADO returned {(int)regResp.StatusCode}: {ExtractMessage(errorBody)}";
+
+        logger.LogWarning("HOOK WI: workitem.updated registration failed — {Error}", errorMsg);
+        return new WebhookStatusDto
+        {
+            IsRegistered = false,
+            RegistrationError = errorMsg,
             ManualSetupUrl = ManualSetupUrl(orgName)
         };
     }

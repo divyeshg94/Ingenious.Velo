@@ -28,4 +28,14 @@ public class OrgContext : AuditableEntity
     /// Used to avoid re-triggering auto-sync on every request for the same org.
     /// </summary>
     public DateTimeOffset? LastSyncedAt { get; set; }
+
+    /// <summary>
+    /// SECURITY: The AAD tenant GUID extracted from the 'tid' claim of the first authenticated
+    /// VSSO token for this org. Once set, all subsequent requests must carry a token with the
+    /// same tid — this prevents X-Azure-DevOps-OrgId header spoofing from a different tenant.
+    /// </summary>
+    [MaxLength(100)]
+    public string? AadTenantId { get; set; }
+
+    // ModifiedDate is inherited from AuditableEntity — no re-declaration needed.
 }

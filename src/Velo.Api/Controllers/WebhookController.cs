@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Velo.Shared.Models.Ado;
 using Velo.Api.Services;
@@ -26,26 +28,62 @@ public class WebhookController(
     ILogger<WebhookController> logger) : ControllerBase
 {
     private const string SecretHeader = "X-Velo-Secret";
+    private const int MaxBodyBytes = 10 * 1024 * 1024; // 10 MB — ADO payloads are always well under this
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
     [HttpPost("ado")]
     public async Task<ActionResult> AdoEvent(CancellationToken cancellationToken)
     {
-        // Verify shared secret
-        var expectedSecret = config["Webhook:Secret"] ?? "velo-webhook-secret";
-        var incomingSecret = Request.Headers[SecretHeader].FirstOrDefault();
+        // ── Verify shared secret (timing-safe comparison) ───────────────────────
+        var expectedSecret = config["Webhook:Secret"] ?? string.Empty;
+        var incomingSecret = Request.Headers[SecretHeader].FirstOrDefault() ?? string.Empty;
 
-        if (!string.Equals(incomingSecret, expectedSecret, StringComparison.Ordinal))
+        // Use fixed-time comparison to prevent timing-based secret oracle attacks.
+        var expectedBytes = Encoding.UTF8.GetBytes(expectedSecret);
+        var incomingBytes = Encoding.UTF8.GetBytes(incomingSecret);
+
+        // Length-equalise before comparing to keep FixedTimeEquals happy (it requires equal lengths).
+        // If lengths differ the Equals call is skipped but we still take constant time for the message.
+        var secretValid = expectedBytes.Length == incomingBytes.Length &&
+                          CryptographicOperations.FixedTimeEquals(expectedBytes, incomingBytes);
+
+        if (!secretValid)
         {
             logger.LogWarning("WEBHOOK: Invalid or missing secret from {RemoteIp}",
                 HttpContext.Connection.RemoteIpAddress);
             return Unauthorized(new { error = "Invalid webhook secret" });
         }
 
-        // Read raw body
+        // ── Body size guard (DoS protection) ────────────────────────────────────
+        if (Request.ContentLength.HasValue && Request.ContentLength > MaxBodyBytes)
+        {
+            logger.LogWarning(
+                "WEBHOOK: Rejected oversized payload ({Bytes} bytes) from {RemoteIp}",
+                Request.ContentLength, HttpContext.Connection.RemoteIpAddress);
+            return StatusCode(413, new { error = "Payload too large" });
+        }
+
+        // Read body with a hard cap using a manual size-capped stream wrapper.
         string body;
-        using (var sr = new System.IO.StreamReader(Request.Body))
-            body = await sr.ReadToEndAsync(cancellationToken);
+        using (var ms = new System.IO.MemoryStream())
+        {
+            var buffer    = new byte[8192];
+            var totalRead = 0;
+            int read;
+            while ((read = await Request.Body.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                totalRead += read;
+                if (totalRead > MaxBodyBytes)
+                {
+                    logger.LogWarning(
+                        "WEBHOOK: Rejected oversized streaming payload from {RemoteIp}",
+                        HttpContext.Connection.RemoteIpAddress);
+                    return StatusCode(413, new { error = "Payload too large" });
+                }
+                ms.Write(buffer, 0, read);
+            }
+            body = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+        }
 
         // Log a preview so we can diagnose any JSON mapping issues
         logger.LogDebug("WEBHOOK: Raw payload ({Length} bytes): {Preview}",
@@ -72,6 +110,7 @@ public class WebhookController(
             "build.complete"              => await HandleBuildCompleteAsync(body, cancellationToken),
             "git.pullrequest.created"     => await HandlePrEventAsync(body, cancellationToken),
             "git.pullrequest.updated"     => await HandlePrEventAsync(body, cancellationToken),
+            "workitem.updated"            => await HandleWorkItemUpdatedAsync(body, cancellationToken),
             _ => Ok(new { skipped = true, eventType })
         };
     }
@@ -387,6 +426,95 @@ public class WebhookController(
         return Ok();
     }
 
+    // ── Work item state-transition handler ─────────────────────────────────────────
+
+    private async Task<ActionResult> HandleWorkItemUpdatedAsync(string body, CancellationToken cancellationToken)
+    {
+        AdoWorkItemEvent? evt;
+        try
+        {
+            evt = JsonSerializer.Deserialize<AdoWorkItemEvent>(body, _json);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "WEBHOOK WI: Failed to deserialize work item payload");
+            return BadRequest(new { error = "Invalid work item payload" });
+        }
+
+        if (evt?.Resource is null)
+        {
+            logger.LogInformation("WEBHOOK WI: Skipping — resource is null");
+            return Ok();
+        }
+
+        var resource = evt.Resource;
+
+        // Only persist events where System.State actually changed
+        var fields = resource.Fields ?? new Dictionary<string, AdoFieldChange>();
+        if (!fields.TryGetValue("System.State", out var stateChange) ||
+            stateChange.OldValue == stateChange.NewValue)
+        {
+            logger.LogDebug("WEBHOOK WI: No state change — skipping WI={WI}", resource.WorkItemId);
+            return Ok();
+        }
+
+        var orgId = evt.ResourceContainers?.Collection?.Id
+                 ?? evt.ResourceContainers?.Account?.Id;
+
+        if (string.IsNullOrEmpty(orgId))
+        {
+            logger.LogWarning("WEBHOOK WI: Missing org in resourceContainers");
+            return Ok();
+        }
+
+        fields.TryGetValue("System.WorkItemType", out var typeChange);
+        var workItemType = typeChange?.NewValue ?? typeChange?.OldValue;
+
+        // Resolve projectId from resource containers, then from the embedded workItem fields
+        var projectId = evt.ResourceContainers?.Project?.Id;
+        if (resource.WorkItem?.Fields is not null &&
+            resource.WorkItem.Fields.TryGetValue("System.TeamProject", out var project))
+            projectId = project;
+
+        if (string.IsNullOrEmpty(projectId))
+        {
+            logger.LogWarning("WEBHOOK WI: Could not resolve projectId for WI={WI}", resource.WorkItemId);
+            return Ok();
+        }
+
+        await SetTenantContextAsync(orgId, cancellationToken);
+
+        var dto = new Velo.Shared.Models.WorkItemEventDto
+        {
+            Id           = Guid.NewGuid(),
+            OrgId        = orgId,
+            ProjectId    = projectId,
+            WorkItemId   = resource.WorkItemId,
+            WorkItemType = workItemType,
+            OldState     = stateChange.OldValue,
+            NewState     = stateChange.NewValue,
+            ChangedAt    = resource.RevisedDate,
+            IngestedAt   = DateTimeOffset.UtcNow
+        };
+
+        try
+        {
+            await repo.SaveWorkItemEventAsync(dto, cancellationToken);
+            logger.LogInformation(
+                "WEBHOOK WI: Saved — Org={Org}, Project={Project}, WI={WI}, {Old}→{New}",
+                orgId, projectId, resource.WorkItemId, stateChange.OldValue, stateChange.NewValue);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "WEBHOOK WI: Failed to save — Org={Org}, Project={Project}, WI={WI}",
+                orgId, projectId, resource.WorkItemId);
+            return StatusCode(500, new { error = "Failed to save work item event" });
+        }
+
+        return Ok();
+    }
+
     /// <summary>
     /// When a PR event arrives with a project GUID, try to resolve the human name
     /// from existing PipelineRun records (which are stored with human names after sync),
@@ -554,16 +682,10 @@ public class WebhookController(
         cmd.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
         cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
 
-        try
-        {
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
-            logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", orgId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex,
-                "WEBHOOK: Failed to set SQL session context for OrgId={OrgId} -- continuing anyway",
-                orgId);
-        }
+        // SECURITY: If we cannot set the RLS session context we must NOT continue — proceeding
+        // without it would allow this unauthenticated webhook code path to read/write rows for
+        // ALL organisations. Let the exception propagate so the caller returns 500.
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", orgId);
     }
 }

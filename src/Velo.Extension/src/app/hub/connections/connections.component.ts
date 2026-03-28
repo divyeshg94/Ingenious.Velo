@@ -50,6 +50,11 @@ export class ConnectionsComponent implements OnInit {
   prWebhookError = '';
   isPrHookLoading = false;
 
+  // ── Work item webhook state ────────────────────────────────────────────────
+  workItemWebhookStatus: WebhookStatus | null = null;
+  workItemWebhookError = '';
+  isWorkItemHookLoading = false;
+
   constructor(
     private orgService: OrgConnectionService,
     private syncService: SyncService
@@ -118,6 +123,7 @@ export class ConnectionsComponent implements OnInit {
         if (this.selectedProjectId) {
           this.loadHookStatus();
           this.loadPrHookStatus();
+          this.loadWorkItemHookStatus();
         }
       },
       error: () => {
@@ -130,8 +136,9 @@ export class ConnectionsComponent implements OnInit {
   selectProject(projectId: string): void {
     this.selectedProjectId = projectId;
     sessionStorage.setItem('selectedProjectId', projectId);
-    this.webhookStatus   = null;
-    this.prWebhookStatus = null;
+    this.webhookStatus         = null;
+    this.prWebhookStatus       = null;
+    this.workItemWebhookStatus = null;
     this.syncNow();
   }
 
@@ -142,14 +149,16 @@ export class ConnectionsComponent implements OnInit {
     this.syncError    = '';
     this.webhookError = '';
     this.prWebhookError = '';
+    this.workItemWebhookError = '';
 
     this.syncService.syncProject(this.selectedProjectId).subscribe({
       next: (result: SyncResult) => {
         this.isSyncing = false;
-        this.syncAttempted   = true;
-        this.syncMessage     = `Sync complete — ${result.ingested} pipeline runs ingested.`;
-        this.webhookStatus   = result.webhook   ?? null;
-        this.prWebhookStatus = result.prWebhook ?? null;
+        this.syncAttempted         = true;
+        this.syncMessage           = `Sync complete — ${result.ingested} pipeline runs ingested.`;
+        this.webhookStatus         = result.webhook         ?? null;
+        this.prWebhookStatus       = result.prWebhook       ?? null;
+        this.workItemWebhookStatus = result.workItemWebhook ?? null;
       },
       error: (err) => {
         this.isSyncing = false;
@@ -257,6 +266,57 @@ export class ConnectionsComponent implements OnInit {
       error: (err) => {
         this.prWebhookError  = err.message || 'Failed to remove PR webhook.';
         this.isPrHookLoading = false;
+      }
+    });
+  }
+
+  // ── Work item webhook actions ──────────────────────────────────────────────
+
+  loadWorkItemHookStatus(): void {
+    if (!this.selectedProjectId) return;
+    this.isWorkItemHookLoading = true;
+    this.workItemWebhookError  = '';
+
+    this.syncService.getWorkItemHookStatus(this.selectedProjectId).subscribe({
+      next: (status) => {
+        this.workItemWebhookStatus = status;
+        this.syncAttempted         = true;
+        this.isWorkItemHookLoading = false;
+      },
+      error: () => {
+        this.syncAttempted         = true;
+        this.isWorkItemHookLoading = false;
+      }
+    });
+  }
+
+  registerWorkItemHook(): void {
+    if (!this.selectedProjectId) return;
+    this.isWorkItemHookLoading = true;
+    this.workItemWebhookError  = '';
+
+    this.syncService.registerWorkItemHook(this.selectedProjectId).subscribe({
+      next: (status) => { this.workItemWebhookStatus = status; this.isWorkItemHookLoading = false; },
+      error: (err) => {
+        this.workItemWebhookError  = err.error?.registrationError || err.message || 'Failed to register work item webhook.';
+        this.isWorkItemHookLoading = false;
+      }
+    });
+  }
+
+  removeWorkItemHook(): void {
+    if (!this.workItemWebhookStatus?.subscriptionId) return;
+    this.isWorkItemHookLoading = true;
+    this.workItemWebhookError  = '';
+
+    this.syncService.removeWorkItemHook(this.workItemWebhookStatus.subscriptionId).subscribe({
+      next: () => {
+        this.workItemWebhookStatus = { isRegistered: false, webhookUrl: this.workItemWebhookStatus?.webhookUrl, manualSetupUrl: this.workItemWebhookStatus?.manualSetupUrl };
+        this.isWorkItemHookLoading = false;
+      },
+      error: (err) => {
+        this.workItemWebhookError  = err.message || 'Failed to remove work item webhook.';
+        this.isWorkItemHookLoading = false;
       }
     });
   }

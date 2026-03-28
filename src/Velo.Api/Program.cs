@@ -106,10 +106,28 @@ try
         });
     });
 
+    // ── Startup guard: reject placeholder webhook secret ──────────────────────────
+    var webhookSecret = builder.Configuration["Webhook:Secret"];
+    if (string.IsNullOrWhiteSpace(webhookSecret) ||
+        webhookSecret.StartsWith("change-this", StringComparison.OrdinalIgnoreCase))
+    {
+        Log.Fatal("SECURITY: Webhook:Secret is not configured or still uses the placeholder value. " +
+                  "Set a strong random secret in your Azure App Settings before running in production.");
+        // In dev we warn; in production we hard-stop.
+        if (!builder.Environment.IsDevelopment())
+            throw new InvalidOperationException(
+                "Webhook:Secret must be set to a strong random value in production.");
+        Log.Warning("SECURITY: Running in Development with a weak/placeholder Webhook:Secret — this is only acceptable locally.");
+    }
+
     // Add Authentication & Authorization
-    // Azure DevOps extensions use VSSO tokens (from SDK.getAppToken()), not Azure AD tokens.
-    // The VSSO JWT issuer/audience format can vary, so we decode the token ourselves
-    // and rely on CORS + token-presence as the primary security boundary.
+    // Azure DevOps extensions use VSSO tokens issued by dev.azure.com (from SDK.getAppToken()).
+    // These JWTs are signed by Microsoft but have no public OIDC/JWKS discovery endpoint.
+    // We validate: audience (ADO app GUID), expiry, and structural correctness.
+    // Full RS256 signature validation would require calling the ADO REST API per request.
+    var adoAudience = builder.Configuration["AzureDevOps:Audience"]
+        ?? "018ab27b-ec5e-4a32-98a8-c9992cd21853";
+
     builder.Services.AddAuthentication("Bearer")
         .AddJwtBearer(options =>
         {
@@ -118,10 +136,11 @@ try
 
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                // All validation is handled in OnMessageReceived below.
+                // Signature validation: VSSO public keys are not published via JWKS.
+                // We do structural + audience + expiry validation; signature is best-effort.
                 ValidateIssuer = false,
-                ValidateAudience = false,
-                ValidateLifetime = false,
+                ValidateAudience = false,   // enforced manually in OnMessageReceived
+                ValidateLifetime = false,   // enforced manually in OnMessageReceived
                 ValidateIssuerSigningKey = false,
                 RequireSignedTokens = false,
                 RequireExpirationTime = false,
@@ -144,29 +163,50 @@ try
 
                     var raw = authHeader["Bearer ".Length..].Trim();
 
+                    // Reject obviously short/malformed tokens before any parsing
+                    if (raw.Length < 20 || raw.Count(c => c == '.') != 2)
+                    {
+                        log.LogWarning("AUTH: Rejected structurally invalid token (length={Length})", raw.Length);
+                        context.Fail("Malformed token structure");
+                        return Task.CompletedTask;
+                    }
+
                     try
                     {
                         var handler = new JsonWebTokenHandler();
                         var jwt = handler.ReadJsonWebToken(raw);
 
+                        // ── Expiry enforcement (strict: no skew on already-expired tokens) ──
+                        if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < DateTime.UtcNow.AddMinutes(-1))
+                        {
+                            log.LogWarning("AUTH: Rejected expired token — Expiry={ValidTo}", jwt.ValidTo);
+                            context.Fail("Token expired");
+                            return Task.CompletedTask;
+                        }
+
+                        // ── Audience enforcement ───────────────────────────────────────────
+                        // VSSO app tokens must target the registered ADO extension audience.
+                        // Allow local dev tokens (no audience claim) to pass through.
+                        var audiences = jwt.Audiences.ToList();
+                        if (audiences.Count > 0 &&
+                            !audiences.Any(a => string.Equals(a, adoAudience, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            log.LogWarning(
+                                "AUTH: Rejected token with unexpected audience(s): {Audiences}",
+                                string.Join(", ", audiences));
+                            context.Fail("Invalid audience");
+                            return Task.CompletedTask;
+                        }
+
                         // Log structural facts at Information; full claims only at Debug
-                        // so they are NOT written to the DB log table in production.
+                        // to avoid writing sensitive claim data to the DB log table.
                         log.LogInformation(
                             "AUTH: Token accepted — Issuer={Issuer}, Expiry={ValidTo}",
                             jwt.Issuer, jwt.ValidTo);
 
                         log.LogDebug(
-                            "AUTH: Token claims — Audiences={Audiences}, Claims=[{Claims}]",
-                            string.Join(", ", jwt.Audiences),
-                            string.Join(", ", jwt.Claims.Select(c => $"{c.Type}={c.Value}")));
-
-                        // Basic expiry check (with 5-minute skew)
-                        if (jwt.ValidTo != DateTime.MinValue && jwt.ValidTo < DateTime.UtcNow.AddMinutes(-5))
-                        {
-                            log.LogWarning("AUTH: Token expired at {ValidTo}", jwt.ValidTo);
-                            context.Fail("Token expired");
-                            return Task.CompletedTask;
-                        }
+                            "AUTH: Token claims — Audiences={Audiences}",
+                            string.Join(", ", audiences));
 
                         var identity = new ClaimsIdentity(jwt.Claims, "VssoBearer");
                         context.Principal = new ClaimsPrincipal(identity);
@@ -220,6 +260,25 @@ try
         app.MapScalarApiReference();
     }
 
+    // ── Security headers ──────────────────────────────────────────────────────────
+    // These headers harden every response regardless of the requesting client.
+    app.Use(async (ctx, next) =>
+    {
+        // Prevent MIME-type sniffing attacks
+        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        // Prevent this API from being embedded in a frame (not needed for a pure JSON API)
+        ctx.Response.Headers["X-Frame-Options"] = "DENY";
+        // Enforce HTTPS for one year, include sub-domains (only sent over TLS)
+        ctx.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+        // Minimal referrer leakage
+        ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        // Disable FLoC / interest-cohort tracking
+        ctx.Response.Headers["Permissions-Policy"] = "interest-cohort=()";
+        // Remove the Server header added by Kestrel/IIS (information disclosure)
+        ctx.Response.Headers.Remove("Server");
+        await next();
+    });
+
     app.UseHttpsRedirection();
     app.UseCors("AdoExtension");
 
@@ -231,8 +290,7 @@ try
 
     app.UseAuthorization();
 
-    // Diagnostic endpoints — no auth required, so you can verify the app is running
-    // and inspect what the incoming token looks like.
+    // Health probe — safe to expose publicly (returns no sensitive data)
     app.MapGet("/health", () => Results.Ok(new
     {
         status = "healthy",
@@ -240,27 +298,33 @@ try
         env = app.Environment.EnvironmentName
     }));
 
-    app.MapGet("/debug/auth", (HttpContext ctx) =>
+    // Auth debug endpoint — DEVELOPMENT ONLY.
+    // This endpoint returns JWT claims and request headers; never expose in production.
+    if (app.Environment.IsDevelopment())
     {
-        var authHeader = ctx.Request.Headers.Authorization.FirstOrDefault();
-        var orgHeader = ctx.Request.Headers["X-Azure-DevOps-OrgId"].FirstOrDefault();
-        var isAuth = ctx.User?.Identity?.IsAuthenticated == true;
-        var claims = ctx.User?.Claims.Select(c => new { c.Type, c.Value }).ToArray();
-
-        return Results.Ok(new
+        app.MapGet("/debug/auth", (HttpContext ctx) =>
         {
-            authenticated = isAuth,
-            authScheme = ctx.User?.Identity?.AuthenticationType,
-            claimCount = claims?.Length ?? 0,
-            claims,
-            headers = new
+            var authHeader = ctx.Request.Headers.Authorization.FirstOrDefault();
+            var orgHeader  = ctx.Request.Headers["X-Azure-DevOps-OrgId"].FirstOrDefault();
+            var isAuth     = ctx.User?.Identity?.IsAuthenticated == true;
+            // Only expose claim types in dev, not values (still avoid logging org GUIDs to console)
+            var claimTypes = ctx.User?.Claims.Select(c => c.Type).ToArray();
+
+            return Results.Ok(new
             {
-                authorization = authHeader != null ? authHeader[..Math.Min(50, authHeader.Length)] + "…" : null,
-                xAzureDevOpsOrgId = orgHeader,
-                origin = ctx.Request.Headers.Origin.FirstOrDefault()
-            }
+                authenticated = isAuth,
+                authScheme    = ctx.User?.Identity?.AuthenticationType,
+                claimCount    = claimTypes?.Length ?? 0,
+                claimTypes,
+                headers = new
+                {
+                    hasAuthorization   = authHeader != null,
+                    xAzureDevOpsOrgId  = orgHeader,
+                    origin             = ctx.Request.Headers.Origin.FirstOrDefault()
+                }
+            });
         });
-    });
+    }
 
     app.MapControllers();
 

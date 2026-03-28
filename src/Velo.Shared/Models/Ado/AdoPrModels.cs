@@ -30,7 +30,18 @@ public record AdoPrReviewer(string? DisplayName, int Vote);
 public record AdoPrRepository(AdoPrProject? Project);
 public record AdoPrProject(string? Id, string? Name);
 
-// ── Work Item models (workitem.updated payload) ───────────────────────────────
+// ── Work Item event wrapper ───────────────────────────────────────────────────
+
+/// <summary>
+/// Root payload for workitem.updated service hook events.
+/// Mirrors the pattern used by AdoBuildCompleteEvent and AdoPrEvent.
+/// </summary>
+public record AdoWorkItemEvent(
+    string? EventType,
+    AdoWorkItemResource? Resource,
+    AdoResourceContainers? ResourceContainers);
+
+// ── Work Item field models (workitem.updated payload) ─────────────────────────
 
 /// <summary>
 /// The resource object embedded in ADO workitem.updated service hook payloads.

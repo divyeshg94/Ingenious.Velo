@@ -356,6 +356,86 @@
       <div *ngIf="prWebhookError" class="conn-alert conn-alert--error conn-alert--inline">{{ prWebhookError }}</div>
     </div>
 
+    <!-- Work Item Webhook Panel -->
+    <div *ngIf="selectedProjectId" class="conn-card">
+      <div class="panel-header">
+        <div class="panel-header__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </div>
+        <h3 class="panel-title">Automatic Work Item Ingestion</h3>
+        <ng-container *ngIf="!isWorkItemHookLoading && workItemWebhookStatus">
+          <span class="hook-badge hook-badge--active" *ngIf="workItemWebhookStatus.isRegistered">Active</span>
+          <span class="hook-badge hook-badge--inactive" *ngIf="!workItemWebhookStatus.isRegistered">Not Registered</span>
+        </ng-container>
+      </div>
+
+      <div *ngIf="isWorkItemHookLoading" class="conn-state conn-state--inline">
+        <div class="spinner-sm"></div>
+        <span class="state-label">Checking work item webhook status…</span>
+      </div>
+
+      <!-- Active -->
+      <div *ngIf="!isWorkItemHookLoading && workItemWebhookStatus?.isRegistered">
+        <p class="panel-desc">Work item state transitions are ingested automatically, enabling real rework rate tracking in Team Health.</p>
+        <div class="info-rows">
+          <div class="info-row" *ngIf="workItemWebhookStatus?.subscriptionId">
+            <span class="info-row__label">Subscription ID</span>
+            <code class="info-row__code">{{ workItemWebhookStatus?.subscriptionId }}</code>
+          </div>
+          <div class="info-row" *ngIf="workItemWebhookStatus?.webhookUrl">
+            <span class="info-row__label">Endpoint</span>
+            <code class="info-row__code">{{ workItemWebhookStatus?.webhookUrl }}</code>
+          </div>
+          <div class="info-row" *ngIf="workItemWebhookStatus?.createdDate">
+            <span class="info-row__label">Registered</span>
+            <span class="info-row__value">{{ workItemWebhookStatus?.createdDate | date:'MMM d, y, h:mm a' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row__label">Event</span>
+            <span class="info-row__value">
+              <span class="mini-badge mini-badge--info">workitem.updated</span>
+            </span>
+          </div>
+        </div>
+        <div class="hook-actions">
+          <button class="btn btn-danger btn-sm" (click)="removeWorkItemHook()" [disabled]="isWorkItemHookLoading">Remove Webhook</button>
+        </div>
+      </div>
+
+      <!-- Not registered -->
+      <div *ngIf="!isWorkItemHookLoading && syncAttempted && workItemWebhookStatus && !workItemWebhookStatus.isRegistered">
+        <div *ngIf="workItemWebhookStatus.registrationError" class="conn-alert conn-alert--error conn-alert--inline">
+          <strong>Registration failed:</strong> {{ workItemWebhookStatus.registrationError }}
+        </div>
+        <div class="hook-actions">
+          <button class="btn btn-primary btn-sm" (click)="registerWorkItemHook()" [disabled]="isWorkItemHookLoading">Register Webhook</button>
+          <a *ngIf="workItemWebhookStatus.manualSetupUrl" [href]="workItemWebhookStatus.manualSetupUrl" target="_blank" class="btn btn-ghost btn-sm">
+            Open ADO Service Hooks
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+        <details class="hook-manual" *ngIf="workItemWebhookStatus.manualSetupUrl">
+          <summary class="hook-manual__toggle">Manual setup instructions</summary>
+          <ol class="hook-manual__steps">
+            <li>Open <a [href]="workItemWebhookStatus.manualSetupUrl" target="_blank">ADO › Project Settings › Service hooks</a></li>
+            <li>Create subscription → Web Hooks → <strong>Work item updated</strong></li>
+            <li>Under Filters, set <strong>Field</strong> to <code>State</code> (optional but recommended)</li>
+            <li>URL: <code>{{ workItemWebhookStatus.webhookUrl }}</code></li>
+            <li>Add header: <code>X-Velo-Secret</code> with your <code>Webhook__Secret</code> app setting value</li>
+          </ol>
+        </details>
+      </div>
+
+      <p *ngIf="!isWorkItemHookLoading && !syncAttempted" class="panel-desc">Sync the project above to check and register the work item webhook automatically.</p>
+
+      <div *ngIf="!isWorkItemHookLoading && syncAttempted && !workItemWebhookStatus" class="conn-alert conn-alert--error conn-alert--inline">
+        Work item webhook status could not be determined.
+        <button class="btn btn-ghost btn-sm" (click)="loadWorkItemHookStatus()" [disabled]="isWorkItemHookLoading">Retry</button>
+      </div>
+
+      <div *ngIf="workItemWebhookError" class="conn-alert conn-alert--error conn-alert--inline">{{ workItemWebhookError }}</div>
+    </div>
+
     <!-- How It Works -->
     <div class="how-it-works">
       <div class="how-step">
