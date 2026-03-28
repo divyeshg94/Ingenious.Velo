@@ -56,10 +56,10 @@
 
 .connect-form {
   background: #ffffff;
-  border: 1px solid #c8c8c8;
+  border: 1.5px solid #a0a0a0;
   border-radius: 4px;
   padding: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.09);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
 }
 
 // ── Form primitives ───────────────────────────────────────────────
@@ -88,37 +88,39 @@
 }
 
 .form-input {
-  display: block;
-  width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  // Use explicit colors so the field is clearly visible regardless of ADO theme variable resolution
-  border: 1.5px solid #767676;
-  border-radius: 3px;
-  font-size: 13px;
-  font-family: inherit;
-  color: #1e1e1e;
-  background: #ffffff;
-  box-sizing: border-box;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: block !important;
+  width: 100% !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  // !important on all visual props — ADO's global stylesheet can override inputs inside the iframe
+  border: 2px solid #5c5c5c !important;
+  border-radius: 3px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  color: #1e1e1e !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10) !important;
   transition: border-color 0.12s, box-shadow 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
 
   &::placeholder {
-    color: #888888;
-    opacity: 1; // Firefox needs explicit opacity
+    color: #767676 !important;
+    opacity: 1 !important; // Firefox needs explicit opacity
   }
 
   &:focus {
-    outline: none;
-    border-color: #0078d4;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(0, 120, 212, 0.25);
+    outline: none !important;
+    border-color: #0078d4 !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(0, 120, 212, 0.20) !important;
   }
 
   &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    background: #f0f0f0;
-    border-color: #b0b0b0;
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    background: #efefef !important;
+    border-color: #aaaaaa !important;
   }
 }
 
@@ -188,9 +190,9 @@ code {
 .form-group-section {
   margin-bottom: 20px;
   padding: 14px 16px;
-  border: 1px solid #d0d0d0;
+  border: 1.5px solid #b0b0b0;
   border-radius: 3px;
-  background: #f7f7f7;
+  background: #ebebeb; // Clearly distinct from the #ffffff input background
 
   .form-group:last-child { margin-bottom: 0; }
 }
@@ -284,13 +286,13 @@ code {
   }
 
   &--secondary {
-    background: var(--background-color, #ffffff);
-    color: var(--text-primary-color, #1e1e1e);
-    border-color: var(--palette-neutral-30, #adadad);
+    background: #ffffff !important;
+    color: #1e1e1e !important;
+    border-color: #767676 !important;
 
     &:hover:not(:disabled) {
-      background: var(--palette-neutral-6, #efefef);
-      border-color: var(--palette-neutral-40, #888);
+      background: #efefef !important;
+      border-color: #444444 !important;
     }
   }
 }
@@ -616,35 +618,37 @@ code {
 
 .chat-input {
   flex: 1;
-  padding: 8px 10px;
-  border: 1.5px solid #767676;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: inherit;
-  color: #1e1e1e;
-  background: #ffffff;
-  resize: none;
-  line-height: 1.5;
+  padding: 8px 10px !important;
+  border: 2px solid #5c5c5c !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  color: #1e1e1e !important;
+  background: #ffffff !important;
+  resize: none !important;
+  line-height: 1.5 !important;
   min-height: 54px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10) !important;
   transition: border-color 0.12s, box-shadow 0.12s;
+  appearance: none;
+  -webkit-appearance: none;
 
   &::placeholder {
-    color: #888888;
-    opacity: 1;
+    color: #767676 !important;
+    opacity: 1 !important;
   }
 
   &:focus {
-    outline: none;
-    border-color: #0078d4;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(0, 120, 212, 0.25);
+    outline: none !important;
+    border-color: #0078d4 !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(0, 120, 212, 0.20) !important;
   }
 
   &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    background: #f0f0f0;
-    border-color: #b0b0b0;
+    opacity: 0.55 !important;
+    cursor: not-allowed !important;
+    background: #efefef !important;
+    border-color: #aaaaaa !important;
   }
 }
 
