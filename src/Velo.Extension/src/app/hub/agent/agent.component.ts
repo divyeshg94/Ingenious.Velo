@@ -15,6 +15,8 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   // Loading / config state
   isLoadingConfig = true;
   isConfigured = false;
+  /** True while editing an existing config — form is shown but chat is not destroyed. */
+  isEditing = false;
   config: AgentConfigDto | null = null;
 
   // Connection form
@@ -141,6 +143,8 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       next: (saved) => {
         this.config = saved;
         this.isConfigured = true;
+        this.isEditing = false;
+        this.testResult = null;
         this.isSaving = false;
       },
       error: (err) => {
@@ -150,6 +154,22 @@ export class AgentComponent implements OnInit, AfterViewChecked {
     });
   }
 
+  startEdit(): void {
+    // Form fields are already populated from loadConfig(); just switch the view.
+    this.isEditing = true;
+    this.testResult = null;
+    this.saveError = '';
+    // Clear write-only credential fields — user must re-enter to replace them
+    this.formApiKey = '';
+    this.formClientSecret = '';
+  }
+
+  cancelEdit(): void {
+    this.isEditing = false;
+    this.testResult = null;
+    this.saveError = '';
+  }
+
   disconnectAgent(): void {
     if (!confirm('Disconnect the Foundry AI Agent? Your chat history will be cleared.')) return;
 
@@ -157,6 +177,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
       next: () => {
         this.config = null;
         this.isConfigured = false;
+        this.isEditing = false;
         this.messages = [];
         this.formEndpoint = '';
         this.formAgentId = '';

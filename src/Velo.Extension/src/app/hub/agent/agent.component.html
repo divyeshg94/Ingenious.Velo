@@ -6,16 +6,24 @@
     Checking agent configuration…
   </div>
 
-  <!-- ── Connect form (no config yet) ──────────────────────── -->
-  <ng-container *ngIf="!isLoadingConfig && !isConfigured">
+  <!-- ── Connect / Edit form ───────────────────────────────── -->
+  <ng-container *ngIf="!isLoadingConfig && (!isConfigured || isEditing)">
     <div class="agent-connect">
       <div class="agent-connect__hero">
         <div class="agent-connect__icon">🤖</div>
-        <h2 class="agent-connect__title">Connect Foundry AI Agent</h2>
+        <h2 class="agent-connect__title">
+          {{ isEditing ? 'Edit Agent Configuration' : 'Connect Foundry AI Agent' }}
+        </h2>
         <p class="agent-connect__subtitle">
-          Connect your Azure AI Foundry agent to get AI-powered pipeline analysis,
-          DORA metric insights, and optimization recommendations — all grounded in
-          your real ADO data.
+          <ng-container *ngIf="!isEditing">
+            Connect your Azure AI Foundry agent to get AI-powered pipeline analysis,
+            DORA metric insights, and optimization recommendations — all grounded in
+            your real ADO data.
+          </ng-container>
+          <ng-container *ngIf="isEditing">
+            Update the endpoint, model, authentication, or display name for your
+            connected Foundry agent. Your chat history is preserved.
+          </ng-container>
         </p>
       </div>
 
@@ -187,19 +195,31 @@
             {{ isTesting ? 'Testing…' : 'Test Connection' }}
           </button>
           <button
+            *ngIf="isEditing"
+            class="btn btn--secondary"
+            (click)="cancelEdit()"
+            [disabled]="isSaving">
+            Cancel
+          </button>
+          <button
             class="btn btn--primary"
             (click)="saveConfig()"
             [disabled]="isSaving || !formEndpoint">
             <span *ngIf="isSaving" class="spinner-sm"></span>
-            {{ isSaving ? 'Connecting…' : 'Connect Agent' }}
+            <ng-container *ngIf="!isSaving">
+              {{ isEditing ? 'Save Changes' : 'Connect Agent' }}
+            </ng-container>
+            <ng-container *ngIf="isSaving">
+              {{ isEditing ? 'Saving…' : 'Connecting…' }}
+            </ng-container>
           </button>
         </div>
       </div>
     </div>
   </ng-container>
 
-  <!-- ── Chat UI (configured) ───────────────────────────────── -->
-  <ng-container *ngIf="!isLoadingConfig && isConfigured">
+  <!-- ── Chat UI (configured, not editing) ─────────────────── -->
+  <ng-container *ngIf="!isLoadingConfig && isConfigured && !isEditing">
     <div class="chat-layout">
 
       <!-- Header -->
@@ -214,6 +234,11 @@
         <div class="chat-header__actions">
           <button class="btn-icon" title="Clear chat" (click)="clearChat()">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1H2V4zm2-2h8v1H4V2zm1 4h6v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6zm1 1v6h4V7H6z"/></svg>
+          </button>
+          <button class="btn-icon" title="Edit configuration" (click)="startEdit()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.23 1a1.82 1.82 0 0 0-1.28.53L2.5 10.97l-.44 2.92 2.92-.44L14.47 4a1.81 1.81 0 0 0-1.24-3zM4.28 12.6l-1.48.22.22-1.48 8.28-8.28.65.65-.66.66-7.01 8.23zm8.62-9.27-.66.66-.65-.65.66-.66a.82.82 0 0 1 .65 1.65z"/>
+            </svg>
           </button>
           <button class="btn-icon btn-icon--danger" title="Disconnect agent" (click)="disconnectAgent()">✕</button>
         </div>
