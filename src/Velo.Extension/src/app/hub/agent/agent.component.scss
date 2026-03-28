@@ -134,9 +134,23 @@ code {
 .form-hint {
   display: block;
   font-size: 11px;
-  color: var(--text-secondary-color, #666);
+  color: #555555;
   margin-top: 5px;
-  line-height: 1.5;
+  line-height: 1.7;
+
+  strong { color: #1e1e1e; font-weight: 600; }
+}
+
+.endpoint-ok {
+  color: #1a7230;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.endpoint-bad {
+  color: #d4262c;
+  font-weight: 700;
+  margin-right: 2px;
 }
 
 .key-saved-hint {

@@ -50,6 +50,16 @@ public class AgentController(
 
             return BadRequest(new { error = ex.Message, code = "AGENT_AUTH_FAILED" });
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found (404)"))
+        {
+            // Surfaced from AgentService when Foundry returns 404 — wrong endpoint type or
+            // model deployment name doesn't exist.
+            logger.LogWarning(ex,
+                "AGENT: Resource not found — OrgId={OrgId}, ProjectId={ProjectId}",
+                orgId, request.ProjectId);
+
+            return BadRequest(new { error = ex.Message, code = "AGENT_RESOURCE_NOT_FOUND" });
+        }
         catch (Exception ex)
         {
             logger.LogError(ex,

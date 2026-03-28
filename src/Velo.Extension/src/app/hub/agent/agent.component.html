@@ -34,9 +34,16 @@
             class="form-input"
             type="url"
             [(ngModel)]="formEndpoint"
-            placeholder="https://your-project.api.azureml.ms/…"
+            placeholder="https://your-hub.services.ai.azure.com"
             autocomplete="off" />
-          <span class="form-hint">Found in Azure AI Studio → your project → Overview → Project endpoint</span>
+          <div class="form-hint">
+            <strong>Where to find it:</strong> Azure AI Studio → your project → Overview → Project endpoint.<br>
+            <strong>Supported formats:</strong><br>
+            <span class="endpoint-ok">✔</span> <code>https://&lt;hub&gt;.services.ai.azure.com</code><br>
+            <span class="endpoint-ok">✔</span> <code>https://&lt;project&gt;.api.azureml.ms</code><br>
+            <span class="endpoint-bad">✘</span> <code>https://&lt;name&gt;.openai.azure.com</code>
+            — Azure OpenAI endpoints are <strong>not supported</strong> and will cause a 404 error.
+          </div>
         </div>
 
         <div class="form-group">
@@ -54,16 +61,18 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Model Deployment Name</label>
+          <label class="form-label">Model Deployment Name <span class="required">*</span></label>
           <input
             class="form-input"
             type="text"
             [(ngModel)]="formDeploymentModel"
             placeholder="gpt-4o" />
-          <span class="form-hint">
-            The Azure OpenAI deployment name in your Foundry project (e.g. <code>gpt-4o</code>, <code>gpt-4o-mini</code>).
-            Used when Velo auto-creates the agent. Must match a deployment that exists in your project.
-          </span>
+          <div class="form-hint">
+            The deployment name in your Foundry project (e.g. <code>gpt-4o</code>, <code>gpt-4o-mini</code>).
+            Used when Velo auto-creates the agent on first chat.<br>
+            <strong>Must exactly match</strong> a deployment listed under Azure AI Studio → your project → Deployments.
+            A mismatch causes a 404 "Resource not found" error.
+          </div>
         </div>
 
         <!-- Authentication method selector -->
