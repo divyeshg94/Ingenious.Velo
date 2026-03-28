@@ -195,22 +195,76 @@
 .qm--fair      { color: #eab308; }
 .qm--poor      { color: #ef4444; }
 
-// ── Locked PR metrics ─────────────────────────────────────
-.locked-metrics { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+// ── PR Insights ───────────────────────────────────────────
+.pr-approval-item { margin-bottom: 16px; }
 
-.locked-metric {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: 4px;
-  background: var(--background-color); border: 1px dashed var(--border-color);
-  &__icon { color: var(--text-disabled-color); flex-shrink: 0; }
-  &__name  { font-size: 12px; font-weight: 600; color: var(--text-primary-color); }
-  &__desc  { font-size: 11px; color: var(--text-secondary-color); margin-top: 1px; }
-  &__value { margin-left: auto; font-size: 13px; font-weight: 700; white-space: nowrap; }
-  &__value--dim { color: var(--text-disabled-color); }
+.pr-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+
+  @media (max-width: 500px) { grid-template-columns: 1fr; }
 }
 
-.locked-cta {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 11px; color: var(--text-disabled-color); padding-top: 2px;
-  svg { flex-shrink: 0; }
+.pr-stat {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  &--pending {
+    border-style: dashed;
+    opacity: 0.8;
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  &__value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--heading-color);
+
+    &--dim { color: var(--text-disabled-color); font-size: 16px; }
+  }
+
+  &__hint {
+    font-size: 10px;
+    color: var(--text-disabled-color);
+    line-height: 1.4;
+  }
+}
+
+.pending-tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pr-phase-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-disabled-color);
+  padding-top: 2px;
+  line-height: 1.5;
+
+  svg { flex-shrink: 0; margin-top: 1px; }
 }

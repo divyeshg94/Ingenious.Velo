@@ -218,53 +218,70 @@
 
     </div>
 
-    <!-- Phase 2 PR Metrics (locked) -->
-    <div class="health-card health-card--locked">
+    <!-- PR Insights -->
+    <div class="health-card">
       <div class="card-header">
         <div class="card-header__icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
         </div>
         <h3 class="card-title">Pull Request Insights</h3>
-        <span class="phase-badge">Phase 2</span>
       </div>
-      <p class="card-desc">Deeper PR signals require GitHub or Azure DevOps Pull Request API integration.</p>
+      <p class="card-desc">PR review and approval signals from the last 30 days.</p>
 
-      <div class="locked-metrics">
-        <div class="locked-metric">
-          <div class="locked-metric__icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          </div>
-          <div>
-            <div class="locked-metric__name">Avg PR Size</div>
-            <div class="locked-metric__desc">Lines of code changed per pull request</div>
-          </div>
-          <div class="locked-metric__value locked-metric__value--dim">— lines</div>
+      <!-- PR Approval Rate — real computed metric with progress bar -->
+      <div class="qm-item pr-approval-item">
+        <div class="qm-item__header">
+          <span class="qm-item__name">PR Approval Rate</span>
+          <span class="qm-item__value" [ngClass]="'qm--' + getPassClass(health.prApprovalRate)">
+            {{ health.prApprovalRate | number:'1.1-1' }}%
+          </span>
         </div>
-        <div class="locked-metric">
-          <div class="locked-metric__icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div>
-            <div class="locked-metric__name">PR Comment Density</div>
-            <div class="locked-metric__desc">Average review comments per pull request</div>
-          </div>
-          <div class="locked-metric__value locked-metric__value--dim">— / PR</div>
+        <div class="qm-track">
+          <div class="qm-fill" [ngClass]="'qm-fill--' + getPassClass(health.prApprovalRate)"
+               [style.width.%]="health.prApprovalRate"></div>
         </div>
-        <div class="locked-metric">
-          <div class="locked-metric__icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div>
-            <div class="locked-metric__name">PR Approval Rate</div>
-            <div class="locked-metric__desc">Pull requests approved on first review</div>
-          </div>
-          <div class="locked-metric__value locked-metric__value--dim">— %</div>
-        </div>
+        <p class="qm-item__hint">
+          PRs with at least one approved reviewer ÷ all closed PRs.
+          Falls back to CI pass rate when no PR event data is available.
+        </p>
       </div>
 
-      <div class="locked-cta">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>Connect a GitHub or Azure DevOps repo in Phase 2 to unlock PR-level insights</span>
+      <!-- Stat tiles: Review Time + Phase 2 stubs -->
+      <div class="pr-stats">
+
+        <div class="pr-stat">
+          <span class="pr-stat__label">Avg Review Time</span>
+          <span class="pr-stat__value">{{ formatHours(health.reviewTimeHours) }}</span>
+          <span class="pr-stat__hint">PR open→close, or CI duration proxy</span>
+        </div>
+
+        <div class="pr-stat pr-stat--pending">
+          <span class="pr-stat__label">
+            Avg PR Size
+            <span class="pending-tag">Phase 2</span>
+          </span>
+          <span class="pr-stat__value pr-stat__value--dim">
+            {{ health.averagePrSizeLines > 0 ? '' : '—' }}{{ health.averagePrSizeLines > 0 ? (health.averagePrSizeLines | number:'1.0-0') + ' lines' : '' }}
+          </span>
+          <span class="pr-stat__hint">Lines changed per PR</span>
+        </div>
+
+        <div class="pr-stat pr-stat--pending">
+          <span class="pr-stat__label">
+            Comments / PR
+            <span class="pending-tag">Phase 2</span>
+          </span>
+          <span class="pr-stat__value pr-stat__value--dim">
+            {{ health.prCommentDensity > 0 ? (health.prCommentDensity | number:'1.1-1') : '—' }}
+          </span>
+          <span class="pr-stat__hint">Review comments per PR</span>
+        </div>
+
+      </div>
+
+      <div class="pr-phase-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Avg PR Size and Comment Density require PR diff ingestion, available in Phase 2.</span>
       </div>
     </div>
 
