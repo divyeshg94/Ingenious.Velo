@@ -18,6 +18,7 @@ public class VeloDbContext : DbContext
     public DbSet<TeamMapping> TeamMappings { get; set; } = null!;
     public DbSet<ProjectMapping> ProjectMappings { get; set; } = null!;
     public DbSet<AgentConfiguration> AgentConfigurations { get; set; } = null!;
+    public DbSet<WorkItemEvent> WorkItemEvents { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +28,7 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<TeamHealth>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
         modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
+        modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId == null || r.OrgId == CurrentOrgId!);
 
         // Configure OrgContext
         modelBuilder.Entity<OrgContext>(eb =>
@@ -54,6 +56,7 @@ public class VeloDbContext : DbContext
         ConfigureAuditable<TeamHealth>();
         ConfigureAuditable<PullRequestEvent>();
         ConfigureAuditable<TeamMapping>();
+        ConfigureAuditable<WorkItemEvent>();
 
         // Configure indexes for performance and multi-tenancy
 
@@ -107,6 +110,16 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<PullRequestEvent>()
             .HasIndex(p => new { p.OrgId, p.PrId, p.Status })
             .HasDatabaseName("IX_PullRequestEvents_OrgId_PrId_Status");
+
+        // WorkItemEvents indexes
+        modelBuilder.Entity<WorkItemEvent>()
+            .HasIndex(w => new { w.OrgId, w.ProjectId, w.ChangedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_WorkItemEvents_OrgId_ProjectId_ChangedAt_DESC");
+
+        modelBuilder.Entity<WorkItemEvent>()
+            .HasIndex(w => new { w.OrgId, w.WorkItemId })
+            .HasDatabaseName("IX_WorkItemEvents_OrgId_WorkItemId");
 
         // TeamMappings indexes
         modelBuilder.Entity<TeamMapping>()

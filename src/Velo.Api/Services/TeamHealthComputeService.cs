@@ -56,9 +56,13 @@ public class TeamHealthComputeService(
         var prEvents  = (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken)).ToList();
         var hasPrData = prEvents.Count > 0;
 
+        // Fetch work item state transitions for the same 30-day window.
+        var workItemEvents = (await repo.GetWorkItemEventsAsync(orgId, projectId, from, cancellationToken)).ToList();
+        var hasWorkItemData = workItemEvents.Count > 0;
+
         logger.LogInformation(
-            "HEALTH: Found {Total} total runs, {Period} in last {Days} days, {PrCount} PR events — OrgId={OrgId}",
-            allRuns.Count, runs.Count, PeriodDays, prEvents.Count, orgId);
+            "HEALTH: Found {Total} total runs, {Period} in last {Days} days, {PrCount} PR events, {WiCount} WI events — OrgId={OrgId}",
+            allRuns.Count, runs.Count, PeriodDays, prEvents.Count, workItemEvents.Count, orgId);
 
         // ── Cycle time metrics ────────────────────────────────────────────
         var codingTimeHours = ComputeCodingTime(runs);
@@ -72,6 +76,10 @@ public class TeamHealthComputeService(
         var flakyTestRate   = ComputeFlakyTestRate(runs);
         var deployRiskScore = ComputeDeploymentRiskScore(runs, flakyTestRate);
 
+        // PR comment density — uses avg reviewer count as a proxy for comment activity.
+        // Exact comment counts require the ADO Threads API (Phase 2 diff ingestion).
+        var prCommentDensity = hasPrData ? ComputePrCommentDensity(prEvents) : 0;
+
         var health = new TeamHealthDto
         {
             Id                  = Guid.NewGuid(),
@@ -82,24 +90,26 @@ public class TeamHealthComputeService(
             ReviewTimeHours     = Round(reviewTimeHours),
             MergeTimeHours      = Round(mergeTimeHours),
             DeployTimeHours     = Round(deployTimeHours),
-            AveragePrSizeLines  = 0,          // Phase 2
-            PrCommentDensity    = 0,          // Phase 2
-            PrApprovalRate      = Round(prApprovalRate,  1),
-            TestPassRate        = Round(testPassRate,     1),
-            FlakyTestRate       = Round(flakyTestRate,   1),
-            DeploymentRiskScore = Round(deployRiskScore, 1),
+            AveragePrSizeLines  = 0,          // Phase 2: requires ADO diff API
+            PrCommentDensity    = Round(prCommentDensity, 1),
+            PrApprovalRate      = Round(prApprovalRate,   1),
+            TestPassRate        = Round(testPassRate,      1),
+            FlakyTestRate       = Round(flakyTestRate,    1),
+            DeploymentRiskScore = Round(deployRiskScore,  1),
         };
 
         await repo.SaveTeamHealthAsync(health, cancellationToken);
 
         logger.LogInformation(
             "HEALTH: Saved — OrgId={OrgId}, ProjectId={ProjectId}, " +
-            "ReviewTimeH={ReviewH:F1} ({Source}), PrApproval={Approval:F1}%, " +
-            "TestPassRate={TestPassRate:F1}, FlakyRate={FlakyRate:F1}, RiskScore={Risk:F1}",
+            "ReviewTimeH={ReviewH:F1} ({PrSource}), PrApproval={Approval:F1}%, CommentDensity={Density:F1} ({DensitySource}), " +
+            "TestPassRate={TestPassRate:F1}, FlakyRate={FlakyRate:F1}, RiskScore={Risk:F1}, WiEvents={WiCount}",
             orgId, projectId,
             health.ReviewTimeHours, hasPrData ? "PR data" : "CI proxy",
             health.PrApprovalRate,
-            health.TestPassRate, health.FlakyTestRate, health.DeploymentRiskScore);
+            health.PrCommentDensity, hasPrData ? "avg reviewers/PR" : "no PR data",
+            health.TestPassRate, health.FlakyTestRate, health.DeploymentRiskScore,
+            workItemEvents.Count);
 
         return health;
     }
@@ -232,6 +242,49 @@ public class TeamHealthComputeService(
 
         var score = failRate * 0.5 + flakyRate * 0.3 + durationFactor * 0.2;
         return Math.Min(score, 100);
+    }
+
+    // ── PR comment density ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Average number of reviewers per closed PR, used as a proxy for comment density.
+    /// Exact comment/thread counts require the ADO Threads REST API (Phase 2).
+    /// </summary>
+    private static double ComputePrCommentDensity(List<PullRequestEventDto> prEvents)
+    {
+        var closed = prEvents
+            .Where(p => p.Status is "completed" or "abandoned")
+            .ToList();
+        return closed.Any() ? closed.Average(p => p.ReviewerCount) : 0;
+    }
+
+    // ── Work item rework rate ─────────────────────────────────────────────────
+
+    private static readonly HashSet<string> s_doneStates = new(StringComparer.OrdinalIgnoreCase)
+        { "Resolved", "Closed", "Done", "Completed", "Inactive", "Verified" };
+
+    private static readonly HashSet<string> s_activeStates = new(StringComparer.OrdinalIgnoreCase)
+        { "Active", "In Progress", "Committed", "Open", "New", "Reopened" };
+
+    /// <summary>
+    /// Rework rate from real work item state transitions.
+    /// A rework event = a work item that moved FROM a completed state BACK TO an active state,
+    /// indicating previously "done" work needed revisiting.
+    ///
+    /// ReworkRate = rework transitions ÷ total completions × 100
+    /// </summary>
+    private static double ComputeWorkItemReworkRate(List<WorkItemEventDto> events)
+    {
+        var reworkTransitions = events.Count(e =>
+            s_doneStates.Contains(e.OldState ?? string.Empty) &&
+            s_activeStates.Contains(e.NewState ?? string.Empty));
+
+        var totalCompletions = events.Count(e =>
+            s_activeStates.Contains(e.OldState ?? string.Empty) &&
+            s_doneStates.Contains(e.NewState ?? string.Empty));
+
+        if (totalCompletions == 0) return 0;
+        return Math.Min((double)reworkTransitions / totalCompletions * 100, 100);
     }
 
     private static double Round(double v, int decimals = 2) => Math.Round(v, decimals);

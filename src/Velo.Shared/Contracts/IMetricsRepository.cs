@@ -37,6 +37,10 @@ public interface IMetricsRepository
     Task SaveTeamMappingAsync(TeamMappingDto mapping, CancellationToken cancellationToken);
     Task DeleteTeamMappingAsync(Guid id, string orgId, CancellationToken cancellationToken);
 
+    // Work Item Events
+    Task SaveWorkItemEventAsync(WorkItemEventDto item, CancellationToken cancellationToken);
+    Task<IEnumerable<WorkItemEventDto>> GetWorkItemEventsAsync(string orgId, string projectId, DateTimeOffset from, CancellationToken cancellationToken);
+
     // Repository discovery
     Task<IEnumerable<string>> GetDistinctRepositoriesAsync(string orgId, string projectId, CancellationToken cancellationToken);
     Task<IEnumerable<int>> GetPipelineIdsWithNullRepositoryAsync(string orgId, string projectId, CancellationToken cancellationToken);

@@ -156,10 +156,66 @@ public class EventNormalizer(VeloDbContext db, ILogger<EventNormalizer> logger) 
             resource.PullRequestId, orgId, projectId, isApproved);
     }
 
-    private Task HandleWorkItemUpdatedAsync(ServiceHookPayload payload)
+    private async Task HandleWorkItemUpdatedAsync(ServiceHookPayload payload)
     {
-        // Phase 2: track work item state transitions for rework rate computation
-        return Task.CompletedTask;
+        var orgId = payload.ResourceContainers?.Collection?.Id;
+        if (string.IsNullOrEmpty(orgId) || payload.Resource is null)
+        {
+            logger.LogWarning("FUNCTIONS: workitem.updated missing org or resource — skipping");
+            return;
+        }
+
+        AdoWorkItemResource? resource;
+        try { resource = payload.Resource.Value.Deserialize<AdoWorkItemResource>(_json); }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "FUNCTIONS: Failed to deserialize work item resource");
+            return;
+        }
+
+        if (resource is null) return;
+
+        // Only persist events where the State actually changed
+        var fields = resource.Fields ?? new Dictionary<string, AdoFieldChange>();
+        if (!fields.TryGetValue("System.State", out var stateChange) ||
+            stateChange.OldValue == stateChange.NewValue)
+        {
+            logger.LogDebug("FUNCTIONS: workitem.updated has no state change — skipping WI={WI}", resource.WorkItemId);
+            return;
+        }
+
+        fields.TryGetValue("System.WorkItemType", out var typeChange);
+        var workItemType = typeChange?.NewValue ?? typeChange?.OldValue;
+
+        // Resolve project from the workitem's current field values or resource containers
+        var projectId = payload.ResourceContainers?.Project?.Id;
+        if (resource.WorkItem?.Fields is not null &&
+            resource.WorkItem.Fields.TryGetValue("System.TeamProject", out var project))
+            projectId = project;
+
+        if (string.IsNullOrEmpty(projectId))
+        {
+            logger.LogWarning("FUNCTIONS: Could not resolve projectId for work item {WI}", resource.WorkItemId);
+            return;
+        }
+
+        db.WorkItemEvents.Add(new WorkItemEvent
+        {
+            OrgId        = orgId,
+            ProjectId    = projectId,
+            WorkItemId   = resource.WorkItemId,
+            WorkItemType = workItemType,
+            OldState     = stateChange.OldValue,
+            NewState     = stateChange.NewValue,
+            ChangedAt    = resource.RevisedDate,
+            CreatedBy    = "functions",
+            ModifiedBy   = "functions",
+        });
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "FUNCTIONS: WorkItem state change OrgId={OrgId}, Project={Project}, WI={WI}, {Old}→{New}",
+            orgId, projectId, resource.WorkItemId, stateChange.OldValue, stateChange.NewValue);
     }
 
     private static bool IsDeploymentPipeline(string? name)

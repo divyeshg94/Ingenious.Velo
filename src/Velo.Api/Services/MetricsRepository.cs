@@ -395,6 +395,64 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }).ToList();
     }
 
+    // ── Work Item Events ───────────────────────────────────────────────────────────
+
+    public async Task SaveWorkItemEventAsync(WorkItemEventDto dto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            dbContext.WorkItemEvents.Add(new WorkItemEvent
+            {
+                Id           = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                OrgId        = dto.OrgId,
+                ProjectId    = dto.ProjectId,
+                WorkItemId   = dto.WorkItemId,
+                WorkItemType = dto.WorkItemType,
+                OldState     = dto.OldState,
+                NewState     = dto.NewState,
+                ChangedAt    = dto.ChangedAt,
+                IngestedAt   = dto.IngestedAt,
+                CreatedBy    = "webhook",
+                ModifiedBy   = "webhook",
+            });
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Saved WorkItemEvent OrgId={OrgId}, WI={WorkItemId}, {OldState}→{NewState}",
+                dto.OrgId, dto.WorkItemId, dto.OldState, dto.NewState);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Error saving WorkItemEvent OrgId={OrgId}, WI={WorkItemId}",
+                dto.OrgId, dto.WorkItemId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<WorkItemEventDto>> GetWorkItemEventsAsync(
+        string orgId, string projectId, DateTimeOffset from, CancellationToken cancellationToken)
+    {
+        var events = await dbContext.WorkItemEvents
+            .AsNoTracking()
+            .Where(w => w.OrgId == orgId && w.ProjectId == projectId && w.ChangedAt >= from)
+            .OrderByDescending(w => w.ChangedAt)
+            .ToListAsync(cancellationToken);
+
+        return events.Select(w => new WorkItemEventDto
+        {
+            Id           = w.Id,
+            OrgId        = w.OrgId,
+            ProjectId    = w.ProjectId,
+            WorkItemId   = w.WorkItemId,
+            WorkItemType = w.WorkItemType,
+            OldState     = w.OldState,
+            NewState     = w.NewState,
+            ChangedAt    = w.ChangedAt,
+            IngestedAt   = w.IngestedAt,
+        }).ToList();
+    }
+
     // Private mapping methods
     private static DoraMetricsDto MapDoraMetricsToDto(DoraMetrics metric) => new()
     {

@@ -266,22 +266,22 @@
           <span class="pr-stat__hint">Lines changed per PR</span>
         </div>
 
-        <div class="pr-stat pr-stat--pending">
+        <div class="pr-stat" [class.pr-stat--pending]="health.prCommentDensity === 0">
           <span class="pr-stat__label">
-            Comments / PR
-            <span class="pending-tag">Phase 2</span>
+            Reviewers / PR
+            <span *ngIf="health.prCommentDensity === 0" class="pending-tag">No PR data</span>
           </span>
-          <span class="pr-stat__value pr-stat__value--dim">
+          <span class="pr-stat__value" [class.pr-stat__value--dim]="health.prCommentDensity === 0">
             {{ health.prCommentDensity > 0 ? (health.prCommentDensity | number:'1.1-1') : '—' }}
           </span>
-          <span class="pr-stat__hint">Review comments per PR</span>
+          <span class="pr-stat__hint">Avg reviewers per closed PR</span>
         </div>
 
       </div>
 
       <div class="pr-phase-note">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>Avg PR Size and Comment Density require PR diff ingestion, available in Phase 2.</span>
+        <span>Avg PR Size requires PR diff ingestion (Phase 2). Reviewers/PR uses real ADO PR data when available.</span>
       </div>
     </div>
 
