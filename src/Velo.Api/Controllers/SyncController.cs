@@ -5,6 +5,11 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Controllers;
 
+// SECURITY NOTE: webhookBase is built from Request.Scheme + Request.Host.
+// AllowedHosts in appsettings.json restricts the Host values Kestrel will accept,
+// so only configured hostnames can reach this point. This is the primary defence
+// against Host-header injection that would register webhooks to an attacker's server.
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]

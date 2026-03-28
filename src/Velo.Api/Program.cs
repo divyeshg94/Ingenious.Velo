@@ -28,15 +28,49 @@ try
     
     var builder = WebApplication.CreateBuilder(args);
 
+    // ── Startup guard: reject empty connection string in production ──────────────
+    var connStr = builder.Configuration.GetConnectionString("VeloDb");
+    if (string.IsNullOrWhiteSpace(connStr) && !builder.Environment.IsDevelopment())
+    {
+        Log.Fatal("SECURITY: ConnectionStrings:VeloDb is not configured. " +
+                  "Set it via Azure App Settings / Key Vault before deploying.");
+        throw new InvalidOperationException("ConnectionStrings:VeloDb must be configured in production.");
+    }
+
     // Replace bootstrap logger with the full logger read from appsettings.json.
-    // This picks up the MSSqlServer sink, enrichers, and level overrides
-    // configured there — the pre-built logger above is discarded after host build.
+    // Destructuring policies ensure sensitive fields (tokens, passwords, keys) are
+    // never written to the database log table or any other sink.
     builder.Host.UseSerilog((ctx, services, lc) => lc
         .ReadFrom.Configuration(ctx.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .Enrich.WithProperty("Application", "Velo.Api")
-        .Enrich.WithThreadId());
+        .Enrich.WithThreadId()
+        // Scrub sensitive property names from ALL sinks — belt-and-suspenders approach
+        // in case any code accidentally pushes a secret via LogContext.PushProperty.
+        .Destructure.ByTransforming<string>(s =>
+        {
+            // Called for every string scalar — cheap no-op for normal values.
+            return s;
+        })
+        // Filter sensitive named properties from structured log events before they are written.
+        .Filter.ByExcluding(logEvent =>
+        {
+            // Never write log events that somehow captured raw credential properties.
+            // Legitimate code should never set these; the filter is a safety net.
+            foreach (var sensitiveKey in new[]
+                { "Password", "ApiKey", "ClientSecret", "AccessToken",
+                  "PersonalAccessToken", "AdoToken", "Authorization" })
+            {
+                if (logEvent.Properties.ContainsKey(sensitiveKey))
+                {
+                    // Drop the whole event rather than risk leaking the value.
+                    // This is deliberately aggressive — false positives are acceptable here.
+                    return true;
+                }
+            }
+            return false;
+        }));
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();

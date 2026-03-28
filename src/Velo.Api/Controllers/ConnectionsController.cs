@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models.Requests;
 using Velo.Api.Interface;
@@ -6,6 +7,7 @@ namespace Velo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ConnectionsController(IConnectionService connectionService) : ControllerBase
 {
     [HttpPost]

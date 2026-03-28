@@ -174,9 +174,11 @@ public class OrgsController(
             if (string.IsNullOrWhiteSpace(request.OrgUrl))
                 return BadRequest(new { error = "OrgUrl is required" });
 
+            // Sanitise OrgUrl before logging to prevent log injection via crafted URLs.
+            var safeOrgUrl = SanitiseForLog(request.OrgUrl);
             logger.LogInformation(
                 "AUDIT: Connecting organization — OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, request.OrgUrl, userId, correlationId);
+                orgId, safeOrgUrl, userId, correlationId);
 
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
             var isFirstConnect = org == null;
@@ -257,7 +259,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Organization connected — OrgId: {OrgId}, OrgUrl: {OrgUrl}, AutoSync: {AutoSync}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, org.OrgUrl, autoSyncTriggered, userId, correlationId);
+                orgId, SanitiseForLog(org.OrgUrl), autoSyncTriggered, userId, correlationId);
 
             return Ok(new { org, autoSyncTriggered });
         }
@@ -304,7 +306,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Updating organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, request.OrgUrl, userId, correlationId);
+                orgId, SanitiseForLog(request.OrgUrl), userId, correlationId);
 
             // Fetch existing org
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
@@ -327,7 +329,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Successfully updated organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, request.OrgUrl, userId, correlationId);
+                orgId, SanitiseForLog(request.OrgUrl), userId, correlationId);
 
             return Ok(org);
         }
@@ -344,6 +346,20 @@ public class OrgsController(
         if (Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))
             return uri.Segments.LastOrDefault()?.Trim('/') ?? orgUrl;
         return orgUrl;
+    }
+
+    /// <summary>
+    /// Strips newlines and control characters from a value before it is written to a log entry.
+    /// Prevents log-injection attacks where a crafted string containing CRLF could create
+    /// forged log lines in text-based log sinks or corrupt structured JSON output.
+    /// </summary>
+    private static string SanitiseForLog(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "(empty)";
+        // Replace any newline, carriage-return or tab with a space.
+        var sanitised = System.Text.RegularExpressions.Regex.Replace(value, @"[\r\n\t]", " ");
+        // Truncate to a safe length to avoid log truncation / DB column overflow.
+        return sanitised.Length > 500 ? sanitised[..500] + "…" : sanitised;
     }
 }
 
