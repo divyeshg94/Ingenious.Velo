@@ -194,7 +194,7 @@
         </div>
         <div class="sparkline">
           <div class="spark-bar"
-            *ngFor="let h of getSparkHeights('deploymentFrequency'); let last = last"
+            *ngFor="let h of getSparkHeights('deploymentFrequency', 'deploymentFrequencyRating'); let last = last"
             [class.spark-bar--current]="last"
             [style.height.%]="h">
           </div>
@@ -222,7 +222,7 @@
         </div>
         <div class="sparkline">
           <div class="spark-bar"
-            *ngFor="let h of getSparkHeights('leadTimeForChangesHours'); let last = last"
+            *ngFor="let h of getSparkHeights('leadTimeForChangesHours', 'leadTimeRating'); let last = last"
             [class.spark-bar--current]="last"
             [style.height.%]="h">
           </div>
@@ -250,7 +250,7 @@
         </div>
         <div class="sparkline">
           <div class="spark-bar"
-            *ngFor="let h of getSparkHeights('changeFailureRate'); let last = last"
+            *ngFor="let h of getSparkHeights('changeFailureRate', 'changeFailureRating'); let last = last"
             [class.spark-bar--current]="last"
             [style.height.%]="h">
           </div>
@@ -278,7 +278,7 @@
         </div>
         <div class="sparkline">
           <div class="spark-bar"
-            *ngFor="let h of getSparkHeights('meanTimeToRestoreHours'); let last = last"
+            *ngFor="let h of getSparkHeights('meanTimeToRestoreHours', 'mttrRating'); let last = last"
             [class.spark-bar--current]="last"
             [style.height.%]="h">
           </div>
@@ -309,7 +309,7 @@
         </div>
         <div class="sparkline">
           <div class="spark-bar"
-            *ngFor="let h of getSparkHeights('reworkRate'); let last = last"
+            *ngFor="let h of getSparkHeights('reworkRate', 'reworkRateRating'); let last = last"
             [class.spark-bar--current]="last"
             [style.height.%]="h">
           </div>

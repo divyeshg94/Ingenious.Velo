@@ -221,17 +221,46 @@ export class DoraComponent implements OnInit, OnDestroy {
     return lowerIsBetter ? delta < 0 : delta > 0;
   }
 
-  // Returns bar heights (15–95) for sparkline, oldest → newest, capped at 7 points
-  getSparkHeights(field: keyof DoraMetricsDto): number[] {
+  // Returns bar heights (15–95) for sparkline, oldest → newest, always 7 bars.
+  // ratingField is used as a fallback when all values are identical (range === 0),
+  // so bars render at a meaningful height instead of the minimum 15%.
+  getSparkHeights(field: keyof DoraMetricsDto, ratingField?: keyof DoraMetricsDto): number[] {
     if (this.history.length === 0) {
       return [40, 50, 60, 65, 75, 80, 95];
     }
+
     const pts = [...this.history].reverse().slice(-7);
     const values = pts.map(m => m[field] as number);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const range = max - min || 1;
-    return values.map(v => Math.round(((v - min) / range) * 80 + 15));
+    const range = max - min;
+
+    let heights: number[];
+
+    if (range === 0) {
+      // All values are identical — use the latest rating to determine a stable bar height
+      // so the sparkline shows meaningful context instead of all-minimum bars.
+      const latestRating = ratingField ? (pts[pts.length - 1][ratingField] as string) : '';
+      const stableHeight = this.ratingToSparkHeight(latestRating);
+      heights = pts.map(() => stableHeight);
+    } else {
+      heights = values.map(v => Math.round(((v - min) / range) * 80 + 15));
+    }
+
+    // Pad left with the oldest bar's height so there are always 7 bars shown,
+    // even when fewer than 7 history snapshots exist.
+    while (heights.length < 7) heights.unshift(heights[0]);
+
+    return heights;
+  }
+
+  /** Maps a DORA rating string to a sparkline bar height (15–95 scale). */
+  private ratingToSparkHeight(rating: string): number {
+    const r = (rating || '').toLowerCase();
+    if (r === 'elite')  return 85;
+    if (r === 'high')   return 65;
+    if (r === 'medium') return 42;
+    return 20; // low
   }
 
   formatDelta(delta: number, unit: string): string {
