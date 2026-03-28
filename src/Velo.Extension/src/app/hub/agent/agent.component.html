@@ -112,6 +112,17 @@
 
           <!-- API Key panel -->
           <div *ngIf="formAuthMethod === 'apikey'" class="auth-panel">
+            <div class="auth-panel__compat-warning">
+              <span class="auth-panel__compat-icon">⚠️</span>
+              <span>
+                API key authentication is only supported by
+                <strong>Azure AI Services</strong> endpoints
+                (<code>*.services.ai.azure.com</code>).<br>
+                <strong>AzureML workspace</strong> endpoints
+                (<code>*.api.azureml.ms</code>) require Service Principal or Managed Identity.
+                Using an API key with an AzureML endpoint will result in a 403 error.
+              </span>
+            </div>
             <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
               <span class="key-saved-icon">🔑</span>
               API key saved — leave blank to keep it, or paste a new key to replace.

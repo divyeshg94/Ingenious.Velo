@@ -1,3 +1,4 @@
+using Azure;
 using Velo.Agent;
 using Velo.Agent.Tools;
 using Velo.Api.Controllers;
@@ -59,7 +60,39 @@ public class AgentService(
         logger.LogInformation(
             "AGENT: Chat request — OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
 
-        var response = await agent.ChatAsync(request, cancellationToken);
+        AgentResponse response;
+        try
+        {
+            response = await agent.ChatAsync(request, cancellationToken);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 403)
+        {
+            // AzureML workspace endpoints (*.api.azureml.ms) do NOT support the api-key header —
+            // only Azure AI Services endpoints (*.services.ai.azure.com) do. When an API key is
+            // used against an AzureML endpoint the request arrives with an empty identity and
+            // Foundry returns 403 "Identity(object id: ) does not have permissions".
+            var isApiKeyAuth = !string.IsNullOrEmpty(agentConfig.ApiKey);
+            var isAzureMLEndpoint = agentConfig.FoundryEndpoint.Contains(
+                ".api.azureml.ms", StringComparison.OrdinalIgnoreCase);
+
+            if (isApiKeyAuth && isAzureMLEndpoint)
+                throw new InvalidOperationException(
+                    "Agent authentication failed (403 Forbidden). " +
+                    "AzureML workspace endpoints (*.api.azureml.ms) do not support API key authentication. " +
+                    "Please switch to the Service Principal tab and provide Tenant ID, Client ID, and Client Secret, " +
+                    "or use Velo's Managed Identity instead. " +
+                    "API keys are only supported for Azure AI Services endpoints (*.services.ai.azure.com).");
+
+            if (isApiKeyAuth)
+                throw new InvalidOperationException(
+                    "Agent authentication failed (403 Forbidden). " +
+                    "Verify that the API key is correct and that the Foundry resource grants API key access.");
+
+            throw new InvalidOperationException(
+                "Agent authentication failed (403 Forbidden). " +
+                "Verify that the Foundry resource grants the configured identity (Managed Identity or Service Principal) " +
+                "the 'Azure AI User' role.");
+        }
 
         logger.LogInformation(
             "AGENT: Chat response — OrgId={OrgId}, TokensUsed={Tokens}", orgId, response.TokensUsed);

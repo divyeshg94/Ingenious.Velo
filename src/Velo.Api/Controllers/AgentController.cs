@@ -40,6 +40,16 @@ public class AgentController(
         {
             return BadRequest(new { error = ex.Message, code = "AGENT_NOT_CONFIGURED" });
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("authentication failed"))
+        {
+            // Surfaced from AgentService when Foundry returns 403 — return 400 with the full message
+            // so the Angular UI can display it directly rather than a generic "try again".
+            logger.LogWarning(ex,
+                "AGENT: Auth failed — OrgId={OrgId}, ProjectId={ProjectId}",
+                orgId, request.ProjectId);
+
+            return BadRequest(new { error = ex.Message, code = "AGENT_AUTH_FAILED" });
+        }
         catch (Exception ex)
         {
             logger.LogError(ex,

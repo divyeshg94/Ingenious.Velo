@@ -55,11 +55,11 @@
 }
 
 .connect-form {
-  background: var(--background-color, #ffffff);
-  border: 1px solid var(--palette-neutral-15, #d0d0d0);
+  background: #ffffff;
+  border: 1px solid #c8c8c8;
   border-radius: 4px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.09);
 }
 
 // ── Form primitives ───────────────────────────────────────────────
@@ -90,31 +90,35 @@
 .form-input {
   display: block;
   width: 100%;
-  height: 32px;
+  height: 34px;
   padding: 0 10px;
-  border: 1px solid var(--palette-neutral-30, #adadad);
-  border-radius: 2px;
+  // Use explicit colors so the field is clearly visible regardless of ADO theme variable resolution
+  border: 1.5px solid #767676;
+  border-radius: 3px;
   font-size: 13px;
   font-family: inherit;
-  color: var(--text-primary-color, #1e1e1e);
-  background: var(--background-color, #ffffff);
+  color: #1e1e1e;
+  background: #ffffff;
   box-sizing: border-box;
-  transition: border-color 0.1s, box-shadow 0.1s;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.12s, box-shadow 0.12s;
 
   &::placeholder {
-    color: var(--text-disabled-color, #aaa);
+    color: #888888;
+    opacity: 1; // Firefox needs explicit opacity
   }
 
   &:focus {
     outline: none;
-    border-color: var(--communication-foreground, #0078d4);
-    box-shadow: 0 0 0 1px var(--communication-foreground, #0078d4);
+    border-color: #0078d4;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(0, 120, 212, 0.25);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
-    background: var(--palette-neutral-4, #f5f5f5);
+    background: #f0f0f0;
+    border-color: #b0b0b0;
   }
 }
 
@@ -170,9 +174,9 @@ code {
 .form-group-section {
   margin-bottom: 20px;
   padding: 14px 16px;
-  border: 1px solid var(--palette-neutral-15, #d8d8d8);
+  border: 1px solid #d0d0d0;
   border-radius: 3px;
-  background: var(--palette-neutral-2, #fafafa);
+  background: #f7f7f7;
 
   .form-group:last-child { margin-bottom: 0; }
 }
@@ -341,6 +345,37 @@ code {
 
     strong { color: var(--text-primary-color, #1e1e1e); }
     em { font-style: italic; color: var(--text-secondary-color, #666); }
+  }
+
+  &__compat-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: var(--status-warning-background, #fff4ce);
+    border: 1px solid var(--status-warning-text, #c8a400);
+    border-left: 4px solid var(--status-warning-text, #c8a400);
+    border-radius: 0 2px 2px 0;
+    font-size: 12px;
+    color: var(--status-warning-text, #7a5c00);
+    line-height: 1.6;
+
+    strong { color: inherit; font-weight: 600; }
+
+    code {
+      background: rgba(0, 0, 0, 0.06);
+      color: inherit;
+      font-size: 11px;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+  }
+
+  &__compat-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    line-height: 1.4;
   }
 }
 
@@ -568,30 +603,34 @@ code {
 .chat-input {
   flex: 1;
   padding: 8px 10px;
-  border: 1px solid var(--palette-neutral-30, #adadad);
+  border: 1.5px solid #767676;
   border-radius: 4px;
   font-size: 13px;
   font-family: inherit;
-  color: var(--text-primary-color, #1e1e1e);
-  background: var(--background-color, #ffffff);
+  color: #1e1e1e;
+  background: #ffffff;
   resize: none;
   line-height: 1.5;
   min-height: 54px;
-  transition: border-color 0.1s, box-shadow 0.1s;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.12s, box-shadow 0.12s;
 
   &::placeholder {
-    color: var(--text-disabled-color, #aaa);
+    color: #888888;
+    opacity: 1;
   }
 
   &:focus {
     outline: none;
-    border-color: var(--communication-foreground, #0078d4);
-    box-shadow: 0 0 0 1px var(--communication-foreground, #0078d4);
+    border-color: #0078d4;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(0, 120, 212, 0.25);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
+    background: #f0f0f0;
+    border-color: #b0b0b0;
   }
 }
 
