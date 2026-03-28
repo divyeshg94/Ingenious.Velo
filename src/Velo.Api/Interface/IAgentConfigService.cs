@@ -120,21 +120,64 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     {
         try
         {
-            PersistentAgentsClient agentsClient = FoundryClientFactory.Build(endpoint, apiKey, tenantId, clientId, clientSecret);
+            PersistentAgentsClient agentsClient = FoundryClientFactory.Build(
+                endpoint, apiKey, tenantId, clientId, clientSecret);
 
-            // When an Agent ID is provided, verify it exists. Otherwise just confirm the
-            // endpoint and credentials are reachable by listing agents (lightweight call).
+            // When an Agent ID is provided, verify it exists.
+            // Otherwise list one agent — lightweight call that confirms credentials + endpoint are valid.
             if (!string.IsNullOrWhiteSpace(agentId))
             {
-                var agent = agentsClient.Administration.GetAgent(agentId);
-                var name = agent?.Value?.Name ?? agentId;
+                var response = await agentsClient.Administration.GetAgentAsync(agentId, ct);
+                var name = response?.Value?.Name ?? agentId;
                 return (true, $"Connected successfully. Agent '{name}' found.");
             }
             else
             {
-                var agents = agentsClient.Administration.GetAgents();
-                return (true, "Connected successfully. Agent will be created automatically on first chat.");
+                await foreach (var _ in agentsClient.Administration.GetAgentsAsync(cancellationToken: ct))
+                    break; // one page item is enough to confirm connectivity
+
+                return (true,
+                    "Connected successfully. Endpoint and credentials are valid. " +
+                    "The agent will be created automatically on the first chat.");
             }
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 403)
+        {
+            var isApiKey  = !string.IsNullOrEmpty(apiKey);
+            var isAzureML = endpoint.Contains(".api.azureml.ms", StringComparison.OrdinalIgnoreCase);
+
+            if (isApiKey && isAzureML)
+                return (false,
+                    "Authentication failed (403). AzureML workspace endpoints (*.api.azureml.ms) do not " +
+                    "support API key authentication. Switch to Service Principal, or use an Azure AI Services " +
+                    "endpoint (*.services.ai.azure.com) where API keys are supported.");
+
+            return (false, isApiKey
+                ? "Authentication failed (403). Verify that the API key is correct and that the " +
+                  "Foundry resource grants API key access."
+                : "Authentication failed (403). Verify that the configured identity (Managed Identity " +
+                  "or Service Principal) has the 'Azure AI User' role on the Foundry resource.");
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            var isOpenAI = endpoint.Contains(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
+
+            if (isOpenAI)
+                return (false,
+                    "Resource not found (404). Azure OpenAI endpoints (*.openai.azure.com) are not " +
+                    "compatible with the Azure AI Agents API. Use your Azure AI Foundry project endpoint " +
+                    "instead: Azure AI Studio → your project → Overview → 'Project endpoint'.");
+
+            return (false,
+                "Resource not found (404). Check: " +
+                "(1) The endpoint is your Azure AI Foundry project endpoint (not an Azure OpenAI endpoint). " +
+                $"(2) Any Agent ID you provided ({agentId ?? "none"}) exists in the project.");
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == 429)
+        {
+            return (false,
+                "Rate limit exceeded (429). The Foundry resource has reached its request quota. " +
+                "Please wait a moment and try the test again.");
         }
         catch (Exception ex)
         {

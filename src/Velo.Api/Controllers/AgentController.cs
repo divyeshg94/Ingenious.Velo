@@ -60,6 +60,16 @@ public class AgentController(
 
             return BadRequest(new { error = ex.Message, code = "AGENT_RESOURCE_NOT_FOUND" });
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("rate limit exceeded"))
+        {
+            // Surfaced from AgentService when Foundry returns 429 — pass the 429 status through
+            // so the Angular client knows it can retry rather than treating it as a hard failure.
+            logger.LogWarning(ex,
+                "AGENT: Rate limited — OrgId={OrgId}, ProjectId={ProjectId}",
+                orgId, request.ProjectId);
+
+            return StatusCode(429, new { error = ex.Message, code = "AGENT_RATE_LIMITED" });
+        }
         catch (Exception ex)
         {
             logger.LogError(ex,

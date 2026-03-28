@@ -219,7 +219,18 @@ export class AgentComponent implements OnInit, AfterViewChecked {
         },
         error: (err) => {
           const errMsg = err.error?.error ?? 'Something went wrong. Please try again.';
-          this.messages.push({ role: 'assistant', content: `⚠️ ${errMsg}` });
+          const code   = err.error?.code  ?? '';
+
+          // 429 — rate limited: show a softer inline message, don't push a permanent bubble
+          if (err.status === 429 || code === 'AGENT_RATE_LIMITED') {
+            this.messages.push({
+              role: 'assistant',
+              content: `⏳ ${errMsg}`,
+            });
+          } else {
+            this.messages.push({ role: 'assistant', content: `⚠️ ${errMsg}` });
+          }
+
           this.isThinking = false;
           this.shouldScrollToBottom = true;
         },

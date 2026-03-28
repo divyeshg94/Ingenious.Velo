@@ -91,6 +91,13 @@ public class AgentService(
                 $"Current deployment name: '{agentConfig.DeploymentName}'. " +
                 "Verify it in Azure AI Studio → your project → Deployments.");
         }
+        catch (RequestFailedException ex) when (ex.Status == 429)
+        {
+            throw new InvalidOperationException(
+                "Agent rate limit exceeded (429 Too Many Requests). " +
+                "Your Azure AI Foundry resource has reached its request quota. " +
+                "Please wait a moment and try again.");
+        }
         catch (RequestFailedException ex) when (ex.Status == 403)
         {
             // AzureML workspace endpoints (*.api.azureml.ms) do NOT support the api-key header —
