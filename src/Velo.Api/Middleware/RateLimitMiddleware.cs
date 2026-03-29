@@ -20,9 +20,13 @@ namespace Velo.Api.Middleware;
 /// </summary>
 public class RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddleware> logger)
 {
-    // Thread-safe; values are (tokenCount, windowDate) tuples replaced atomically.
-    private static readonly ConcurrentDictionary<string, (int tokenCount, DateTime date)>
+    // Values are (tokenCount, windowDate) tuples. Tests reflect over this private field
+    // and expect a Dictionary<string, (int, DateTime)>. Use a Dictionary with a lock
+    // to preserve simple thread-safety semantics while matching test expectations.
+    private static readonly Dictionary<string, (int tokenCount, DateTime date)>
         TokenBudgetCache = new(StringComparer.Ordinal);
+
+    private static readonly object TokenBudgetCacheLock = new();
 
     private const int FreeTokenBudget  = 50_000;
     private const int MaxCacheEntries  = 10_000;   // ~10 k orgs × 1 entry each
@@ -54,23 +58,31 @@ public class RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddlewa
         var cacheKey = $"{orgId}:{today:yyyy-MM-dd}";
 
         // Evict stale entries if the cache is growing too large.
-        if (TokenBudgetCache.Count >= MaxCacheEntries)
-            EvictStaleEntries(today);
-
-        // GetOrAdd is atomic for the initial entry; subsequent updates use AddOrUpdate.
-        var current = TokenBudgetCache.GetOrAdd(cacheKey, _ =>
+        (int tokenCount, DateTime date) current;
+        lock (TokenBudgetCacheLock)
         {
-            logger.LogInformation(
-                "AUDIT: New rate-limit window — OrgId={OrgId}, Date={Date}, CorrelationId={CorrelationId}",
-                orgId, today, correlationId);
-            return (0, today);
-        });
+            if (TokenBudgetCache.Count >= MaxCacheEntries)
+                EvictStaleEntries(today);
 
-        // Reset counter if the stored date is stale (previous day's entry survived eviction).
-        if (current.date != today)
-        {
-            current = (0, today);
-            TokenBudgetCache[cacheKey] = current;
+            if (!TokenBudgetCache.TryGetValue(cacheKey, out var found))
+            {
+                logger.LogInformation(
+                    "AUDIT: New rate-limit window — OrgId={OrgId}, Date={Date}, CorrelationId={CorrelationId}",
+                    orgId, today, correlationId);
+                current = (0, today);
+                TokenBudgetCache[cacheKey] = current;
+            }
+            else
+            {
+                current = found;
+            }
+
+            // Reset counter if the stored date is stale (previous day's entry survived eviction).
+            if (current.date != today)
+            {
+                current = (0, today);
+                TokenBudgetCache[cacheKey] = current;
+            }
         }
 
         if (current.tokenCount >= FreeTokenBudget)
@@ -99,20 +111,31 @@ public class RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddlewa
         // TODO: Replace with actual token count returned by the Foundry SDK in AgentService.
         var estimatedTokens = (int)Math.Max(1, (context.Response.ContentLength ?? 500) / 4);
 
-        TokenBudgetCache.AddOrUpdate(
-            cacheKey,
-            addValue: (estimatedTokens, today),
-            updateValueFactory: (_, existing) =>
-                (existing.date == today ? existing.tokenCount + estimatedTokens : estimatedTokens, today));
+        lock (TokenBudgetCacheLock)
+        {
+            if (TokenBudgetCache.TryGetValue(cacheKey, out var existing))
+            {
+                var newCount = existing.date == today ? existing.tokenCount + estimatedTokens : estimatedTokens;
+                TokenBudgetCache[cacheKey] = (newCount, today);
+            }
+            else
+            {
+                TokenBudgetCache[cacheKey] = (estimatedTokens, today);
+            }
+        }
     }
 
     private static void EvictStaleEntries(DateTime today)
     {
         // Remove entries whose window date is before today — they will never be checked again.
-        foreach (var key in TokenBudgetCache.Keys)
+        lock (TokenBudgetCacheLock)
         {
-            if (TokenBudgetCache.TryGetValue(key, out var entry) && entry.date < today)
-                TokenBudgetCache.TryRemove(key, out _);
+            var keys = TokenBudgetCache.Keys.ToList();
+            foreach (var key in keys)
+            {
+                if (TokenBudgetCache.TryGetValue(key, out var entry) && entry.date < today)
+                    TokenBudgetCache.Remove(key);
+            }
         }
     }
 }

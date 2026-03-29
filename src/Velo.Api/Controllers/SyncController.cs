@@ -5,11 +5,6 @@ using Velo.Shared.Models;
 
 namespace Velo.Api.Controllers;
 
-// SECURITY NOTE: webhookBase is built from Request.Scheme + Request.Host.
-// AllowedHosts in appsettings.json restricts the Host values Kestrel will accept,
-// so only configured hostnames can reach this point. This is the primary defence
-// against Host-header injection that would register webhooks to an attacker's server.
-
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -23,7 +18,7 @@ public class SyncController(
 
     /// <summary>POST /api/sync/{projectId} — pull historical runs, compute DORA, register build + PR webhooks.</summary>
     [HttpPost("{projectId}")]
-    public async Task<ActionResult> Sync(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Sync(string projectId, CancellationToken cancellationToken)
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
@@ -77,6 +72,12 @@ public class SyncController(
                 };
             }
 
+            prHookStatus ??= new WebhookStatusDto
+            {
+                IsRegistered = false,
+                ManualSetupUrl = $"https://dev.azure.com/{orgId}/_settings/serviceHooks"
+            };
+
             // Work item webhook registration — best-effort (workitem.updated → rework-rate tracking)
             WebhookStatusDto workItemHookStatus;
             try
@@ -94,13 +95,19 @@ public class SyncController(
                 };
             }
 
+            workItemHookStatus ??= new WebhookStatusDto
+            {
+                IsRegistered = false,
+                ManualSetupUrl = $"https://dev.azure.com/{orgId}/_settings/serviceHooks"
+            };
+
             logger.LogInformation(
                 "SYNC: Done — {Ingested} runs ingested, buildHook={BHook}, prHook={PHook}, workItemHook={WIHook}, " +
                 "OrgId={OrgId}, ProjectId={ProjectId}",
                 ingested, hookStatus.IsRegistered, prHookStatus.IsRegistered, workItemHookStatus.IsRegistered,
                 orgId, projectId);
 
-            return Ok(new
+            return new OkObjectResult(new
             {
                 ingested,
                 metrics,
@@ -115,12 +122,12 @@ public class SyncController(
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "SYNC: ADO API error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
-            return BadRequest(new { error = ex.Message });
+            return new BadRequestObjectResult(new { error = ex.Message });
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "SYNC: Unexpected error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
-            return StatusCode(500, new { error = "Sync failed. Check application logs." });
+            return new ObjectResult(new { error = "Sync failed. Check application logs." }) { StatusCode = 500 };
         }
     }
 
@@ -128,7 +135,7 @@ public class SyncController(
 
     /// <summary>GET /api/sync/hook-status/{projectId} — check build webhook status.</summary>
     [HttpGet("hook-status/{projectId}")]
-    public async Task<ActionResult> GetHookStatus(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetHookStatus(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -140,7 +147,7 @@ public class SyncController(
 
     /// <summary>POST /api/sync/hook/{projectId} — register (or re-register) the build webhook.</summary>
     [HttpPost("hook/{projectId}")]
-    public async Task<ActionResult> RegisterHook(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RegisterHook(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -152,7 +159,7 @@ public class SyncController(
 
     /// <summary>DELETE /api/sync/hook/{subscriptionId} — remove a webhook subscription (build or PR).</summary>
     [HttpDelete("hook/{subscriptionId}")]
-    public async Task<ActionResult> RemoveHook(string subscriptionId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RemoveHook(string subscriptionId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -165,7 +172,7 @@ public class SyncController(
 
     /// <summary>GET /api/sync/pr-hook-status/{projectId} — check PR webhook registration status.</summary>
     [HttpGet("pr-hook-status/{projectId}")]
-    public async Task<ActionResult> GetPrHookStatus(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPrHookStatus(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -177,7 +184,7 @@ public class SyncController(
 
     /// <summary>POST /api/sync/pr-hook/{projectId} — register (or re-register) the PR webhooks.</summary>
     [HttpPost("pr-hook/{projectId}")]
-    public async Task<ActionResult> RegisterPrHook(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RegisterPrHook(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -191,7 +198,7 @@ public class SyncController(
 
     /// <summary>GET /api/sync/workitem-hook-status/{projectId} — check workitem.updated webhook status.</summary>
     [HttpGet("workitem-hook-status/{projectId}")]
-    public async Task<ActionResult> GetWorkItemHookStatus(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetWorkItemHookStatus(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
@@ -203,7 +210,7 @@ public class SyncController(
 
     /// <summary>POST /api/sync/workitem-hook/{projectId} — register (or re-register) the workitem.updated webhook.</summary>
     [HttpPost("workitem-hook/{projectId}")]
-    public async Task<ActionResult> RegisterWorkItemHook(string projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RegisterWorkItemHook(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
