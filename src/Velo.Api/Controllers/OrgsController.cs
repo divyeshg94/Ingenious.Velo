@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models;
@@ -22,6 +23,10 @@ public class OrgsController(
     IAdoPipelineIngestService ingestService,
     ILogger<OrgsController> logger) : ControllerBase
 {
+    // One entry per org — value is 1 if a background sync is running, absent/0 if free.
+    // Prevents a burst of POST /api/orgs/connect calls from spawning parallel sync tasks.
+    private static readonly ConcurrentDictionary<string, byte> _activeSyncs = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Get the current organization from the JWT token claim.
     /// Multi-tenant: Returns the org_id and auto-populates org details from database or creates default.
@@ -174,6 +179,10 @@ public class OrgsController(
             if (string.IsNullOrWhiteSpace(request.OrgUrl))
                 return BadRequest(new { error = "OrgUrl is required" });
 
+            // SSRF guard — only allow legitimate Azure DevOps URLs.
+            if (!IsAllowedAdoUrl(request.OrgUrl))
+                return BadRequest(new { error = "OrgUrl must be a valid Azure DevOps URL (https://dev.azure.com/... or https://[org].visualstudio.com)." });
+
             // Sanitise OrgUrl before logging to prevent log injection via crafted URLs.
             var safeOrgUrl = SanitiseForLog(request.OrgUrl);
             logger.LogInformation(
@@ -226,31 +235,44 @@ public class OrgsController(
                 var capturedOrgUrl = org.OrgUrl;
                 var capturedToken = adoToken!;
 
-                _ = Task.Run(async () =>
+                // DDoS guard: allow at most ONE background sync per org at a time.
+                // TryAdd returns false if another sync is already running → skip silently.
+                if (_activeSyncs.TryAdd(capturedOrgId, 1))
                 {
-                    try
+                    _ = Task.Run(async () =>
                     {
-                        logger.LogInformation(
-                            "AUTO_SYNC: Background sync started — OrgId={OrgId}, FirstConnect={First}",
-                            capturedOrgId, isFirstConnect);
+                        try
+                        {
+                            logger.LogInformation(
+                                "AUTO_SYNC: Background sync started — OrgId={OrgId}, FirstConnect={First}",
+                                capturedOrgId, isFirstConnect);
 
-                        var ingested = await ingestService.IngestAllProjectsAsync(
-                            capturedOrgId, capturedOrgUrl, capturedToken, CancellationToken.None);
+                            var ingested = await ingestService.IngestAllProjectsAsync(
+                                capturedOrgId, capturedOrgUrl, capturedToken, CancellationToken.None);
 
-                        // Fire-and-forget DORA computation per project is handled inside
-                        // IngestAsync → each run triggers DoraComputeService via webhook path.
-                        // For the bulk backfill we do a final compute pass after ingest.
-                        logger.LogInformation(
-                            "AUTO_SYNC: Ingested {Total} runs — OrgId={OrgId}",
-                            ingested, capturedOrgId);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex,
-                            "AUTO_SYNC: Background sync failed — OrgId={OrgId}",
-                            capturedOrgId);
-                    }
-                });
+                            logger.LogInformation(
+                                "AUTO_SYNC: Ingested {Total} runs — OrgId={OrgId}",
+                                ingested, capturedOrgId);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex,
+                                "AUTO_SYNC: Background sync failed — OrgId={OrgId}",
+                                capturedOrgId);
+                        }
+                        finally
+                        {
+                            // Always release the slot so future syncs can run.
+                            _activeSyncs.TryRemove(capturedOrgId, out _);
+                        }
+                    });
+                }
+                else
+                {
+                    logger.LogInformation(
+                        "AUTO_SYNC: Skipped — sync already running for OrgId={OrgId}",
+                        capturedOrgId);
+                }
 
                 logger.LogInformation(
                     "AUDIT: Auto-sync background task started — OrgId: {OrgId}, FirstConnect: {First}, CorrelationId: {CorrelationId}",
@@ -304,6 +326,9 @@ public class OrgsController(
                 return BadRequest(new { error = "OrgUrl is required" });
             }
 
+            if (!IsAllowedAdoUrl(request.OrgUrl))
+                return BadRequest(new { error = "OrgUrl must be a valid Azure DevOps URL (https://dev.azure.com/... or https://[org].visualstudio.com)." });
+
             logger.LogInformation(
                 "AUDIT: Updating organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 orgId, SanitiseForLog(request.OrgUrl), userId, correlationId);
@@ -341,6 +366,30 @@ public class OrgsController(
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
+    /// <summary>
+    /// SSRF guard: only allow Azure DevOps origin URLs.
+    /// Blocks requests to internal/private IP ranges or non-ADO hosts being used as proxies.
+    /// </summary>
+    private static bool IsAllowedAdoUrl(string url)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return false;
+
+        // Must be HTTPS
+        if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var host = uri.Host.ToLowerInvariant();
+
+        // dev.azure.com/org
+        if (host == "dev.azure.com") return true;
+
+        // org.visualstudio.com
+        if (host.EndsWith(".visualstudio.com", StringComparison.OrdinalIgnoreCase)) return true;
+
+        return false;
+    }
+
     private static string ParseOrgName(string orgUrl)
     {
         if (Uri.TryCreate(orgUrl.TrimEnd('/'), UriKind.Absolute, out var uri))

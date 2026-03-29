@@ -41,6 +41,8 @@ public class AdoPipelineIngestService(
         logger.LogInformation("ADO_INGEST: Fetching builds from {Url}", url);
 
         using var http = httpClientFactory.CreateClient();
+        // Explicit timeout prevents thread-pool exhaustion if ADO is slow or unreachable.
+        http.Timeout = TimeSpan.FromSeconds(30);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adoAccessToken);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -57,10 +59,14 @@ public class AdoPipelineIngestService(
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            // Log status + reason at ERROR; log full body at DEBUG only — body may contain
+            // internal ADO service detail we don't want persisted to the log table.
             logger.LogError(
-                "ADO_INGEST: ADO API returned {Status} for OrgId={OrgId}, ProjectId={ProjectId}. Body: {Body}",
-                response.StatusCode, orgId, projectId, body);
+                "ADO_INGEST: ADO API returned {Status} {Reason} for OrgId={OrgId}, ProjectId={ProjectId}",
+                (int)response.StatusCode, response.ReasonPhrase, orgId, projectId);
+            logger.LogDebug(
+                "ADO_INGEST: Error body for OrgId={OrgId}, ProjectId={ProjectId}: {Body}",
+                orgId, projectId, await response.Content.ReadAsStringAsync(cancellationToken));
             throw new InvalidOperationException(
                 $"Azure DevOps API returned {(int)response.StatusCode}: {response.ReasonPhrase}. " +
                 "Check the access token scope (vso.build required).");
@@ -171,6 +177,7 @@ public class AdoPipelineIngestService(
         logger.LogInformation("AUTO_SYNC: Fetching project list from {Url}", projectsUrl);
 
         using var http = httpClientFactory.CreateClient();
+        http.Timeout = TimeSpan.FromSeconds(30);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adoAccessToken);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -187,10 +194,12 @@ public class AdoPipelineIngestService(
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
             logger.LogWarning(
-                "AUTO_SYNC: Project list returned {Status} for OrgId={OrgId}. Body: {Body}",
-                response.StatusCode, orgId, body);
+                "AUTO_SYNC: Project list returned {Status} {Reason} for OrgId={OrgId}",
+                (int)response.StatusCode, response.ReasonPhrase, orgId);
+            logger.LogDebug(
+                "AUTO_SYNC: Error body for OrgId={OrgId}: {Body}",
+                orgId, await response.Content.ReadAsStringAsync(cancellationToken));
             // Non-fatal: return 0 so the caller can still update LastSyncedAt
             return 0;
         }

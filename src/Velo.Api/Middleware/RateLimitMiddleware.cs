@@ -80,11 +80,10 @@ public class RateLimitMiddleware(RequestDelegate next, ILogger<RateLimitMiddlewa
                 orgId, current.tokenCount, FreeTokenBudget, correlationId);
 
             context.Response.StatusCode = 429;
+            // Do not include resetAt — it reveals the exact budget window to attackers.
             await context.Response.WriteAsJsonAsync(new
             {
-                error          = "Daily token budget exceeded. Upgrade to premium for unlimited access.",
-                remainingTokens = 0,
-                resetAt        = today.AddDays(1)
+                error = "Daily token budget exceeded. Upgrade to premium for unlimited access."
             });
             return;
         }

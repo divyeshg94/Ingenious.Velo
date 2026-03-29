@@ -29,10 +29,19 @@ public class AgentController(
         if (string.IsNullOrWhiteSpace(request.Message))
             return BadRequest(new { error = "message is required" });
 
+        // Cap message length to prevent token-estimation bypass and excessive Foundry spend.
+        // A 10,000-char message is ~2,500 tokens — well above any legitimate chat turn.
+        if (request.Message.Length > 10_000)
+            return BadRequest(new { error = "message exceeds the 10,000-character limit" });
+
+        // History depth cap — prevents an attacker from sending thousands of prior turns
+        // to artificially inflate context and exhaust the Foundry token quota.
+        var history = (request.History ?? []).Take(50).ToList();
+
         try
         {
             var response = await agentService.ChatAsync(
-                orgId, request.ProjectId, request.Message, request.History, cancellationToken);
+                orgId, request.ProjectId, request.Message, history, cancellationToken);
 
             return Ok(response);
         }

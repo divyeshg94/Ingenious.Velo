@@ -46,6 +46,11 @@ public class AgentConfigController(
 
         if (string.IsNullOrWhiteSpace(dto.FoundryEndpoint))
             return BadRequest(new { error = "foundryEndpoint is required" });
+
+        // SSRF guard — only allow Azure AI Foundry / Azure ML endpoints.
+        if (!IsAllowedFoundryEndpoint(dto.FoundryEndpoint))
+            return BadRequest(new { error = "foundryEndpoint must be a valid Azure AI Foundry endpoint (*.services.ai.azure.com or *.api.azureml.ms)." });
+
         // AgentId is optional — Velo auto-creates the agent on first chat when not supplied
 
         var saved = await configService.SaveConfigAsync(orgId, dto, ct);
@@ -67,6 +72,24 @@ public class AgentConfigController(
         return NoContent();
     }
 
+    /// <summary>
+    /// SSRF guard: only Azure AI Foundry project endpoints and Azure ML workspace endpoints.
+    /// *.openai.azure.com is intentionally excluded — it is not compatible with the Agents API
+    /// and users are guided to the correct endpoint type via error messages elsewhere.
+    /// </summary>
+    private static bool IsAllowedFoundryEndpoint(string url)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return false;
+
+        if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var host = uri.Host.ToLowerInvariant();
+        return host.EndsWith(".services.ai.azure.com", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".api.azureml.ms",        StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Tests connectivity to the specified Foundry endpoint + agent ID.</summary>
     [HttpPost("test")]
     public async Task<ActionResult> TestConnection(
@@ -75,6 +98,9 @@ public class AgentConfigController(
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         if (string.IsNullOrEmpty(orgId)) return Unauthorized();
+
+        if (!IsAllowedFoundryEndpoint(request.FoundryEndpoint))
+            return BadRequest(new { error = "foundryEndpoint must be a valid Azure AI Foundry endpoint." });
 
         var (ok, message) = await configService.TestConnectionAsync(
             request.FoundryEndpoint, request.AgentId,
