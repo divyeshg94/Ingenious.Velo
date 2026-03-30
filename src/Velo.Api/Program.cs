@@ -250,7 +250,7 @@ try
                     {
                         log.LogWarning(ex,
                             "AUTH: Failed to decode token (length={Length}, preview={Preview})",
-                            raw.Length, raw.Length > 30 ? raw[..30] + "…" : raw);
+                            raw.Length, Velo.Api.Logging.LogSanitizer.RedactSensitivePreview());
                         context.Fail("Malformed token");
                     }
 

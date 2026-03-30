@@ -49,17 +49,17 @@ public class WebhookController(
 
         if (!secretValid)
         {
-            logger.LogWarning("WEBHOOK: Invalid or missing secret from {RemoteIp}",
-                HttpContext.Connection.RemoteIpAddress);
+        logger.LogWarning("WEBHOOK: Invalid or missing secret from {RemoteIp}",
+                HttpContext.Connection.RemoteIpAddress?.ToString());
             return Unauthorized(new { error = "Invalid webhook secret" });
         }
 
         // ── Body size guard (DoS protection) ────────────────────────────────────
         if (Request.ContentLength.HasValue && Request.ContentLength > MaxBodyBytes)
         {
-            logger.LogWarning(
+        logger.LogWarning(
                 "WEBHOOK: Rejected oversized payload ({Bytes} bytes) from {RemoteIp}",
-                Request.ContentLength, HttpContext.Connection.RemoteIpAddress);
+                Request.ContentLength, HttpContext.Connection.RemoteIpAddress?.ToString());
             return StatusCode(413, new { error = "Payload too large" });
         }
 
@@ -77,7 +77,7 @@ public class WebhookController(
                 {
                     logger.LogWarning(
                         "WEBHOOK: Rejected oversized streaming payload from {RemoteIp}",
-                        HttpContext.Connection.RemoteIpAddress);
+                        HttpContext.Connection.RemoteIpAddress?.ToString());
                     return StatusCode(413, new { error = "Payload too large" });
                 }
                 ms.Write(buffer, 0, read);
@@ -87,7 +87,7 @@ public class WebhookController(
 
         // Log a preview so we can diagnose any JSON mapping issues
         logger.LogDebug("WEBHOOK: Raw payload ({Length} bytes): {Preview}",
-            body.Length, body.Length > 800 ? body[..800] + "..." : body);
+            body.Length, Velo.Api.Logging.LogSanitizer.SanitiseForLog(body.Length > 800 ? body[..800] + "..." : body));
 
         // Peek at eventType to dispatch to the right handler
         string? eventType = null;
@@ -103,7 +103,7 @@ public class WebhookController(
             return BadRequest(new { error = "Invalid payload" });
         }
 
-        logger.LogInformation("WEBHOOK: EventType={EventType}", eventType ?? "(null)");
+        logger.LogInformation("WEBHOOK: EventType={EventType}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(eventType));
 
         return eventType switch
         {
@@ -146,7 +146,9 @@ public class WebhookController(
         logger.LogInformation(
             "WEBHOOK: Resource -- Status={Status}, Result={Result}, BuildNumber={Build}, " +
             "StartTime={Start}, FinishTime={Finish}",
-            resource.Status, resource.Result, resource.BuildNumber,
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Status),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Result),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.BuildNumber),
             resource.StartTime, resource.FinishTime);
 
         // Guard against builds still running
@@ -204,25 +206,25 @@ public class WebhookController(
         logger.LogInformation(
             "WEBHOOK: Context -- OrgName={OrgName}, ProjectName={ProjectName}, " +
             "BaseUrl={BaseUrl}, ResourceUrl={ResourceUrl}",
-            orgName.Length > 0 ? orgName : "(empty)",
-            projectName.Length > 0 ? projectName : "(empty)",
-            baseUrl.Length > 0 ? baseUrl : "(empty)",
-            resource.Url ?? "(null)");
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName.Length > 0 ? orgName : "(empty)"),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName.Length > 0 ? projectName : "(empty)"),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(baseUrl.Length > 0 ? baseUrl : "(empty)"),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Url ?? "(null)"));
 
         if (string.IsNullOrEmpty(orgName) || string.IsNullOrEmpty(projectName))
         {
-            logger.LogWarning(
-                "WEBHOOK: Could not extract org or project. " +
-                "OrgName={OrgName}, ProjectName={ProjectName}, " +
-                "BaseUrl={BaseUrl}, ResourceUrl={ResourceUrl}, " +
-                "ResourceProjectName={ResourceProjectName}, ContainerProjectId={ContainerProjectId}, " +
-                "AccountNull={AccountNull}, CollectionNull={CollectionNull}",
-                orgName.Length > 0 ? orgName : "(empty)",
-                projectName.Length > 0 ? projectName : "(empty)",
-                baseUrl.Length > 0 ? baseUrl : "(empty)",
-                resource.Url ?? "(null)",
-                resource.Project?.Name ?? "(null)",
-                evt.ResourceContainers?.Project?.Id ?? "(null)",
+                logger.LogWarning(
+                    "WEBHOOK: Could not extract org or project. " +
+                    "OrgName={OrgName}, ProjectName={ProjectName}, " +
+                    "BaseUrl={BaseUrl}, ResourceUrl={ResourceUrl}, " +
+                    "ResourceProjectName={ResourceProjectName}, ContainerProjectId={ContainerProjectId}, " +
+                    "AccountNull={AccountNull}, CollectionNull={CollectionNull}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName.Length > 0 ? orgName : "(empty)"),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName.Length > 0 ? projectName : "(empty)"),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(baseUrl.Length > 0 ? baseUrl : "(empty)"),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Url ?? "(null)"),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Project?.Name ?? "(null)"),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(evt.ResourceContainers?.Project?.Id ?? "(null)"),
                 evt.ResourceContainers?.Account == null,
                 evt.ResourceContainers?.Collection == null);
             return Ok();
@@ -243,7 +245,8 @@ public class WebhookController(
             {
                 logger.LogInformation(
                     "WEBHOOK: Resolved project GUID {Guid} -> {Name} via existing runs",
-                    projectName, resolved);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(resolved));
                 projectName = resolved;
             }
             else
@@ -251,7 +254,8 @@ public class WebhookController(
                 logger.LogWarning(
                     "WEBHOOK: Could not resolve project GUID {Guid} for Org={Org}, DefinitionId={DefinitionId}. " +
                     "Run sync first so the project name is recorded.",
-                    projectName, orgName, definitionId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName), definitionId);
             }
         }
 
@@ -265,7 +269,8 @@ public class WebhookController(
             {
                 logger.LogInformation(
                     "WEBHOOK: Resolved project GUID {Guid} -> {Name} via ProjectMappings table",
-                    projectName, mapped.ProjectName);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(mapped.ProjectName));
                 projectName = mapped.ProjectName;
             }
         }
@@ -277,7 +282,9 @@ public class WebhookController(
         {
             logger.LogInformation(
                 "WEBHOOK: Run already exists -- skipping. Org={Org}, Project={Project}, Build={Build}",
-                orgName, projectName, runNumber);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runNumber));
             return Ok();
         }
 
@@ -311,7 +318,10 @@ public class WebhookController(
             await repo.SaveRunAsync(run, cancellationToken);
             logger.LogInformation(
                 "WEBHOOK: Saved run -- Org={Org}, Project={Project}, Build={Build}, Result={Result}",
-                orgName, projectName, runNumber, run.Result);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runNumber),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(run.Result));
         }
         catch (Exception ex)
         {
@@ -330,7 +340,8 @@ public class WebhookController(
         {
             logger.LogWarning(ex,
                 "WEBHOOK: DORA recompute failed (run was saved). Org={Org}, Project={Project}",
-                orgName, projectName);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName));
         }
 
         return Ok();
@@ -375,7 +386,8 @@ public class WebhookController(
         {
             logger.LogWarning(
                 "WEBHOOK PR: Could not extract org/project. BaseUrl={BaseUrl}, RepoProjName={ProjName}",
-                baseUrl, resource.Repository?.Project?.Name ?? "(null)");
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(baseUrl),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Repository?.Project?.Name ?? "(null)"));
             return Ok();
         }
 
@@ -413,7 +425,9 @@ public class WebhookController(
             await repo.SavePrEventAsync(prDto, cancellationToken);
             logger.LogInformation(
                 "WEBHOOK PR: Saved — Org={Org}, Project={Project}, PrId={PrId}, Status={Status}, Approved={Approved}",
-                orgName, projectName, resource.PullRequestId, status, isApproved);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                resource.PullRequestId, Velo.Api.Logging.LogSanitizer.SanitiseForLog(status), isApproved);
         }
         catch (Exception ex)
         {
