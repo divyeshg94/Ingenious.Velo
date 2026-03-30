@@ -1,4 +1,6 @@
 name: CD - Production
+permissions:
+  contents: read
 
 on:
   push:
