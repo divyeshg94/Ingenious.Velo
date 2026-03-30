@@ -36,7 +36,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             {
                 logger.LogDebug(
                     "TENANT: Skipping — user not authenticated. Path={Path}, CorrelationId={CorrelationId}",
-                    context.Request.Path, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), correlationId);
                 await next(context);
                 return;
             }
@@ -60,8 +60,8 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
                 logger.LogWarning(
                     "TENANT: Authenticated user but no org_id resolved. " +
                     "Header={Header}, Path={Path}, CorrelationId={CorrelationId}",
-                    context.Request.Headers[OrgIdHeader].FirstOrDefault() ?? "(none)",
-                    context.Request.Path, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Headers[OrgIdHeader].FirstOrDefault() ?? "(none)"),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), correlationId);
 
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsJsonAsync(new { error = "Organization context not found" });
@@ -87,7 +87,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
                                 "SECURITY: Tenant mismatch — OrgId={OrgId} is bound to tenant {Stored} " +
                                 "but request carries tid={Incoming}. Possible spoofing attempt. " +
                                 "CorrelationId={CorrelationId}",
-                                orgId, org.AadTenantId, jwtTid, correlationId);
+                                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(org.AadTenantId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(jwtTid), correlationId);
 
                             context.Response.StatusCode = 403;
                             await context.Response.WriteAsJsonAsync(new { error = "Access denied" });
@@ -109,7 +109,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
 
                             logger.LogInformation(
                                 "SECURITY: Bound OrgId={OrgId} to AadTenantId={TenantId}. CorrelationId={CorrelationId}",
-                                orgId, jwtTid, correlationId);
+                                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(jwtTid), correlationId);
                         }
                     }
                 }
@@ -119,7 +119,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             // ── Step 3: Apply tenant context ──────────────────────────────────────
             logger.LogInformation(
                 "TENANT: Resolved OrgId={OrgId}, Path={Path}, CorrelationId={CorrelationId}",
-                orgId, context.Request.Path, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), correlationId);
 
             context.Items["OrgId"] = orgId;
             LogContext.PushProperty("OrgId", orgId);
@@ -142,7 +142,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
 
                 logger.LogDebug(
                     "SECURITY: RLS session context set — OrgId={OrgId}, CorrelationId={CorrelationId}",
-                    orgId, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), correlationId);
             }
 
             await next(context);

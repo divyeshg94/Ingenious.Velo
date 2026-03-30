@@ -27,18 +27,12 @@ public class AdoPipelineIngestService(
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
-    private static string SanitizeForLog(string? value) =>
-        string.IsNullOrEmpty(value)
-            ? value ?? string.Empty
-            : value.Replace("\r", string.Empty).Replace("\n", string.Empty);
-
     public async Task<int> IngestAsync(
         string orgId,
         string projectId,
         string adoAccessToken,
         CancellationToken cancellationToken)
     {
-        var safeProjectId = SanitizeForLog(projectId);
 
         // orgId is the ADO organisation name (e.g. "mycompany"), set from SDK.getHost().name
         var url = $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
@@ -60,7 +54,9 @@ public class AdoPipelineIngestService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
+            logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
 
@@ -70,10 +66,14 @@ public class AdoPipelineIngestService(
             // internal ADO service detail we don't want persisted to the log table.
             logger.LogError(
                 "ADO_INGEST: ADO API returned {Status} {Reason} for OrgId={OrgId}, ProjectId={ProjectId}",
-                (int)response.StatusCode, response.ReasonPhrase, orgId, safeProjectId);
+                (int)response.StatusCode, response.ReasonPhrase,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             logger.LogDebug(
                 "ADO_INGEST: Error body for OrgId={OrgId}, ProjectId={ProjectId}: {Body}",
-                orgId, safeProjectId, await response.Content.ReadAsStringAsync(cancellationToken));
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(await response.Content.ReadAsStringAsync(cancellationToken), 1000));
             throw new InvalidOperationException(
                 $"Azure DevOps API returned {(int)response.StatusCode}: {response.ReasonPhrase}. " +
                 "Check the access token scope (vso.build required).");
@@ -84,13 +84,17 @@ public class AdoPipelineIngestService(
 
         if (builds?.Value == null || builds.Value.Length == 0)
         {
-            logger.LogInformation("ADO_INGEST: No builds found for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+            logger.LogInformation("ADO_INGEST: No builds found for OrgId={OrgId}, ProjectId={ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             return 0;
         }
 
         logger.LogInformation(
             "ADO_INGEST: Fetched {Count} builds for OrgId={OrgId}, ProjectId={ProjectId}",
-            builds.Value.Length, orgId, projectId);
+            builds.Value.Length,
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
         int saved = 0;
         Dictionary<int, string?> repoCache = new();
@@ -154,11 +158,15 @@ public class AdoPipelineIngestService(
         if (backfilled > 0)
             logger.LogInformation(
                 "ADO_INGEST: Backfilled RepositoryName for {Count} pipeline definition(s). OrgId={OrgId}, ProjectId={ProjectId}",
-                backfilled, orgId, projectId);
+                backfilled,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
         logger.LogInformation(
             "ADO_INGEST: Saved {Saved}/{Total} runs for OrgId={OrgId}, ProjectId={ProjectId}",
-            saved, builds.Value.Length, orgId, projectId);
+            saved, builds.Value.Length,
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
         return saved;
     }
@@ -195,7 +203,8 @@ public class AdoPipelineIngestService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "AUTO_SYNC: HTTP request to list projects failed for OrgId={OrgId}", orgId);
+            logger.LogError(ex, "AUTO_SYNC: HTTP request to list projects failed for OrgId={OrgId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             throw;
         }
 
@@ -203,10 +212,12 @@ public class AdoPipelineIngestService(
         {
             logger.LogWarning(
                 "AUTO_SYNC: Project list returned {Status} {Reason} for OrgId={OrgId}",
-                (int)response.StatusCode, response.ReasonPhrase, orgId);
+                (int)response.StatusCode, response.ReasonPhrase,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             logger.LogDebug(
                 "AUTO_SYNC: Error body for OrgId={OrgId}: {Body}",
-                orgId, await response.Content.ReadAsStringAsync(cancellationToken));
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(await response.Content.ReadAsStringAsync(cancellationToken), 1000));
             // Non-fatal: return 0 so the caller can still update LastSyncedAt
             return 0;
         }
@@ -216,13 +227,14 @@ public class AdoPipelineIngestService(
 
         if (projects?.Value == null || projects.Value.Length == 0)
         {
-            logger.LogInformation("AUTO_SYNC: No projects found for OrgId={OrgId}", orgId);
+            logger.LogInformation("AUTO_SYNC: No projects found for OrgId={OrgId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             return 0;
         }
 
         logger.LogInformation(
             "AUTO_SYNC: Found {Count} projects for OrgId={OrgId} — starting per-project ingest",
-            projects.Value.Length, orgId);
+            projects.Value.Length, Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
 
         // Persist GUID→name mappings so webhooks can resolve project names without an ADO token
         foreach (var project in projects.Value)
@@ -249,7 +261,8 @@ public class AdoPipelineIngestService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "AUTO_SYNC: Failed to save project mapping for {Project}", project.Name);
+                logger.LogWarning(ex, "AUTO_SYNC: Failed to save project mapping for {Project}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(project.Name));
             }
         }
         try { await dbContext.SaveChangesAsync(CancellationToken.None); }
@@ -273,13 +286,14 @@ public class AdoPipelineIngestService(
                 // Log and continue — one failing project should not abort the whole sync
                 logger.LogWarning(ex,
                     "AUTO_SYNC: Ingest failed for project {Project} (OrgId={OrgId}) — skipping",
-                    project.Name, orgId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(project.Name),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             }
         }
 
         logger.LogInformation(
             "AUTO_SYNC: Completed — {Total} runs ingested across {Projects} projects for OrgId={OrgId}",
-            total, projects.Value.Length, orgId);
+            total, projects.Value.Length, Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
 
         return total;
     }

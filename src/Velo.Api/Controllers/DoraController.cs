@@ -53,7 +53,7 @@ public class DoraController(
                 logger.LogWarning(
                     "SECURITY: Unauthorized attempt to fetch DORA metrics - OrgId missing, " +
                     "UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
@@ -61,14 +61,14 @@ public class DoraController(
             {
                 logger.LogWarning(
                     "AUDIT: Invalid projectId in DORA metrics request - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    orgId, userId, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
                 return BadRequest(new { error = "projectId is required" });
             }
 
             logger.LogInformation(
                 "AUDIT: Fetching latest DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, " +
                 "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
             var metrics = await metricsRepository.GetLatestAsync(orgId, projectId, cancellationToken);
 
@@ -76,7 +76,7 @@ public class DoraController(
             {
                 logger.LogInformation(
                     "AUDIT: No metrics found - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    orgId, projectId, userId, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
                 // AUTO-RECOVERY: If the ADO token is present, kick off a background sync
                 // for this specific project. This handles:
@@ -98,7 +98,7 @@ public class DoraController(
                             logger.LogInformation(
                                 "AUTO_RECOVERY: Background sync triggered from dora/latest — OrgId={OrgId}, ProjectId={ProjectId}, " +
                                 "RepositoryName={RepositoryName}, TeamName={TeamName}",
-                                capturedOrgId, capturedProjectId, capturedRepo ?? "(all)", capturedTeam ?? "(all)");
+                                Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedOrgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedProjectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedRepo ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedTeam ?? "(all)"));
 
                             var ingested = await ingestService.IngestAsync(
                                 capturedOrgId, capturedProjectId, capturedToken, CancellationToken.None);
@@ -109,13 +109,13 @@ public class DoraController(
 
                             logger.LogInformation(
                                 "AUTO_RECOVERY: Done — {Ingested} runs ingested, OrgId={OrgId}, ProjectId={ProjectId}",
-                                ingested, capturedOrgId, capturedProjectId);
+                                ingested, Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedOrgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedProjectId));
                         }
                         catch (Exception ex)
                         {
                             logger.LogWarning(ex,
                                 "AUTO_RECOVERY: Background sync failed — OrgId={OrgId}, ProjectId={ProjectId}",
-                                capturedOrgId, capturedProjectId);
+                                Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedOrgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedProjectId));
                         }
                     });
 
@@ -143,7 +143,7 @@ public class DoraController(
             logger.LogInformation(
                 "AUDIT: Successfully returned DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, " +
                 "DeploymentFrequency: {DeploymentFrequency}, Rating: {Rating}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, metrics.DeploymentFrequency, metrics.DeploymentFrequencyRating, userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), metrics.DeploymentFrequency, metrics.DeploymentFrequencyRating, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
             return Ok(metrics);
         }
@@ -151,14 +151,14 @@ public class DoraController(
         {
             logger.LogError(ex,
                 "SECURITY: Unauthorized access to DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return Forbid();
         }
         catch (Exception ex)
         {
             logger.LogError(ex,
                 "ERROR: Exception fetching DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
@@ -187,7 +187,7 @@ public class DoraController(
                 logger.LogWarning(
                     "SECURITY: Unauthorized attempt to fetch DORA history - OrgId missing, " +
                     "UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
@@ -204,7 +204,7 @@ public class DoraController(
             logger.LogInformation(
                 "AUDIT: Fetching DORA metrics history - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
                 "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, days, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
             var from = DateTimeOffset.UtcNow.AddDays(-days);
             var to = DateTimeOffset.UtcNow;
@@ -214,7 +214,7 @@ public class DoraController(
             logger.LogInformation(
                 "AUDIT: Successfully returned {MetricsCount} historical DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
                 "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                metrics.Count(), orgId, projectId, days, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
+                metrics.Count(), Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
             return Ok(metrics);
         }
@@ -222,7 +222,7 @@ public class DoraController(
         {
             logger.LogError(ex,
                 "ERROR: Exception fetching DORA metrics history - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, projectId, days, userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }

@@ -54,21 +54,21 @@ public class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationId
             {
                 logger.LogInformation(
                     "HTTP {RequestMethod} {RequestPath} started - CorrelationId: {CorrelationId}",
-                    context.Request.Method, context.Request.Path, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Method), Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), correlationId);
 
                 await next(context);
 
                 stopwatch.Stop();
                 logger.LogInformation(
                     "HTTP {RequestMethod} {RequestPath} completed with status {StatusCode} in {DurationMs}ms - CorrelationId: {CorrelationId}",
-                    context.Request.Method, context.Request.Path, context.Response.StatusCode, stopwatch.ElapsedMilliseconds, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Method), Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), context.Response.StatusCode, stopwatch.ElapsedMilliseconds, correlationId);
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
                 logger.LogError(ex,
                     "HTTP {RequestMethod} {RequestPath} failed after {DurationMs}ms - CorrelationId: {CorrelationId}",
-                    context.Request.Method, context.Request.Path, stopwatch.ElapsedMilliseconds, correlationId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Method), Velo.Api.Logging.LogSanitizer.SanitiseForLog(context.Request.Path.Value ?? "/"), stopwatch.ElapsedMilliseconds, correlationId);
                 throw;
             }
         }

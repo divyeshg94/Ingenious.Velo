@@ -46,13 +46,13 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "SECURITY: Unauthorized attempt to fetch organization - OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    SanitiseForLog(userId), SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
             logger.LogInformation(
                 "AUDIT: Fetching organization context - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             // Try to fetch org from database
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
@@ -61,7 +61,7 @@ public class OrgsController(
             {
                 logger.LogInformation(
                     "AUDIT: Organization not yet registered - creating default context for OrgId: {OrgId}",
-                    orgId);
+                    SanitiseForLog(orgId));
 
                 // Auto-create default org context on first access
                 // This allows seamless first-time user experience
@@ -79,7 +79,7 @@ public class OrgsController(
                 await metricsRepository.SaveOrgContextAsync(defaultOrg, cancellationToken);
                 logger.LogInformation(
                     "AUDIT: Auto-created default organization context for OrgId: {OrgId}",
-                    orgId);
+                    SanitiseForLog(orgId));
 
                 return Ok(defaultOrg);
             }
@@ -90,7 +90,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Successfully returned organization context - OrgId: {OrgId}, Premium: {IsPremium}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, org.IsPremium, userId, correlationId);
+                SanitiseForLog(orgId), org.IsPremium, SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             return Ok(org);
         }
@@ -98,7 +98,7 @@ public class OrgsController(
         {
             logger.LogError(ex,
                 "ERROR: Exception fetching organization - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
@@ -121,19 +121,19 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "SECURITY: Unauthorized attempt to fetch projects - OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    SanitiseForLog(userId), SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
             logger.LogInformation(
                 "AUDIT: Fetching available projects - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             var projects = await projectService.GetProjectsAsync(orgId, cancellationToken);
 
             logger.LogInformation(
                 "AUDIT: Successfully returned {ProjectCount} projects - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                projects.Count(), orgId, userId, correlationId);
+                projects.Count(), SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             return Ok(projects);
         }
@@ -141,7 +141,7 @@ public class OrgsController(
         {
             logger.LogError(ex,
                 "ERROR: Exception fetching projects - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
@@ -172,7 +172,7 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "SECURITY: Unauthorized connect attempt — OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    SanitiseForLog(userId), SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
@@ -187,7 +187,7 @@ public class OrgsController(
             var safeOrgUrl = SanitiseForLog(request.OrgUrl);
             logger.LogInformation(
                 "AUDIT: Connecting organization — OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, safeOrgUrl, userId, correlationId);
+                SanitiseForLog(orgId), safeOrgUrl, SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
             var isFirstConnect = org == null;
@@ -245,20 +245,20 @@ public class OrgsController(
                         {
                             logger.LogInformation(
                                 "AUTO_SYNC: Background sync started — OrgId={OrgId}, FirstConnect={First}",
-                                capturedOrgId, isFirstConnect);
+                                SanitiseForLog(capturedOrgId), isFirstConnect);
 
                             var ingested = await ingestService.IngestAllProjectsAsync(
                                 capturedOrgId, capturedOrgUrl, capturedToken, CancellationToken.None);
 
                             logger.LogInformation(
                                 "AUTO_SYNC: Ingested {Total} runs — OrgId={OrgId}",
-                                ingested, capturedOrgId);
+                                ingested, SanitiseForLog(capturedOrgId));
                         }
                         catch (Exception ex)
                         {
                             logger.LogError(ex,
                                 "AUTO_SYNC: Background sync failed — OrgId={OrgId}",
-                                capturedOrgId);
+                                SanitiseForLog(capturedOrgId));
                         }
                         finally
                         {
@@ -271,17 +271,17 @@ public class OrgsController(
                 {
                     logger.LogInformation(
                         "AUTO_SYNC: Skipped — sync already running for OrgId={OrgId}",
-                        capturedOrgId);
+                        SanitiseForLog(capturedOrgId));
                 }
 
                 logger.LogInformation(
                     "AUDIT: Auto-sync background task started — OrgId: {OrgId}, FirstConnect: {First}, CorrelationId: {CorrelationId}",
-                    orgId, isFirstConnect, correlationId);
+                    SanitiseForLog(orgId), isFirstConnect, SanitiseForLog(correlationId));
             }
 
             logger.LogInformation(
                 "AUDIT: Organization connected — OrgId: {OrgId}, OrgUrl: {OrgUrl}, AutoSync: {AutoSync}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, SanitiseForLog(org.OrgUrl), autoSyncTriggered, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(org.OrgUrl), autoSyncTriggered, SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             return Ok(new { org, autoSyncTriggered });
         }
@@ -289,7 +289,7 @@ public class OrgsController(
         {
             logger.LogError(ex,
                 "ERROR: Exception connecting organization — OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
@@ -314,7 +314,7 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "SECURITY: Unauthorized attempt to update organization - OrgId missing, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    SanitiseForLog(userId), SanitiseForLog(correlationId));
                 return Unauthorized(new { error = "Organization context not found" });
             }
 
@@ -322,7 +322,7 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "AUDIT: Invalid org update request - missing OrgUrl, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                    userId, correlationId);
+                    SanitiseForLog(userId), SanitiseForLog(correlationId));
                 return BadRequest(new { error = "OrgUrl is required" });
             }
 
@@ -331,7 +331,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Updating organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, SanitiseForLog(request.OrgUrl), userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(request.OrgUrl), SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             // Fetch existing org
             var org = await metricsRepository.GetOrgContextAsync(orgId, cancellationToken);
@@ -339,7 +339,7 @@ public class OrgsController(
             {
                 logger.LogWarning(
                     "AUDIT: Organization not found for update - OrgId: {OrgId}, UserId: {UserId}",
-                    orgId, userId);
+                    SanitiseForLog(orgId), SanitiseForLog(userId));
                 return NotFound(new { error = "Organization not found" });
             }
 
@@ -354,7 +354,7 @@ public class OrgsController(
 
             logger.LogInformation(
                 "AUDIT: Successfully updated organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, SanitiseForLog(request.OrgUrl), userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(request.OrgUrl), SanitiseForLog(userId), SanitiseForLog(correlationId));
 
             return Ok(org);
         }
@@ -362,7 +362,7 @@ public class OrgsController(
         {
             logger.LogError(ex,
                 "ERROR: Exception updating organization - OrgId: {OrgId}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                orgId, userId, correlationId);
+                SanitiseForLog(orgId), SanitiseForLog(userId), SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
@@ -402,14 +402,8 @@ public class OrgsController(
     /// Prevents log-injection attacks where a crafted string containing CRLF could create
     /// forged log lines in text-based log sinks or corrupt structured JSON output.
     /// </summary>
-    private static string SanitiseForLog(string? value)
-    {
-        if (string.IsNullOrEmpty(value)) return "(empty)";
-        // Replace any newline, carriage-return or tab with a space.
-        var sanitised = System.Text.RegularExpressions.Regex.Replace(value, @"[\r\n\t]", " ");
-        // Truncate to a safe length to avoid log truncation / DB column overflow.
-        return sanitised.Length > 500 ? sanitised[..500] + "…" : sanitised;
-    }
+    private static string SanitiseForLog(string? value) =>
+        Velo.Api.Logging.LogSanitizer.SanitiseForLog(value);
 }
 
 public record UpdateOrgRequest(string OrgUrl, string? DisplayName = null);

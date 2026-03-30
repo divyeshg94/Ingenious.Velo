@@ -54,7 +54,7 @@ public class AgentConfigController(
         // AgentId is optional — Velo auto-creates the agent on first chat when not supplied
 
         var saved = await configService.SaveConfigAsync(orgId, dto, ct);
-        logger.LogInformation("AGENT_CONFIG: Saved config for OrgId={OrgId}", orgId);
+        logger.LogInformation("AGENT_CONFIG: Saved config for OrgId={OrgId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
 
         return Ok(saved);
     }
@@ -67,7 +67,7 @@ public class AgentConfigController(
         if (string.IsNullOrEmpty(orgId)) return Unauthorized();
 
         await configService.DeleteConfigAsync(orgId, ct);
-        logger.LogInformation("AGENT_CONFIG: Deleted config for OrgId={OrgId}", orgId);
+        logger.LogInformation("AGENT_CONFIG: Deleted config for OrgId={OrgId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
 
         return NoContent();
     }
@@ -108,7 +108,7 @@ public class AgentConfigController(
             request.TenantId, request.ClientId, request.ClientSecret, ct);
 
         logger.LogInformation(
-            "AGENT_CONFIG: Test connection OrgId={OrgId} — Result={Ok}", orgId, ok);
+            "AGENT_CONFIG: Test connection OrgId={OrgId} — Result={Ok}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), ok);
 
         if (ok)
             return Ok(new { status = "connected", message });

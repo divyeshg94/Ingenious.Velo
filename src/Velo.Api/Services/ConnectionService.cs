@@ -25,7 +25,9 @@ public class ConnectionService(VeloDbContext db, ILogger<ConnectionService> logg
             existing.DisplayName = displayName;
             existing.LastSeenAt = DateTimeOffset.UtcNow;
             db.Organizations.Update(existing);
-            logger.LogInformation("CONNECTION: Updated org registration — OrgId={OrgId}, OrgUrl={OrgUrl}", orgId, normalizedUrl);
+            logger.LogInformation("CONNECTION: Updated org registration — OrgId={OrgId}, OrgUrl={OrgUrl}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(normalizedUrl));
         }
         else
         {
@@ -39,7 +41,9 @@ public class ConnectionService(VeloDbContext db, ILogger<ConnectionService> logg
                 RegisteredAt = DateTimeOffset.UtcNow,
                 LastSeenAt = DateTimeOffset.UtcNow
             });
-            logger.LogInformation("CONNECTION: Registered new org — OrgId={OrgId}, OrgUrl={OrgUrl}", orgId, normalizedUrl);
+            logger.LogInformation("CONNECTION: Registered new org — OrgId={OrgId}, OrgUrl={OrgUrl}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(normalizedUrl));
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -56,14 +60,16 @@ public class ConnectionService(VeloDbContext db, ILogger<ConnectionService> logg
 
         if (existing == null)
         {
-            logger.LogWarning("CONNECTION: Remove requested but org not found — OrgId={OrgId}", orgId);
+            logger.LogWarning("CONNECTION: Remove requested but org not found — OrgId={OrgId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             return;
         }
 
         db.Organizations.Remove(existing);
         await db.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("CONNECTION: Removed org registration — OrgId={OrgId}", orgId);
+        logger.LogInformation("CONNECTION: Removed org registration — OrgId={OrgId}",
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
     }
 
     // Extracts "mycompany" from "https://dev.azure.com/mycompany"

@@ -25,7 +25,9 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             if (metric == null)
             {
-                logger.LogInformation("No latest metrics found for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+                logger.LogInformation("No latest metrics found for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
                 return null;
             }
 
@@ -33,7 +35,9 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching latest DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+            logger.LogError(ex, "Error fetching latest DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
     }
@@ -50,13 +54,18 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             logger.LogInformation(
                 "Retrieved {MetricCount} historical DORA records for OrgId: {OrgId}, ProjectId: {ProjectId}, Range: {From} to {To}",
-                metrics.Count, orgId, projectId, from, to);
+                metrics.Count,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                from, to);
 
             return metrics.Select(MapDoraMetricsToDto).ToList();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching DORA metrics history for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+            logger.LogError(ex, "Error fetching DORA metrics history for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
     }
@@ -114,13 +123,18 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             logger.LogInformation(
                 "Retrieved {RunCount} pipeline runs for OrgId: {OrgId}, ProjectId: {ProjectId}, Page: {Page}, PageSize: {PageSize}",
-                runs.Count, orgId, projectId, page, pageSize);
+                runs.Count,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                page, pageSize);
 
             return runs.Select(MapPipelineRunToDto).ToList();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching pipeline runs for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+            logger.LogError(ex, "Error fetching pipeline runs for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
     }
@@ -162,11 +176,15 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             logger.LogInformation(
                 "Saved pipeline run for OrgId: {OrgId}, ProjectId: {ProjectId}, PipelineId: {PipelineId}, RunId: {RunId}",
-                runDto.OrgId, runDto.ProjectId, runDto.AdoPipelineId, run.Id);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runDto.ProjectId),
+                runDto.AdoPipelineId, run.Id);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error saving pipeline run for OrgId: {OrgId}, ProjectId: {ProjectId}", runDto.OrgId, runDto.ProjectId);
+            logger.LogError(ex, "Error saving pipeline run for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runDto.ProjectId));
             throw;
         }
     }
@@ -183,7 +201,9 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             if (health == null)
             {
-                logger.LogInformation("No team health data found for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+                logger.LogInformation("No team health data found for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
                 return null;
             }
 
@@ -191,7 +211,9 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching team health for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+            logger.LogError(ex, "Error fetching team health for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
     }
@@ -223,11 +245,15 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             logger.LogInformation(
                 "Saved team health data for OrgId: {OrgId}, ProjectId: {ProjectId}, HealthId: {HealthId}",
-                healthDto.OrgId, healthDto.ProjectId, health.Id);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(healthDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(healthDto.ProjectId),
+                health.Id);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error saving team health for OrgId: {OrgId}, ProjectId: {ProjectId}", healthDto.OrgId, healthDto.ProjectId);
+            logger.LogError(ex, "Error saving team health for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(healthDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(healthDto.ProjectId));
             throw;
         }
     }
@@ -242,7 +268,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             if (org == null)
             {
-                logger.LogInformation("Organization not found for OrgId: {OrgId}", orgId);
+                logger.LogInformation("Organization not found for OrgId: {OrgId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
                 return null;
             }
 
@@ -250,7 +277,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching organization context for OrgId: {OrgId}", orgId);
+            logger.LogError(ex, "Error fetching organization context for OrgId: {OrgId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             throw;
         }
     }

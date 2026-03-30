@@ -35,13 +35,13 @@ public class ProjectService(VeloDbContext dbContext, ILogger<ProjectService> log
 
             logger.LogInformation(
                 "Retrieved {ProjectCount} projects for OrgId: {OrgId}",
-                projects.Count, orgId);
+                projects.Count, Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
 
             return projects;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching projects for OrgId: {OrgId}", orgId);
+            logger.LogError(ex, "Error fetching projects for OrgId: {OrgId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             throw;
         }
     }
@@ -61,14 +61,17 @@ public class ProjectService(VeloDbContext dbContext, ILogger<ProjectService> log
             {
                 logger.LogWarning(
                     "SECURITY: Unauthorized project access attempt - OrgId: {OrgId}, ProjectId: {ProjectId}",
-                    orgId, projectId);
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             }
 
             return exists;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error validating project access for OrgId: {OrgId}, ProjectId: {ProjectId}", orgId, projectId);
+            logger.LogError(ex, "Error validating project access for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
         }
     }

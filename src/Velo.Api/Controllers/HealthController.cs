@@ -42,7 +42,7 @@ public class HealthController(
             logger.LogWarning(
                 "SECURITY: Unauthorized team-health request — OrgId missing, " +
                 "UserId={UserId}, CorrelationId={CorrelationId}",
-                userId, correlationId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return Unauthorized(new { error = "Organization context not found" });
         }
 
@@ -52,7 +52,7 @@ public class HealthController(
         logger.LogInformation(
             "AUDIT: GetTeamHealth — OrgId={OrgId}, ProjectId={ProjectId}, " +
             "RepositoryName={RepositoryName}, TeamName={TeamName}, UserId={UserId}, CorrelationId={CorrelationId}",
-            orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
         try
         {
@@ -62,7 +62,7 @@ public class HealthController(
             {
                 logger.LogInformation(
                     "HEALTH: No snapshot found — computing inline. " +
-                    "OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+                    "OrgId={OrgId}, ProjectId={ProjectId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
                 health = await healthService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
             }
 
@@ -72,7 +72,7 @@ public class HealthController(
         {
             logger.LogError(ex,
                 "ERROR: GetTeamHealth failed — OrgId={OrgId}, ProjectId={ProjectId}, " +
-                "CorrelationId={CorrelationId}", orgId, projectId, correlationId);
+                "CorrelationId={CorrelationId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Failed to load team health metrics" });
         }
     }
@@ -101,7 +101,7 @@ public class HealthController(
         logger.LogInformation(
             "AUDIT: ForceComputeHealth — OrgId={OrgId}, ProjectId={ProjectId}, " +
             "RepositoryName={RepositoryName}, TeamName={TeamName}, UserId={UserId}, CorrelationId={CorrelationId}",
-            orgId, projectId, repositoryName ?? "(all)", teamName ?? "(all)", userId, correlationId);
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
         try
         {
@@ -112,7 +112,7 @@ public class HealthController(
         {
             logger.LogError(ex,
                 "ERROR: ForceComputeHealth failed — OrgId={OrgId}, ProjectId={ProjectId}",
-                orgId, projectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             return StatusCode(500, new { error = "Failed to compute team health metrics" });
         }
     }

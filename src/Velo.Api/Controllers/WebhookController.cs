@@ -156,7 +156,8 @@ public class WebhookController(
         {
             logger.LogInformation(
                 "WEBHOOK: Skipping -- StartTime or FinishTime is null. Status={Status}, Build={Build}",
-                resource.Status, resource.BuildNumber);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Status),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.BuildNumber));
             return Ok();
         }
 
@@ -168,7 +169,8 @@ public class WebhookController(
         {
             logger.LogInformation(
                 "WEBHOOK: Skipping -- build not in a finished state. Status={Status}, Build={Build}",
-                resource.Status, resource.BuildNumber);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.Status),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(resource.BuildNumber));
             return Ok();
         }
 
@@ -433,7 +435,9 @@ public class WebhookController(
         {
             logger.LogError(ex,
                 "WEBHOOK PR: Failed to save — Org={Org}, Project={Project}, PrId={PrId}",
-                orgName, projectName, resource.PullRequestId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                resource.PullRequestId);
             return StatusCode(500, new { error = "Failed to save PR event" });
         }
 
@@ -516,13 +520,19 @@ public class WebhookController(
             await repo.SaveWorkItemEventAsync(dto, cancellationToken);
             logger.LogInformation(
                 "WEBHOOK WI: Saved — Org={Org}, Project={Project}, WI={WI}, {Old}→{New}",
-                orgId, projectId, resource.WorkItemId, stateChange.OldValue, stateChange.NewValue);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                resource.WorkItemId,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(stateChange.OldValue),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(stateChange.NewValue));
         }
         catch (Exception ex)
         {
             logger.LogError(ex,
                 "WEBHOOK WI: Failed to save — Org={Org}, Project={Project}, WI={WI}",
-                orgId, projectId, resource.WorkItemId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                resource.WorkItemId);
             return StatusCode(500, new { error = "Failed to save work item event" });
         }
 
@@ -700,6 +710,6 @@ public class WebhookController(
         // without it would allow this unauthenticated webhook code path to read/write rows for
         // ALL organisations. Let the exception propagate so the caller returns 500.
         await cmd.ExecuteNonQueryAsync(cancellationToken);
-        logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", orgId);
+        logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
     }
 }

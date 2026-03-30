@@ -55,7 +55,7 @@ public class AgentController(
             // so the Angular UI can display it directly rather than a generic "try again".
             logger.LogWarning(ex,
                 "AGENT: Auth failed — OrgId={OrgId}, ProjectId={ProjectId}",
-                orgId, request.ProjectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(request.ProjectId));
 
             return BadRequest(new { error = ex.Message, code = "AGENT_AUTH_FAILED" });
         }
@@ -65,7 +65,7 @@ public class AgentController(
             // model deployment name doesn't exist.
             logger.LogWarning(ex,
                 "AGENT: Resource not found — OrgId={OrgId}, ProjectId={ProjectId}",
-                orgId, request.ProjectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(request.ProjectId));
 
             return BadRequest(new { error = ex.Message, code = "AGENT_RESOURCE_NOT_FOUND" });
         }
@@ -75,7 +75,7 @@ public class AgentController(
             // so the Angular client knows it can retry rather than treating it as a hard failure.
             logger.LogWarning(ex,
                 "AGENT: Rate limited — OrgId={OrgId}, ProjectId={ProjectId}",
-                orgId, request.ProjectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(request.ProjectId));
 
             return StatusCode(429, new { error = ex.Message, code = "AGENT_RATE_LIMITED" });
         }
@@ -83,7 +83,7 @@ public class AgentController(
         {
             logger.LogError(ex,
                 "AGENT: Chat failed — OrgId={OrgId}, ProjectId={ProjectId}",
-                orgId, request.ProjectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(request.ProjectId));
 
             return StatusCode(500, new { error = "Agent request failed. Please try again." });
         }

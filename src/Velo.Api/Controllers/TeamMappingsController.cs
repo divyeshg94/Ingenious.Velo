@@ -65,7 +65,7 @@ public class TeamMappingsController(
             await repo.SaveTeamMappingAsync(dto, cancellationToken);
             logger.LogInformation(
                 "TEAM_MAPPING: Saved repo={Repo} → team={Team} for OrgId={OrgId}, ProjectId={Project}",
-                dto.RepositoryName, dto.TeamName, orgId, dto.ProjectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(dto.RepositoryName), Velo.Api.Logging.LogSanitizer.SanitiseForLog(dto.TeamName), Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(dto.ProjectId));
             return Ok(dto);
         }
         catch (Exception ex)
@@ -87,7 +87,7 @@ public class TeamMappingsController(
         try
         {
             await repo.DeleteTeamMappingAsync(id, orgId, cancellationToken);
-            logger.LogInformation("TEAM_MAPPING: Deleted mapping {Id} for OrgId={OrgId}", id, orgId);
+            logger.LogInformation("TEAM_MAPPING: Deleted mapping {Id} for OrgId={OrgId}", id, Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
             return NoContent();
         }
         catch (Exception ex)

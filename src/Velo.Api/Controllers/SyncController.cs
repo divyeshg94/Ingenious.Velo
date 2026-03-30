@@ -22,17 +22,15 @@ public class SyncController(
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
-        var safeProjectId = string.IsNullOrEmpty(projectId)
-            ? projectId ?? string.Empty
-            : projectId.Replace("\r", string.Empty).Replace("\n", string.Empty);
-
         if (string.IsNullOrEmpty(orgId))
             return Unauthorized(new { error = "Organization context not found" });
 
         if (string.IsNullOrEmpty(adoToken))
             return BadRequest(new { error = $"Missing {AdoTokenHeader} header." });
 
-        logger.LogInformation("SYNC: Starting for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
+        logger.LogInformation("SYNC: Starting for OrgId={OrgId}, ProjectId={ProjectId}",
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
         try
         {
@@ -108,7 +106,8 @@ public class SyncController(
                 "SYNC: Done — {Ingested} runs ingested, buildHook={BHook}, prHook={PHook}, workItemHook={WIHook}, " +
                 "OrgId={OrgId}, ProjectId={ProjectId}",
                 ingested, hookStatus.IsRegistered, prHookStatus.IsRegistered, workItemHookStatus.IsRegistered,
-                orgId, projectId);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
             return new OkObjectResult(new
             {
@@ -124,12 +123,16 @@ public class SyncController(
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogWarning(ex, "SYNC: ADO API error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
+            logger.LogWarning(ex, "SYNC: ADO API error for OrgId={OrgId}, ProjectId={ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             return new BadRequestObjectResult(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "SYNC: Unexpected error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
+            logger.LogError(ex, "SYNC: Unexpected error for OrgId={OrgId}, ProjectId={ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             return new ObjectResult(new { error = "Sync failed. Check application logs." }) { StatusCode = 500 };
         }
     }
