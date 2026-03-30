@@ -22,6 +22,9 @@ public class SyncController(
     {
         var orgId = HttpContext.Items["OrgId"]?.ToString();
         var adoToken = Request.Headers[AdoTokenHeader].FirstOrDefault();
+        var safeProjectId = string.IsNullOrEmpty(projectId)
+            ? projectId ?? string.Empty
+            : projectId.Replace("\r", string.Empty).Replace("\n", string.Empty);
 
         if (string.IsNullOrEmpty(orgId))
             return Unauthorized(new { error = "Organization context not found" });
@@ -29,7 +32,7 @@ public class SyncController(
         if (string.IsNullOrEmpty(adoToken))
             return BadRequest(new { error = $"Missing {AdoTokenHeader} header." });
 
-        logger.LogInformation("SYNC: Starting for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+        logger.LogInformation("SYNC: Starting for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
 
         try
         {
@@ -121,12 +124,12 @@ public class SyncController(
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogWarning(ex, "SYNC: ADO API error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+            logger.LogWarning(ex, "SYNC: ADO API error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
             return new BadRequestObjectResult(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "SYNC: Unexpected error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+            logger.LogError(ex, "SYNC: Unexpected error for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
             return new ObjectResult(new { error = "Sync failed. Check application logs." }) { StatusCode = 500 };
         }
     }

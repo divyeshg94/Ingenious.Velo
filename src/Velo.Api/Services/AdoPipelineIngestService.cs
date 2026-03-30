@@ -27,12 +27,19 @@ public class AdoPipelineIngestService(
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
+    private static string SanitizeForLog(string? value) =>
+        string.IsNullOrEmpty(value)
+            ? value ?? string.Empty
+            : value.Replace("\r", string.Empty).Replace("\n", string.Empty);
+
     public async Task<int> IngestAsync(
         string orgId,
         string projectId,
         string adoAccessToken,
         CancellationToken cancellationToken)
     {
+        var safeProjectId = SanitizeForLog(projectId);
+
         // orgId is the ADO organisation name (e.g. "mycompany"), set from SDK.getHost().name
         var url = $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
                   "/_apis/build/builds?api-version=7.1&$top=200&queryOrder=finishTimeDescending" +
@@ -53,7 +60,7 @@ public class AdoPipelineIngestService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+            logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}", orgId, safeProjectId);
             throw;
         }
 
@@ -63,10 +70,10 @@ public class AdoPipelineIngestService(
             // internal ADO service detail we don't want persisted to the log table.
             logger.LogError(
                 "ADO_INGEST: ADO API returned {Status} {Reason} for OrgId={OrgId}, ProjectId={ProjectId}",
-                (int)response.StatusCode, response.ReasonPhrase, orgId, projectId);
+                (int)response.StatusCode, response.ReasonPhrase, orgId, safeProjectId);
             logger.LogDebug(
                 "ADO_INGEST: Error body for OrgId={OrgId}, ProjectId={ProjectId}: {Body}",
-                orgId, projectId, await response.Content.ReadAsStringAsync(cancellationToken));
+                orgId, safeProjectId, await response.Content.ReadAsStringAsync(cancellationToken));
             throw new InvalidOperationException(
                 $"Azure DevOps API returned {(int)response.StatusCode}: {response.ReasonPhrase}. " +
                 "Check the access token scope (vso.build required).");
