@@ -14,9 +14,6 @@
 # All .NET tests
 dotnet test
 
-# Specific project
-dotnet test src/Velo.Functions.Tests/
-
 # Angular unit tests
 cd src/Velo.Extension
 npm test
@@ -24,9 +21,8 @@ npm test
 
 ## Key Test Cases for Phase 1
 
-- `MetricsEngine.ComputeDeploymentFrequency` returns correct rate for known dataset
-- `EventNormalizer.HandleBuildCompleted` correctly identifies deployments by stage name
-- `ServiceHookTrigger` returns 400 for malformed payload and 200 for valid
+- `DoraComputeService.ComputeAndSaveAsync` returns correct ratings for known dataset
+- `WebhookController` returns 400 for malformed payload and 200 for valid `build.complete`, `git.pullrequest.merged`, and `workitem.updated` events
 - `DoraController.GetMetrics` returns 401 without token, 200 with valid token
 - RLS: querying with `org_id = A` never returns rows from `org_id = B`
 
