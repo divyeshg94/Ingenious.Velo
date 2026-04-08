@@ -99,19 +99,56 @@ export class ConnectionsComponent implements OnInit {
     }
 
     const orgUrl = `https://dev.azure.com/${hostName}`;
-    this.orgService.connectOrganization(orgUrl).subscribe({
-      next: (resp) => {
-        this.currentOrg = resp.org;
-        this.autoSyncTriggered = resp.autoSyncTriggered;
-        this.isAutoDetected = true;
-        this.loadProjects();
-      },
-      error: () => {
-        this.isLoading = false;
-        this.orgUrl = orgUrl;
-        this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
-      }
-    });
+    
+    // Get the ADO token from the SDK to trigger automatic sync
+    const getTokenPromise = sdk?.getAppToken?.();
+    if (getTokenPromise) {
+      getTokenPromise.then((adoToken: string) => {
+        this.orgService.connectOrganization(orgUrl, adoToken).subscribe({
+          next: (resp) => {
+            this.currentOrg = resp.org;
+            this.autoSyncTriggered = resp.autoSyncTriggered;
+            this.isAutoDetected = true;
+            this.loadProjects();
+          },
+          error: () => {
+            this.isLoading = false;
+            this.orgUrl = orgUrl;
+            this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
+          }
+        });
+      }).catch(() => {
+        // If token fetch fails, proceed without token (sync won't auto-trigger)
+        this.orgService.connectOrganization(orgUrl).subscribe({
+          next: (resp) => {
+            this.currentOrg = resp.org;
+            this.autoSyncTriggered = resp.autoSyncTriggered;
+            this.isAutoDetected = true;
+            this.loadProjects();
+          },
+          error: () => {
+            this.isLoading = false;
+            this.orgUrl = orgUrl;
+            this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
+          }
+        });
+      });
+    } else {
+      // SDK doesn't have getAppToken, proceed without token
+      this.orgService.connectOrganization(orgUrl).subscribe({
+        next: (resp) => {
+          this.currentOrg = resp.org;
+          this.autoSyncTriggered = resp.autoSyncTriggered;
+          this.isAutoDetected = true;
+          this.loadProjects();
+        },
+        error: () => {
+          this.isLoading = false;
+          this.orgUrl = orgUrl;
+          this.errorMessage = `Auto-connection to ${orgUrl} failed. Check that the Velo API is reachable and try connecting manually.`;
+        }
+      });
+    }
   }
 
   loadProjects(): void {
