@@ -23,13 +23,13 @@ jobs:
           node-version: '20'
 
       - name: Restore .NET dependencies
-        run: dotnet restore
+        run: dotnet restore Velo.sln
 
       - name: Build .NET solution
         run: dotnet build Velo.sln --no-restore --configuration Release
 
       - name: Run .NET tests
-        run: dotnet test --no-build --configuration Release
+        run: dotnet test Velo.sln --no-build --configuration Release
 
       - name: Install extension dependencies
         working-directory: src/Velo.Extension
