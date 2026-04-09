@@ -16,4 +16,14 @@ public class PullRequestEventDto
     public bool IsApproved { get; set; }
     public int ReviewerCount { get; set; }
     public DateTimeOffset IngestedAt { get; set; }
+
+    // Phase 2: PR Diff Metrics
+    public int FilesChanged { get; set; }
+    public int LinesAdded { get; set; }
+    public int LinesDeleted { get; set; }
+    public string? ReviewerNames { get; set; }
+    public int ApprovedCount { get; set; }
+    public int RejectedCount { get; set; }
+    public DateTimeOffset? FirstApprovedAt { get; set; }
+    public int? CycleDurationMinutes { get; set; }
 }

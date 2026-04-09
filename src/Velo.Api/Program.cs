@@ -90,6 +90,8 @@ try
     builder.Services.AddScoped<IProjectService, ProjectService>();
     builder.Services.AddScoped<IDoraComputeService, DoraComputeService>();
     builder.Services.AddScoped<IAdoPipelineIngestService, AdoPipelineIngestService>();
+    builder.Services.AddScoped<IAdoPrDiffIngestService, AdoPrDiffIngestService>();
+    builder.Services.AddScoped<IPrSizeMetricsService, PrSizeMetricsService>();
     builder.Services.AddScoped<ITeamHealthComputeService, TeamHealthComputeService>();
     builder.Services.AddScoped<IAdoServiceHookService, AdoServiceHookService>();
     builder.Services.AddHttpClient();

@@ -1,0 +1,126 @@
+<div class="pr-insights-container">
+  <div class="pr-insights-header">
+    <h2>Pull Request Insights</h2>
+    <span class="period-label">Last {{ days }} days</span>
+  </div>
+
+  <div *ngIf="isLoading" class="loading">
+    <p>Loading PR metrics...</p>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
+  </div>
+
+  <ng-container *ngIf="metrics && !isLoading">
+    <!-- Top Metrics Row -->
+    <div class="metrics-grid">
+      <!-- Total PRs -->
+      <div class="metric-card">
+        <div class="metric-label">Total PRs</div>
+        <div class="metric-value">{{ metrics.totalPrCount }}</div>
+        <div class="metric-detail">Completed</div>
+      </div>
+
+      <!-- Avg Files Changed -->
+      <div class="metric-card">
+        <div class="metric-label">Avg Files Changed</div>
+        <div class="metric-value">{{ metrics.averageFilesChanged }}</div>
+        <div class="metric-detail">Per PR</div>
+      </div>
+
+      <!-- Avg Total Changes -->
+      <div class="metric-card">
+        <div class="metric-label">Avg Total Changes</div>
+        <div class="metric-value">{{ metrics.averageTotalChanges }}</div>
+        <div class="metric-detail">Lines (+/-)</div>
+      </div>
+
+      <!-- Approval Rate -->
+      <div class="metric-card" [ngClass]="'rate-' + getApprovalRateClass(metrics.approvalRate)">
+        <div class="metric-label">Approval Rate</div>
+        <div class="metric-value">{{ metrics.approvalRate | number: '1.1-1' }}%</div>
+        <div class="metric-detail">PRs approved</div>
+      </div>
+
+      <!-- Avg Review Cycle -->
+      <div class="metric-card">
+        <div class="metric-label">Avg Review Cycle</div>
+        <div class="metric-value">{{ metrics.averageReviewCycleDurationMinutes }}</div>
+        <div class="metric-detail">Minutes to approve</div>
+      </div>
+
+      <!-- Avg Reviewers -->
+      <div class="metric-card">
+        <div class="metric-label">Avg Reviewers</div>
+        <div class="metric-value">{{ metrics.averageReviewerCount | number: '1.1-1' }}</div>
+        <div class="metric-detail">Per PR</div>
+      </div>
+    </div>
+
+    <!-- PR Size Distribution -->
+    <div class="section-card">
+      <h3>PR Size Distribution</h3>
+      <div *ngIf="distribution" class="distribution-grid">
+        <div class="distribution-item small">
+          <div class="size-label">Small</div>
+          <div class="size-value">{{ distribution.smallPrs }}</div>
+          <div class="size-range">0-100 lines</div>
+        </div>
+        <div class="distribution-item medium">
+          <div class="size-label">Medium</div>
+          <div class="size-value">{{ distribution.mediumPrs }}</div>
+          <div class="size-range">101-500 lines</div>
+        </div>
+        <div class="distribution-item large">
+          <div class="size-label">Large</div>
+          <div class="size-value">{{ distribution.largePrs }}</div>
+          <div class="size-range">501-1000 lines</div>
+        </div>
+        <div class="distribution-item extra-large">
+          <div class="size-label">Extra Large</div>
+          <div class="size-value">{{ distribution.extraLargePrs }}</div>
+          <div class="size-range">1000+ lines</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Reviewers -->
+    <div class="section-card" *ngIf="reviewers.length > 0">
+      <h3>Top Reviewers</h3>
+      <div class="reviewers-table">
+        <div class="table-header">
+          <div class="col-name">Reviewer</div>
+          <div class="col-count">Reviews</div>
+          <div class="col-approved">Approved</div>
+          <div class="col-rejected">Rejected</div>
+        </div>
+        <div class="table-row" *ngFor="let reviewer of reviewers">
+          <div class="col-name">{{ reviewer.reviewerName }}</div>
+          <div class="col-count">{{ reviewer.prReviewCount }}</div>
+          <div class="col-approved">{{ reviewer.approvalCount }}</div>
+          <div class="col-rejected">{{ reviewer.rejectionCount }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Breakdown -->
+    <div class="section-card">
+      <h3>PR Size Breakdown</h3>
+      <div class="breakdown-table">
+        <div class="breakdown-row">
+          <div class="metric-name">Lines Added (avg)</div>
+          <div class="metric-value">{{ metrics.averageLinesAdded }}</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="metric-name">Lines Deleted (avg)</div>
+          <div class="metric-value">{{ metrics.averageLinesDeleted }}</div>
+        </div>
+        <div class="breakdown-row">
+          <div class="metric-name">Files Changed (avg)</div>
+          <div class="metric-value">{{ metrics.averageFilesChanged }}</div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

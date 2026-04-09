@@ -404,32 +404,41 @@ public class WebhookController(
 
         var status     = resource.Status ?? "active";
         var isApproved = resource.Reviewers?.Any(r => r.Vote >= 10) ?? false;
+        var reviewerNames = resource.Reviewers?
+            .Where(r => !string.IsNullOrEmpty(r.DisplayName))
+            .Select(r => r.DisplayName!)
+            .ToArray() ?? [];
+        var approvedCount = resource.Reviewers?.Count(r => r.Vote >= 10) ?? 0;
+        var rejectedCount = resource.Reviewers?.Count(r => r.Vote <= -10) ?? 0;
 
         var prDto = new PullRequestEventDto
         {
-            Id            = Guid.NewGuid(),
-            OrgId         = orgName,
-            ProjectId     = projectName,
-            PrId          = resource.PullRequestId,
-            Title         = resource.Title,
-            Status        = status,
-            SourceBranch  = resource.SourceRefName,
-            TargetBranch  = resource.TargetRefName,
-            CreatedAt     = resource.CreationDate,
-            ClosedAt      = resource.ClosedDate,
-            IsApproved    = isApproved,
-            ReviewerCount = resource.Reviewers?.Length ?? 0,
-            IngestedAt    = DateTimeOffset.UtcNow
+            Id                    = Guid.NewGuid(),
+            OrgId                 = orgName,
+            ProjectId             = projectName,
+            PrId                  = resource.PullRequestId,
+            Title                 = resource.Title,
+            Status                = status,
+            SourceBranch          = resource.SourceRefName,
+            TargetBranch          = resource.TargetRefName,
+            CreatedAt             = resource.CreationDate,
+            ClosedAt              = resource.ClosedDate,
+            IsApproved            = isApproved,
+            ReviewerCount         = resource.Reviewers?.Length ?? 0,
+            ReviewerNames         = reviewerNames.Length > 0 ? System.Text.Json.JsonSerializer.Serialize(reviewerNames) : null,
+            ApprovedCount         = approvedCount,
+            RejectedCount         = rejectedCount,
+            IngestedAt            = DateTimeOffset.UtcNow
         };
 
         try
         {
             await repo.SavePrEventAsync(prDto, cancellationToken);
             logger.LogInformation(
-                "WEBHOOK PR: Saved — Org={Org}, Project={Project}, PrId={PrId}, Status={Status}, Approved={Approved}",
+                "WEBHOOK PR: Saved — Org={Org}, Project={Project}, PrId={PrId}, Status={Status}, Approved={Approved}, ReviewerCount={ReviewerCount}",
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
-                resource.PullRequestId, Velo.Api.Logging.LogSanitizer.SanitiseForLog(status), isApproved);
+                resource.PullRequestId, Velo.Api.Logging.LogSanitizer.SanitiseForLog(status), isApproved, resource.Reviewers?.Length ?? 0);
         }
         catch (Exception ex)
         {

@@ -344,30 +344,46 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             if (existing != null)
             {
-                existing.ClosedAt     = prDto.ClosedAt;
-                existing.IsApproved   = prDto.IsApproved;
-                existing.ReviewerCount= prDto.ReviewerCount;
-                existing.Title        = prDto.Title;
-                existing.IngestedAt   = DateTimeOffset.UtcNow;
+                existing.ClosedAt            = prDto.ClosedAt;
+                existing.IsApproved          = prDto.IsApproved;
+                existing.ReviewerCount       = prDto.ReviewerCount;
+                existing.Title               = prDto.Title;
+                existing.FilesChanged        = prDto.FilesChanged;
+                existing.LinesAdded          = prDto.LinesAdded;
+                existing.LinesDeleted        = prDto.LinesDeleted;
+                existing.ReviewerNames       = prDto.ReviewerNames;
+                existing.ApprovedCount       = prDto.ApprovedCount;
+                existing.RejectedCount       = prDto.RejectedCount;
+                existing.FirstApprovedAt     = prDto.FirstApprovedAt;
+                existing.CycleDurationMinutes= prDto.CycleDurationMinutes;
+                existing.IngestedAt          = DateTimeOffset.UtcNow;
                 dbContext.PullRequestEvents.Update(existing);
             }
             else
             {
                 var entity = new PullRequestEvent
                 {
-                    Id            = prDto.Id == Guid.Empty ? Guid.NewGuid() : prDto.Id,
-                    OrgId         = prDto.OrgId,
-                    ProjectId     = prDto.ProjectId,
-                    PrId          = prDto.PrId,
-                    Title         = prDto.Title,
-                    Status        = prDto.Status,
-                    SourceBranch  = prDto.SourceBranch,
-                    TargetBranch  = prDto.TargetBranch,
-                    CreatedAt     = prDto.CreatedAt,
-                    ClosedAt      = prDto.ClosedAt,
-                    IsApproved    = prDto.IsApproved,
-                    ReviewerCount = prDto.ReviewerCount,
-                    IngestedAt    = prDto.IngestedAt
+                    Id                    = prDto.Id == Guid.Empty ? Guid.NewGuid() : prDto.Id,
+                    OrgId                 = prDto.OrgId,
+                    ProjectId             = prDto.ProjectId,
+                    PrId                  = prDto.PrId,
+                    Title                 = prDto.Title,
+                    Status                = prDto.Status,
+                    SourceBranch          = prDto.SourceBranch,
+                    TargetBranch          = prDto.TargetBranch,
+                    CreatedAt             = prDto.CreatedAt,
+                    ClosedAt              = prDto.ClosedAt,
+                    IsApproved            = prDto.IsApproved,
+                    ReviewerCount         = prDto.ReviewerCount,
+                    FilesChanged          = prDto.FilesChanged,
+                    LinesAdded            = prDto.LinesAdded,
+                    LinesDeleted          = prDto.LinesDeleted,
+                    ReviewerNames         = prDto.ReviewerNames,
+                    ApprovedCount         = prDto.ApprovedCount,
+                    RejectedCount         = prDto.RejectedCount,
+                    FirstApprovedAt       = prDto.FirstApprovedAt,
+                    CycleDurationMinutes  = prDto.CycleDurationMinutes,
+                    IngestedAt            = prDto.IngestedAt
                 };
                 dbContext.PullRequestEvents.Add(entity);
             }
