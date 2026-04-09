@@ -18,16 +18,24 @@ Built on **Microsoft Foundry** + **Azure PaaS**. Native Azure DevOps extension �
 
 <table>
   <tr>
-    <td><img src="docs/stitch/dora_overview_dashboard/screen.png" alt="DORA Overview Dashboard" /></td>
-    <td><img src="docs/stitch/deployment_frequency_detail/screen.png" alt="Deployment Frequency Detail" /></td>
+    <td><img src="docs/screenshots/Dashboard1.png" alt="DORA Overview Dashboard" /></td>
+    <td><img src="docs/screenshots/Dashboard2.png" alt="DORA Overview Dashboard 2" /></td>
   </tr>
   <tr>
-    <td><img src="docs/stitch/lead_time_analysis/screen.png" alt="Lead Time Analysis" /></td>
-    <td><img src="docs/stitch/stability_reliability_view/screen.png" alt="Stability & Reliability" /></td>
+    <td><img src="docs/screenshots/DORAMetrics1.png" alt="DORA Metrics" /></td>
+    <td><img src="docs/screenshots/DORAMetrics2.png" alt="DORA Metrics 2" /></td>
   </tr>
   <tr>
-    <td><img src="docs/stitch/team_operational_dashboard/screen.png" alt="Team Operational Dashboard" /></td>
-    <td><img src="docs/stitch/project_comparison_view/screen.png" alt="Project Comparison View" /></td>
+    <td><img src="docs/screenshots/TeamHealth.png" alt="Team Health" /></td>
+    <td><img src="docs/screenshots/Pipelines.png" alt="Pipelines" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/AIAgents.png" alt="AI Agents" /></td>
+    <td><img src="docs/screenshots/Teams.png" alt="Teams" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/Connections1.png" alt="Connections" /></td>
+    <td><img src="docs/screenshots/Connections2.png" alt="Webhook Connections" /></td>
   </tr>
 </table>
 
@@ -76,7 +84,7 @@ Built on **Microsoft Foundry** + **Azure PaaS**. Native Azure DevOps extension �
 VS Marketplace CDN          Azure PaaS (your subscription)
 ┌──────────────────┐        ┌─────────────────────────────┐
 │  Angular 19      │◄──────►│  ASP.NET Core 9 API         │
-│  Extension UI    │  Auth   │  Azure Container Apps       │
+│  Extension UI    │  Auth   │  Azure Web Apps       │
 └──────────────────┘  B2C   │  WebhookController (ADO)    │
                             ├─────────────────────────────┤
 Azure DevOps ──────────────►│  Azure SQL Serverless        │
@@ -86,8 +94,6 @@ Azure DevOps ──────────────►│  Azure SQL Serverl
                             │  GPT-4o (cached by pipeline) │
                             └─────────────────────────────┘
 ```
-
-**Estimated cost: ~$23/month at low traffic (0–50 orgs)**
 
 ---
 

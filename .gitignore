@@ -37,3 +37,5 @@ Thumbs.db
 .vscode/settings.json
 /src/Velo.Extension/package-lock.json
 /src/Velo.Extension/*.vsix
+/docs/pipeiq_mock_screens1.html
+/docs/Velo_Blueprint_v2_1.docx
