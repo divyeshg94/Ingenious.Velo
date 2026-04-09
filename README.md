@@ -3,7 +3,7 @@
 **AI-Powered DORA Metrics, Pipeline Analytics, and Engineering Intelligence for Azure DevOps**
 
 [![CI](https://github.com/divyeshg94/Ingenious.Velo/actions/workflows/ci.yml/badge.svg)](https://github.com/divyeshg94/Ingenious.Velo/actions/workflows/ci.yml)
-[![Marketplace](https://img.shields.io/badge/VS%20Marketplace-Install-blue)](https://marketplace.visualstudio.com/items?itemName=divyeshg94.velo)
+[![Marketplace](https://img.shields.io/badge/VS%20Marketplace-Install-blue)](https://marketplace.visualstudio.com/items?itemName=IngeniousLabs.velo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-9.0-purple)](https://dotnet.microsoft.com)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-brightgreen)](https://nodejs.org)
