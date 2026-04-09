@@ -1,12 +1,13 @@
 {
   "manifestVersion": 1,
   "id": "velo",
-  "name": "Velo - Engineering Intelligence for Azure DevOps",
+  "name": "Velo – DORA Metrics & AI Pipeline Intelligence for Azure DevOps",
   "version": "1.0.50",
   "publisher": "IngeniousLabs",
   "public": false,
-  "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
-  "categories": ["Azure Pipelines"],
+  "description": "Track all 5 DORA metrics automatically from Azure DevOps pipelines and PRs, with an AI agent for delivery insights.",
+  "categories": ["Azure Pipelines", "Testing"],
+  "tags": ["dora", "dora-metrics", "devops", "ai", "pipeline-analytics", "engineering-metrics", "azure-pipelines", "gpt-4o", "azure-ai-foundry", "lead-time", "deployment-frequency"],
   "targets": [
     { "id": "Microsoft.VisualStudio.Services" }
   ],
@@ -38,12 +39,19 @@
   "links": {
     "repository": {
       "uri": "https://github.com/divyeshg94/Ingenious.Velo"
+    },
+    "documentation": {
+      "uri": "https://github.com/divyeshg94/Ingenious.Velo/tree/master/docs"
+    },
+    "issues": {
+      "uri": "https://github.com/divyeshg94/Ingenious.Velo/issues"
     }
   },
   "scopes": [
     "vso.build",
     "vso.code",
     "vso.work",
+    "vso.analytics",
     "vso.hooks_write"
   ],
   "contributions": [
