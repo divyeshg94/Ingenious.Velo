@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "velo",
   "name": "Velo – DORA Metrics & AI Pipeline Intelligence for Azure DevOps",
-  "version": "1.0.51",
+  "version": "1.0.52",
   "publisher": "IngeniousLabs",
   "public": true,
   "description": "Track all 5 DORA metrics automatically from Azure DevOps pipelines and PRs, with an AI agent for delivery insights.",
