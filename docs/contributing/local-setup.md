@@ -6,7 +6,6 @@
 |------|---------|---------|
 | .NET SDK | 9.x | Backend projects |
 | Node.js | 20.x | Angular extension |
-| Azure Functions Core Tools | 4.x | Local Functions runtime |
 | Azure CLI | latest | IaC and resource management |
 | SQL Server / Azure SQL Edge | latest | Local database (Docker recommended) |
 
@@ -24,10 +23,6 @@ dotnet build
 # Start API
 cd src/Velo.Api
 dotnet run
-
-# Start Functions (separate terminal)
-cd src/Velo.Functions
-func start
 
 # Extension (separate terminal)
 cd src/Velo.Extension

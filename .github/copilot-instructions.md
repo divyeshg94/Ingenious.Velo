@@ -9,7 +9,6 @@ Velo is an open-source, AI-powered engineering intelligence platform built nativ
 ```
 src/Velo.Extension/     Angular 19 Azure DevOps extension (Hub, Widgets, Pipeline Task)
 src/Velo.Api/           ASP.NET Core 9 REST API on Azure Container Apps
-src/Velo.Functions/     Azure Functions v4 — event ingestion and metrics computation
 src/Velo.Agent/         Microsoft Foundry AI Agent for pipeline intelligence
 src/Velo.Shared/        Shared EF Core entities and repository contracts (referenced by all)
 infra/                  Bicep IaC — modules + dev/staging/prod params
@@ -24,7 +23,6 @@ docs/                   Architecture, API, extension, and contributing docs
 - C# 13, .NET 9, nullable enabled, implicit usings enabled
 - TypeScript 5.6 with `"strict": true`
 - Angular 19 (standalone components)
-- Azure Functions v4 isolated worker (.NET 9)
 - SQL Server / Azure SQL (T-SQL)
 - Bicep (latest)
 
@@ -124,29 +122,6 @@ await connection.ExecuteAsync("EXEC sp_set_session_context N'org_id', @OrgId", n
 
 ---
 
-## Azure Functions Patterns
-
-### Triggers
-
-- HTTP trigger for ADO service hooks: `ServiceHookTrigger` — route `velo/hooks/ado`, auth level `Function`.
-- Timer trigger for metrics computation: `MetricsComputeTimer` — schedule read from `METRICS_COMPUTE_SCHEDULE` app setting (default: `0 0 * * * *` = hourly).
-- Use `FunctionContext` for logging and dependency resolution, not static methods.
-
-### Isolated Worker Model
-
-Always use the .NET isolated worker model (`Microsoft.Azure.Functions.Worker`), not the in-process model (`Microsoft.Azure.WebJobs`). Entry point is `Program.cs` with `HostBuilder`.
-
-### Service Hook Payload Handling
-
-ADO sends service hooks for these events — handle all three:
-- `build.complete` → normalize to `PipelineRunEvent`, persist to `pipeline_runs`
-- `git.pullrequest.merged` → persist to `pull_requests` for lead time computation
-- `workitem.updated` → persist state transitions for rework rate tracking
-
-Return HTTP 200 immediately after writing to the database. Do not do AI or expensive computation inside the HTTP trigger — that belongs in the timer trigger.
-
----
-
 ## DORA Metrics Domain Knowledge
 
 Velo computes all five 2026 DORA metrics. Understand what each measures before implementing:
@@ -164,7 +139,7 @@ Velo computes all five 2026 DORA metrics. Understand what each measures before i
 2. Stage names matching: `deploy`, `release`, `prod`, `production`, `publish` (case-insensitive)
 3. Or explicitly tagged via the `Velo@1` pipeline task
 
-Metrics computation happens in `MetricsEngine` — pure SQL aggregation, zero AI cost.
+Metrics computation happens in `DoraComputeService` — called inline after each webhook ingestion, pure SQL aggregation, zero AI cost.
 
 ---
 
@@ -342,7 +317,6 @@ var result = await connection.QueryAsync<DoraMetricRow>(
 - **Never** call the Foundry agent without first checking the token budget and the response cache.
 - **Never** add a raw SQL query against a tenant table without `SESSION_CONTEXT` set first.
 - **Never** use `.IgnoreQueryFilters()` on EF queries without an inline comment explaining the cross-tenant need.
-- **Never** do expensive work (AI calls, heavy computation) inside an HTTP-triggered Azure Function — put it in the timer trigger or a separate queue.
 - **Never** use `[innerHTML]` in Angular templates with user-supplied content.
 - **Never** add a new contribution to the ADO extension without updating `vss-extension.json`.
 - **Never** implement a new DORA metric computation using AI — all five metrics are pure SQL aggregations.
@@ -354,10 +328,9 @@ var result = await connection.QueryAsync<DoraMetricRow>(
 ## Testing Expectations
 
 - Every service method that contains business logic needs a unit test.
-- `MetricsEngine` computations must have data-driven unit tests with known input datasets and expected DORA rating outputs.
-- `EventNormalizer` must have tests covering all three ADO event types including malformed payloads.
+- `DoraComputeService` computations must have data-driven unit tests with known input datasets and expected DORA rating outputs.
+- `WebhookController` must have tests covering all three ADO event types (`build.complete`, `git.pullrequest.merged`, `workitem.updated`) including malformed payloads.
 - RLS must be covered by an integration test that proves `org_id = A` queries never return `org_id = B` rows.
-- Azure Functions triggers must be tested via the `FunctionsTesting` test host — not by mocking the `HttpRequestData` directly.
 - Angular services must have Jasmine unit tests mocking `HttpClient` with `HttpClientTestingModule`.
 
 ---

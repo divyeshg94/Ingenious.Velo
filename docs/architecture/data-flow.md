@@ -4,13 +4,13 @@
 Azure DevOps
     │  pipeline completed / PR merged / work item updated
     ▼
-ServiceHookTrigger (Azure Function - HTTP)
-    │  normalize payload → write to Azure SQL
+WebhookController (ASP.NET Core API - POST /api/webhook/ado)
+    │  validate HMAC-SHA256 signature → normalize payload → write to Azure SQL
     ▼
 pipeline_runs / pull_requests / work_items tables
     │  (row-level security: filtered by org_id via SESSION_CONTEXT)
     ▼
-MetricsComputeTimer (Azure Function - Timer, hourly)
+DoraComputeService (called inline after ingestion)
     │  pure SQL aggregation, zero AI cost
     ▼
 dora_metrics / team_health tables
