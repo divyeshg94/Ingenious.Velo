@@ -31,6 +31,11 @@ jobs:
       - name: Run .NET tests
         run: dotnet test --no-build --configuration Release
 
+      - name: Copy screenshots into extension directory
+        run: |
+          mkdir -p src/Velo.Extension/docs/screenshots
+          cp docs/screenshots/*.png src/Velo.Extension/docs/screenshots/
+
       - name: Install extension dependencies
         working-directory: src/Velo.Extension
         run: npm install

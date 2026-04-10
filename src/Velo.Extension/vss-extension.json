@@ -1,12 +1,13 @@
 {
   "manifestVersion": 1,
   "id": "velo",
-  "name": "Velo - Engineering Intelligence for Azure DevOps",
-  "version": "1.0.50",
+  "name": "Velo – DORA Metrics & AI Pipeline Intelligence for Azure DevOps",
+  "version": "1.0.52",
   "publisher": "IngeniousLabs",
-  "public": false,
-  "description": "AI-powered DORA metrics, pipeline analytics, and engineering intelligence built natively for Azure DevOps.",
+  "public": true,
+  "description": "Track all 5 DORA metrics automatically from Azure DevOps pipelines and PRs, with an AI agent for delivery insights.",
   "categories": ["Azure Pipelines"],
+  "tags": ["dora", "dora-metrics", "devops", "ai", "pipeline-analytics", "engineering-metrics", "azure-pipelines", "gpt-4o", "azure-ai-foundry", "lead-time", "deployment-frequency"],
   "targets": [
     { "id": "Microsoft.VisualStudio.Services" }
   ],
@@ -23,6 +24,10 @@
       "addressable": true
     },
     {
+      "path": "docs/screenshots",
+      "addressable": true
+    },
+    {
       "path": "README.md",
       "addressable": true
     }
@@ -33,17 +38,36 @@
   "content": {
     "details": {
       "path": "README.md"
-    }
+    },
+    "screenshots": [
+      { "path": "docs/screenshots/Dashboard1.png" },
+      { "path": "docs/screenshots/Dashboard2.png" },
+      { "path": "docs/screenshots/DORAMetrics1.png" },
+      { "path": "docs/screenshots/DORAMetrics2.png" },
+      { "path": "docs/screenshots/TeamHealth.png" },
+      { "path": "docs/screenshots/Pipelines.png" },
+      { "path": "docs/screenshots/AIAgents.png" },
+      { "path": "docs/screenshots/Teams.png" },
+      { "path": "docs/screenshots/Connections1.png" },
+      { "path": "docs/screenshots/Connections2.png" }
+    ]
   },
   "links": {
     "repository": {
       "uri": "https://github.com/divyeshg94/Ingenious.Velo"
+    },
+    "documentation": {
+      "uri": "https://github.com/divyeshg94/Ingenious.Velo/tree/master/docs"
+    },
+    "issues": {
+      "uri": "https://github.com/divyeshg94/Ingenious.Velo/issues"
     }
   },
   "scopes": [
     "vso.build",
     "vso.code",
     "vso.work",
+    "vso.analytics",
     "vso.hooks_write"
   ],
   "contributions": [
