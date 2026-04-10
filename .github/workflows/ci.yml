@@ -33,7 +33,7 @@ jobs:
 
       - name: Install extension dependencies
         working-directory: src/Velo.Extension
-        run: npm ci
+        run: npm install
 
       - name: Lint extension
         working-directory: src/Velo.Extension
