@@ -69,8 +69,10 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             }
 
             // ── Step 2: Tenant binding validation ────────────────────────────────
-            // Only applies to relational providers (skipped for InMemory in tests).
-            if (dbContext.Database.IsRelational())
+            // Only applies to SQL Server (skipped for InMemory in tests).
+            // Checking ProviderName is safer than IsRelational() which can throw
+            // when an InMemory context was substituted via WebApplicationFactory.
+            if (dbContext.Database.ProviderName?.Contains("SqlServer", StringComparison.OrdinalIgnoreCase) == true)
             {
                 var org = await dbContext.Organizations
                     .AsNoTracking()
@@ -126,7 +128,7 @@ public class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantReso
             dbContext.CurrentOrgId = orgId;
 
             // Set SQL Server session context for RLS enforcement.
-            if (dbContext.Database.IsRelational())
+            if (dbContext.Database.ProviderName?.Contains("SqlServer", StringComparison.OrdinalIgnoreCase) == true)
             {
                 var connection = dbContext.Database.GetDbConnection();
                 if (connection.State != System.Data.ConnectionState.Open)
