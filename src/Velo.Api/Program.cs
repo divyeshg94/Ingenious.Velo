@@ -28,14 +28,9 @@ try
     
     var builder = WebApplication.CreateBuilder(args);
 
-    // ── Startup guard: reject empty connection string in production ──────────────
-    var connStr = builder.Configuration.GetConnectionString("VeloDb");
-    if (string.IsNullOrWhiteSpace(connStr) && !builder.Environment.IsDevelopment())
-    {
-        Log.Fatal("SECURITY: ConnectionStrings:VeloDb is not configured. " +
-                  "Set it via Azure App Settings / Key Vault before deploying.");
-        throw new InvalidOperationException("ConnectionStrings:VeloDb must be configured in production.");
-    }
+    // NOTE: startup guards (connection string + webhook secret) are validated AFTER
+    // builder.Build() so that WebApplicationFactory can inject test configuration
+    // before the guards execute. See the post-build section below.
 
     // Replace bootstrap logger with the full logger read from appsettings.json.
     // Destructuring policies ensure sensitive fields (tokens, passwords, keys) are
@@ -78,7 +73,7 @@ try
 
     // Database
     builder.Services.AddDbContext<VeloDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("VeloDb")));
+        options.UseSqlServer(builder.Configuration.GetConnectionString("VeloDb") ?? ""));
 
     // Application services
     builder.Services.AddScoped<IPipelineService, PipelineService>();
@@ -141,20 +136,6 @@ try
                 .WithExposedHeaders(exposedHeaders);
         });
     });
-
-    // ── Startup guard: reject placeholder webhook secret ──────────────────────────
-    var webhookSecret = builder.Configuration["Webhook:Secret"];
-    if (string.IsNullOrWhiteSpace(webhookSecret) ||
-        webhookSecret.StartsWith("change-this", StringComparison.OrdinalIgnoreCase))
-    {
-        Log.Fatal("SECURITY: Webhook:Secret is not configured or still uses the placeholder value. " +
-                  "Set a strong random secret in your Azure App Settings before running in production.");
-        // In dev we warn; in production we hard-stop.
-        if (!builder.Environment.IsDevelopment())
-            throw new InvalidOperationException(
-                "Webhook:Secret must be set to a strong random value in production.");
-        Log.Warning("SECURITY: Running in Development with a weak/placeholder Webhook:Secret — this is only acceptable locally.");
-    }
 
     // Add Authentication & Authorization
     // Azure DevOps extensions use VSSO tokens issued by dev.azure.com (from SDK.getAppToken()).
@@ -284,6 +265,31 @@ try
 
     var app = builder.Build();
 
+    // ── Post-build startup guards ─────────────────────────────────────────────────
+    // Placed here so WebApplicationFactory can inject test config before these run.
+
+    // Reject empty connection string in production.
+    var connStr = app.Configuration.GetConnectionString("VeloDb");
+    if (string.IsNullOrWhiteSpace(connStr) && !app.Environment.IsDevelopment())
+    {
+        Log.Fatal("SECURITY: ConnectionStrings:VeloDb is not configured. " +
+                  "Set it via Azure App Settings / Key Vault before deploying.");
+        throw new InvalidOperationException("ConnectionStrings:VeloDb must be configured in production.");
+    }
+
+    // Reject placeholder or missing webhook secret in production.
+    var webhookSecret = app.Configuration["Webhook:Secret"];
+    if (string.IsNullOrWhiteSpace(webhookSecret) ||
+        webhookSecret.StartsWith("change-this", StringComparison.OrdinalIgnoreCase))
+    {
+        Log.Fatal("SECURITY: Webhook:Secret is not configured or still uses the placeholder value. " +
+                  "Set a strong random secret in your Azure App Settings before running in production.");
+        if (!app.Environment.IsDevelopment())
+            throw new InvalidOperationException(
+                "Webhook:Secret must be set to a strong random value in production.");
+        Log.Warning("SECURITY: Running in Development with a weak/placeholder Webhook:Secret — this is only acceptable locally.");
+    }
+
     // Use Serilog request logging middleware
     app.UseSerilogRequestLogging(options =>
     {
@@ -334,9 +340,9 @@ try
         env = app.Environment.EnvironmentName
     }));
 
-    // Auth debug endpoint — DEVELOPMENT ONLY.
+    // Auth debug endpoint — non-production only (available in Development and Testing).
     // This endpoint returns JWT claims and request headers; never expose in production.
-    if (app.Environment.IsDevelopment())
+    if (!app.Environment.IsProduction())
     {
         app.MapGet("/debug/auth", (HttpContext ctx) =>
         {

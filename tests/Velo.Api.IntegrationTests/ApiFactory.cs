@@ -1,8 +1,13 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Velo.SQL;
+
+// Shared internal service provider ensures InMemory EF Core services are isolated
+// from the SQL Server services registered in the main application DI container,
+// preventing the "multiple database providers" exception at test runtime.
 
 namespace Velo.Api.IntegrationTests;
 
@@ -15,9 +20,29 @@ public class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = Guid.NewGuid().ToString();
 
+    // Built once and shared: each factory uses the same internal EF Core infrastructure
+    // but a unique _dbName, keeping each test class's data completely isolated.
+    private static readonly IServiceProvider _inMemoryServiceProvider =
+        new ServiceCollection()
+            .AddEntityFrameworkInMemoryDatabase()
+            .BuildServiceProvider();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        // Satisfy Program.cs startup guards that reject missing config when
+        // the environment is not "Development". The actual DbContext is
+        // replaced below with an in-memory database, so the connection string
+        // value is never used.
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:VeloDb"] = "Server=test;Database=VeloTest;",
+                ["Webhook:Secret"] = "test-webhook-secret-for-integration-tests",
+            });
+        });
 
         builder.ConfigureServices(services =>
         {
@@ -28,7 +53,8 @@ public class ApiFactory : WebApplicationFactory<Program>
                 services.Remove(descriptor);
 
             services.AddDbContext<VeloDbContext>(options =>
-                options.UseInMemoryDatabase(_dbName));
+                options.UseInMemoryDatabase(_dbName)
+                       .UseInternalServiceProvider(_inMemoryServiceProvider));
         });
     }
 

@@ -9,9 +9,11 @@ namespace Velo.Api.IntegrationTests;
 public class HealthEndpointTests : IClassFixture<ApiFactory>
 {
     private readonly HttpClient _client;
+    private readonly ApiFactory _factory;
 
     public HealthEndpointTests(ApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -52,10 +54,8 @@ public class HealthEndpointTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Get_DebugAuth_ReportsAuthenticated_WithValidToken()
     {
-        var token = JwtHelper.CreateToken("my-org");
-        var client = new HttpClient { BaseAddress = _client.BaseAddress };
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        // Use the factory's handler — raw HttpClient bypasses the in-process test server.
+        var client = _factory.CreateAuthenticatedClient("my-org");
 
         var response = await client.GetAsync("/debug/auth");
         var body = await response.Content.ReadAsStringAsync();

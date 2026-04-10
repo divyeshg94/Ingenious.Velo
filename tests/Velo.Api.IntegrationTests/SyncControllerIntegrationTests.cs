@@ -26,11 +26,12 @@ public class SyncControllerIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Sync_Returns200_WithValidToken()
+    public async Task Sync_Returns400_WhenAdoTokenMissing()
     {
+        // Authenticated JWT but no X-Ado-Access-Token header → controller returns 400
         var client = _factory.CreateAuthenticatedClient($"sync-{Guid.NewGuid()}");
         var response = await client.PostAsync("/api/sync/myproject", null);
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ── GET /api/sync/{projectId}/hook-status ─────────────────────────────────
@@ -44,11 +45,12 @@ public class SyncControllerIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task GetHookStatus_Returns200_WithValidToken()
+    public async Task GetHookStatus_Returns400_WhenAdoTokenMissing()
     {
+        // Authenticated JWT but no X-Ado-Access-Token header → controller returns 400
         var client = _factory.CreateAuthenticatedClient($"sync-hook-{Guid.NewGuid()}");
         var response = await client.GetAsync("/api/sync/myproject/hook-status");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ── POST /api/sync/{projectId}/register-hook ──────────────────────────────
@@ -82,11 +84,12 @@ public class SyncControllerIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task GetPrHookStatus_Returns200_WithValidToken()
+    public async Task GetPrHookStatus_Returns400_WhenAdoTokenMissing()
     {
+        // Authenticated JWT but no X-Ado-Access-Token header → controller returns 400
         var client = _factory.CreateAuthenticatedClient($"sync-pr-{Guid.NewGuid()}");
         var response = await client.GetAsync("/api/sync/myproject/pr-hook-status");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ── POST /api/sync/{projectId}/register-pr-hook ───────────────────────────

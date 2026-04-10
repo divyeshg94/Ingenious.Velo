@@ -18,7 +18,7 @@ public class ConnectionsControllerTests
     }
 
     [Fact]
-    public async Task RegisterConnection_ReturnsNoContent_OnSuccess()
+    public async Task RegisterConnection_ReturnsOk_OnSuccess()
     {
         // Arrange
         var config = new ConnectionConfig("https://dev.azure.com/myorg", "pat-token");
@@ -30,7 +30,7 @@ public class ConnectionsControllerTests
         var result = await _sut.RegisterConnection(config);
 
         // Assert
-        result.Should().BeOfType<NoContentResult>();
+        result.Should().BeOfType<OkResult>();
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class ConnectionsControllerTests
     }
 
     [Fact]
-    public async Task RemoveConnection_ReturnsNoContent_OnSuccess()
+    public async Task RemoveConnection_ReturnsOk_OnSuccess()
     {
         // Arrange
         _connectionServiceMock
@@ -86,7 +86,7 @@ public class ConnectionsControllerTests
         var result = await _sut.RemoveConnection();
 
         // Assert
-        result.Should().BeOfType<NoContentResult>();
+        result.Should().BeOfType<OkResult>();
     }
 
     [Fact]

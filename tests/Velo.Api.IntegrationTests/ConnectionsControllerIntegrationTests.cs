@@ -23,7 +23,7 @@ public class ConnectionsControllerIntegrationTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsJsonAsync("/api/connections/register",
-            new { OrgUrl = "https://dev.azure.com/testorg", Pat = "mytoken" });
+            new { OrgUrl = "https://dev.azure.com/testorg", PersonalAccessToken = "mytoken" });
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -32,7 +32,7 @@ public class ConnectionsControllerIntegrationTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateAuthenticatedClient($"conn-{Guid.NewGuid()}");
         var response = await client.PostAsJsonAsync("/api/connections/register",
-            new { OrgUrl = "https://dev.azure.com/testorg", Pat = "mytoken" });
+            new { OrgUrl = "https://dev.azure.com/testorg", PersonalAccessToken = "mytoken" });
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -61,7 +61,7 @@ public class ConnectionsControllerIntegrationTests : IClassFixture<ApiFactory>
         var client = _factory.CreateAuthenticatedClient(orgId);
 
         await client.PostAsJsonAsync("/api/connections/register",
-            new { OrgUrl = "https://dev.azure.com/testorg", Pat = "mytoken" });
+            new { OrgUrl = "https://dev.azure.com/testorg", PersonalAccessToken = "mytoken" });
 
         var response = await client.DeleteAsync("/api/connections/remove");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
