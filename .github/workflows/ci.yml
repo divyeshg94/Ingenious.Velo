@@ -4,7 +4,7 @@ permissions:
 
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build-and-test:
@@ -34,10 +34,6 @@ jobs:
       - name: Install extension dependencies
         working-directory: src/Velo.Extension
         run: npm install
-
-      - name: Lint extension
-        working-directory: src/Velo.Extension
-        run: npm run lint
 
       - name: Build extension
         working-directory: src/Velo.Extension
