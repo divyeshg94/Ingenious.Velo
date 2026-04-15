@@ -2,7 +2,7 @@
 
 **Measure what matters. Ship with confidence.**
 
-Velo is the only Azure DevOps extension that computes all **five 2026 DORA metrics** natively — no third-party tools, no data exports, no context switching. Just install, connect your pipelines, and start improving.
+Velo computes all **five 2026 DORA metrics** natively inside Azure DevOps — no third-party tools, no data exports, no context switching. Just install, connect your pipelines, and start improving.
 
 ---
 
@@ -97,9 +97,20 @@ Velo automatically identifies production deployments using:
 
 ---
 
+## Pricing
+
+| Tier | Price | Limit |
+|---|---|---|
+| **Free** | $0 forever | 50,000 AI input tokens / org / day |
+| **Enterprise** | Self-hosted | Unlimited — deploy to your own Azure subscription via Bicep |
+
+No credit card required. No trial timer. The free tier covers the full feature set for most teams.
+
+---
+
 ## Getting Started
 
-1. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/)
+1. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=IngeniousLabs.velo)
 2. Navigate to your Azure DevOps project → **Velo** (appears in the project hub)
 3. Your DORA metrics begin populating within one hour of the first pipeline run
 

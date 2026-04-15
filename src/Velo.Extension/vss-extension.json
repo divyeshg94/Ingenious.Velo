@@ -38,20 +38,20 @@
   "content": {
     "details": {
       "path": "README.md"
-    },
-    "screenshots": [
-      { "path": "docs/screenshots/Dashboard1.png" },
-      { "path": "docs/screenshots/Dashboard2.png" },
-      { "path": "docs/screenshots/DORAMetrics1.png" },
-      { "path": "docs/screenshots/DORAMetrics2.png" },
-      { "path": "docs/screenshots/TeamHealth.png" },
-      { "path": "docs/screenshots/Pipelines.png" },
-      { "path": "docs/screenshots/AIAgents.png" },
-      { "path": "docs/screenshots/Teams.png" },
-      { "path": "docs/screenshots/Connections1.png" },
-      { "path": "docs/screenshots/Connections2.png" }
-    ]
+    }
   },
+  "screenshots": [
+    { "path": "docs/screenshots/Dashboard1.png" },
+    { "path": "docs/screenshots/Dashboard2.png" },
+    { "path": "docs/screenshots/DORAMetrics1.png" },
+    { "path": "docs/screenshots/DORAMetrics2.png" },
+    { "path": "docs/screenshots/TeamHealth.png" },
+    { "path": "docs/screenshots/Pipelines.png" },
+    { "path": "docs/screenshots/AIAgents.png" },
+    { "path": "docs/screenshots/Teams.png" },
+    { "path": "docs/screenshots/Connections1.png" },
+    { "path": "docs/screenshots/Connections2.png" }
+  ],
   "links": {
     "repository": {
       "uri": "https://github.com/divyeshg94/Ingenious.Velo"
