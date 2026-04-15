@@ -12,6 +12,8 @@ Velo gives engineering managers and development teams instant visibility into ho
 
 Built on **Microsoft Foundry** + **Azure PaaS**. Native Azure DevOps extension — one-click install, zero configuration.
 
+**[Install from the Visual Studio Marketplace →](https://marketplace.visualstudio.com/items?itemName=IngeniousLabs.velo)**
+
 ---
 
 ## Screenshots
@@ -102,7 +104,7 @@ Azure DevOps ──────────────►│  Azure SQL Serverl
 ### Install from Marketplace
 
 1. Go to your Azure DevOps organization → **Organization Settings → Extensions**
-2. Search for **Velo** or install directly from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=divyeshg94.velo)
+2. Search for **Velo** or install directly from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=IngeniousLabs.velo)
 3. The Velo tab appears in every project's left navigation immediately
 
 ### Deploy Your Own Backend (Enterprise / Self-Hosted)
@@ -203,10 +205,8 @@ Ingenious.Velo/
 | Area | Notes |
 |---|---|
 | Azure Functions | Background ingestion worker + DORA timer-triggered compute function |
-| Token count accuracy | Wire actual Foundry SDK token count into `RateLimitMiddleware` |
-| End-to-end validation | Test against a real ADO organization |
-| Staging deployment | First hosted environment |
-| Marketplace listing (public) | Extension is currently private |
+| Metric refinements | Increased token-count accuracy and rate-limit tuning |
+| Performance & scale | Query optimisation for large organisations |
 
 ### Future
 
