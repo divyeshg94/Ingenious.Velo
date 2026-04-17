@@ -5,7 +5,7 @@ using Velo.Api.Services;
 namespace Velo.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/pr-metrics")]
 [Authorize]
 public class PrMetricsController(
     IPrSizeMetricsService prMetricsService,
