@@ -139,8 +139,8 @@ public class SyncController(
 
     // ── Build webhook endpoints ────────────────────────────────────────────────
 
-    /// <summary>GET /api/sync/{projectId}/hook-status — check build webhook status.</summary>
-    [HttpGet("{projectId}/hook-status")]
+    /// <summary>GET /api/sync/hook-status/{projectId} — check build webhook status.</summary>
+    [HttpGet("hook-status/{projectId}")]
     public async Task<IActionResult> GetHookStatus(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
@@ -151,8 +151,8 @@ public class SyncController(
         return Ok(status);
     }
 
-    /// <summary>POST /api/sync/{projectId}/register-hook — register (or re-register) the build webhook.</summary>
-    [HttpPost("{projectId}/register-hook")]
+    /// <summary>POST /api/sync/hook/{projectId} — register (or re-register) the build webhook.</summary>
+    [HttpPost("hook/{projectId}")]
     public async Task<IActionResult> RegisterHook(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
@@ -163,21 +163,21 @@ public class SyncController(
         return status.IsRegistered ? Ok(status) : StatusCode(422, status);
     }
 
-    /// <summary>DELETE /api/sync/{projectId}/remove-hook — remove a webhook subscription (build or PR).</summary>
-    [HttpDelete("{projectId}/remove-hook")]
-    public async Task<IActionResult> RemoveHook(string projectId, CancellationToken cancellationToken)
+    /// <summary>DELETE /api/sync/hook/{subscriptionId} — remove a webhook subscription (build, PR, or work item).</summary>
+    [HttpDelete("hook/{subscriptionId}")]
+    public async Task<IActionResult> RemoveHook(string subscriptionId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
         if (error != null) return error;
 
-        var removed = await hookService.RemoveAsync(orgId!, projectId, adoToken!, cancellationToken);
+        var removed = await hookService.RemoveAsync(orgId!, subscriptionId, adoToken!, cancellationToken);
         return removed ? NoContent() : StatusCode(500, new { error = "Failed to remove subscription." });
     }
 
     // ── PR webhook endpoints ───────────────────────────────────────────────────
 
-    /// <summary>GET /api/sync/{projectId}/pr-hook-status — check PR webhook registration status.</summary>
-    [HttpGet("{projectId}/pr-hook-status")]
+    /// <summary>GET /api/sync/pr-hook-status/{projectId} — check PR webhook registration status.</summary>
+    [HttpGet("pr-hook-status/{projectId}")]
     public async Task<IActionResult> GetPrHookStatus(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
@@ -188,8 +188,8 @@ public class SyncController(
         return Ok(status);
     }
 
-    /// <summary>POST /api/sync/{projectId}/register-pr-hook — register (or re-register) the PR webhooks.</summary>
-    [HttpPost("{projectId}/register-pr-hook")]
+    /// <summary>POST /api/sync/pr-hook/{projectId} — register (or re-register) the PR webhooks.</summary>
+    [HttpPost("pr-hook/{projectId}")]
     public async Task<IActionResult> RegisterPrHook(string projectId, CancellationToken cancellationToken)
     {
         var (orgId, adoToken, error) = GetOrgAndToken();
