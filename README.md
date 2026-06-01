@@ -48,8 +48,8 @@ Built on **Microsoft Foundry** + **Azure PaaS**. Native Azure DevOps extension �
 ### DORA Metrics (all 5, including 2026 Rework Rate)
 - **Deployment Frequency** — deployment-tagged pipeline runs ÷ 30-day window *(falls back to all successful runs when no deployment-tagged pipelines are detected; dashboard shows "estimated" in that case)*
 - **Lead Time for Changes** — *(approximation)* average pipeline build duration of successful runs; true PR-merge-to-deploy time requires ADO pull-request service hook linkage, not yet implemented *(dashboard shows "approx. build duration")*
-- **Change Failure Rate** — failed deployment runs ÷ total deployment runs *(same fallback as Deployment Frequency when no deployment-tagged pipelines exist)*
-- **Mean Time to Restore** — average time from a failed run to the next successful run of the same pipeline (pipeline-recovery proxy)
+- **Change Failure Rate** — failed deployment runs ÷ total deployment runs *(falls back to all runs when no deployment-tagged pipelines exist; dashboard should show "estimated" in that case)*
+- **Mean Time to Restore** — average time from a failed deployment run to the next successful run of the same pipeline *(falls back to all runs when no deployment-tagged pipelines exist; dashboard should show "estimated" in that case)*
 - **Rework Rate** *(2026)* — work-item state-transition churn: items that moved from a completed state back to an active state ÷ total completions, via ADO `workitem.updated` service hook events *(shows "insufficient data" when no work-item events have been received)*
 
 ### Pipeline Intelligence Agent
