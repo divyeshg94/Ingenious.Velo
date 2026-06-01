@@ -156,9 +156,9 @@ public class DoraComputeService(
     }
 
     // ── Log-forging prevention ────────────────────────────────────────────────────
-    // Strip newlines from caller-supplied strings before they reach log sinks.
+    // Strip control chars from caller-supplied strings before they reach log sinks.
     private static string SanitizeForLog(string value) =>
-        value.Replace('\r', '_').Replace('\n', '_');
+        Velo.Api.Logging.LogSanitizer.SanitiseForLog(value);
 
     // ── MTTR: average time from a failure until the next success ─────────────────
     private static double ComputeMttr(List<PipelineRunDto> runs)
