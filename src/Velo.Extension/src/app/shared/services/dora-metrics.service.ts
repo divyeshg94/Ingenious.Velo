@@ -20,8 +20,12 @@ export interface DoraMetricsDto {
   isLeadTimeApproximate: boolean;
   changeFailureRate: number;
   changeFailureRating: string;
+  /** True when no deployment-tagged pipelines were detected; CFR is estimated from all pipeline runs. */
+  isChangeFailureRateEstimated: boolean;
   meanTimeToRestoreHours: number;
   mttrRating: string;
+  /** True when no deployment-tagged pipelines were detected; MTTR is estimated from all pipeline runs. */
+  isMttrEstimated: boolean;
   reworkRate: number;
   reworkRateRating: string;
   /** True when no work-item events were available; Rework Rate defaulted to 0 (insufficient data). */
