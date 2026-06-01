@@ -461,10 +461,10 @@ public class DoraComputeServiceTests
 
     [Theory]
     [InlineData(0,   "Elite")]  // 0 rework transitions → 0 % → Elite
-    [InlineData(5,   "Elite")]  // 5/100 completions → 5 % → Elite
-    [InlineData(8,   "High")]   // 8 % → High
+    [InlineData(4,   "Elite")]  // 4/100 completions → 4 % → Elite
+    [InlineData(6,   "High")]   // 6 % → High
     [InlineData(15,  "Medium")] // 15 % → Medium
-    [InlineData(25,  "Low")]    // 25 % → Low
+    [InlineData(35,  "Low")]    // 35 % → Low
     public async Task ReworkRateRating_IsCorrect_UsingWorkItemEvents(int reworkCount, string expected)
     {
         int totalCompletions = 100;

@@ -27,8 +27,11 @@ public interface IDoraComputeService
 ///   Mean Time to Restore — average time from a failed run to the next successful
 ///     run of the same pipeline (pipeline-recovery proxy).
 ///
-///   Rework Rate — work-item state-transition churn: transitions from a done state
+///   Rework Rate — measures the ratio of unplanned work (hotfixes/rollbacks) to total
+///     completions, aligned with the DORA standard: Unplanned Deployments ÷ Total Deployments.
+///     Proxied here via work-item state-transition churn: transitions from a done state
 ///     back to an active state ÷ total completions × 100 (via WorkItemReworkCalculator).
+///     Benchmarks: Elite ≤4%, High ≤8%, Medium ≤32%, Low >32%.
 ///     IsReworkRateEstimated = true when no work-item events were available for the period.
 /// </summary>
 public class DoraComputeService(
@@ -202,9 +205,9 @@ public class DoraComputeService(
 
     private static string RateReworkRate(double percent) => percent switch
     {
-        <= 5 => "Elite",
-        <= 10 => "High",
-        <= 20 => "Medium",
+        <= 4 => "Elite",
+        <= 8 => "High",
+        <= 32 => "Medium",
         _ => "Low"
     };
 }

@@ -5,8 +5,16 @@ namespace Velo.Api.Services;
 /// <summary>
 /// Shared work-item rework-rate computation used by both DoraComputeService and TeamHealthComputeService.
 ///
-/// Rework rate = work items that transitioned FROM a done state BACK TO an active state,
-/// divided by total completions (active → done transitions), expressed as a percentage.
+/// Implements a proxy for the DORA Rework Rate metric:
+///   Rework Rate = Unplanned Deployments ÷ Total Deployments
+///   (see https://dora.dev/guides/dora-metrics/)
+///
+/// Since unplanned deployment tagging is not always available, this uses work-item
+/// state-transition churn as a proxy:
+///   rework = items that transitioned FROM a done state BACK TO an active state
+///   ÷ total completions (active → done transitions), expressed as a percentage.
+///
+/// Benchmarks (DORA): Elite ≤4%, High ≤8%, Medium ≤32%, Low >32%
 ///
 /// Formula: reworkTransitions ÷ totalCompletions × 100  (capped at 100 %)
 ///
