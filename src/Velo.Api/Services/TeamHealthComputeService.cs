@@ -258,7 +258,5 @@ public class TeamHealthComputeService(
         return closed.Any() ? closed.Average(p => p.ReviewerCount) : 0;
     }
 
-    // ── Work item rework rate ─────────────────────────────────────────────────
-
     private static double Round(double v, int decimals = 2) => Math.Round(v, decimals);
 }
