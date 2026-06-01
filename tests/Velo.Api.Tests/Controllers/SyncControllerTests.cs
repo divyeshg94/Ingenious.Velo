@@ -210,7 +210,7 @@ public class SyncControllerTests
         _hookServiceMock.Setup(h => h.RemoveAsync("myorg", "sub123", "test-token", It.IsAny<CancellationToken>()))
                         .ReturnsAsync(true);
 
-        var result = await _sut.RemoveHook("sub123", CancellationToken.None);
+        var result = await _sut.RemoveHook("myproject", "sub123", CancellationToken.None);
 
         result.Should().BeOfType<NoContentResult>();
     }
@@ -222,7 +222,7 @@ public class SyncControllerTests
         _hookServiceMock.Setup(h => h.RemoveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
-        var result = await _sut.RemoveHook("sub123", CancellationToken.None);
+        var result = await _sut.RemoveHook("myproject", "sub123", CancellationToken.None);
 
         var status = result.Should().BeOfType<ObjectResult>().Subject;
         status.StatusCode.Should().Be(500);

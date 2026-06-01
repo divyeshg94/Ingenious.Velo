@@ -26,7 +26,7 @@ public class HealthController(
     /// Returns the latest Team Health snapshot for a project.
     /// Auto-computes and saves a new snapshot if none exists.
     /// </summary>
-    [HttpGet]
+    [HttpGet("team")]
     public async Task<ActionResult<TeamHealthDto>> GetTeamHealth(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
@@ -81,7 +81,7 @@ public class HealthController(
     /// Force-recomputes and saves a fresh Team Health snapshot.
     /// Called when the user clicks "Refresh" in the UI.
     /// </summary>
-    [HttpPost("compute")]
+    [HttpPost("recompute")]
     public async Task<ActionResult<TeamHealthDto>> Recompute(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
