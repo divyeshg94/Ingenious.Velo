@@ -12,7 +12,7 @@ public class PipelinesController(IPipelineService pipelineService) : ControllerB
 {
     private const int MaxPageSize = 200;
 
-    [HttpGet]
+    [HttpGet("runs")]
     public async Task<ActionResult<IEnumerable<PipelineRunDto>>> GetPipelines(
         [FromQuery] string projectId,
         [FromQuery] int page = 1,

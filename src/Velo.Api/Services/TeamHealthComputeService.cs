@@ -258,34 +258,5 @@ public class TeamHealthComputeService(
         return closed.Any() ? closed.Average(p => p.ReviewerCount) : 0;
     }
 
-    // ── Work item rework rate ─────────────────────────────────────────────────
-
-    private static readonly HashSet<string> s_doneStates = new(StringComparer.OrdinalIgnoreCase)
-        { "Resolved", "Closed", "Done", "Completed", "Inactive", "Verified" };
-
-    private static readonly HashSet<string> s_activeStates = new(StringComparer.OrdinalIgnoreCase)
-        { "Active", "In Progress", "Committed", "Open", "New", "Reopened" };
-
-    /// <summary>
-    /// Rework rate from real work item state transitions.
-    /// A rework event = a work item that moved FROM a completed state BACK TO an active state,
-    /// indicating previously "done" work needed revisiting.
-    ///
-    /// ReworkRate = rework transitions ÷ total completions × 100
-    /// </summary>
-    private static double ComputeWorkItemReworkRate(List<WorkItemEventDto> events)
-    {
-        var reworkTransitions = events.Count(e =>
-            s_doneStates.Contains(e.OldState ?? string.Empty) &&
-            s_activeStates.Contains(e.NewState ?? string.Empty));
-
-        var totalCompletions = events.Count(e =>
-            s_activeStates.Contains(e.OldState ?? string.Empty) &&
-            s_doneStates.Contains(e.NewState ?? string.Empty));
-
-        if (totalCompletions == 0) return 0;
-        return Math.Min((double)reworkTransitions / totalCompletions * 100, 100);
-    }
-
     private static double Round(double v, int decimals = 2) => Math.Round(v, decimals);
 }

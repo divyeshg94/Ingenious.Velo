@@ -370,6 +370,47 @@
   color: var(--primary-color);
 }
 
+// ── Approximation / estimation indicator tags ─────────────────
+.m-card__note {
+  margin-bottom: 6px;
+}
+
+.tag-estimated {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  cursor: default;
+}
+
+.tag-approx {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 120, 212, 0.1);
+  color: var(--primary-color);
+  cursor: default;
+}
+
+.tag-no-data {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--text-secondary-color);
+  cursor: default;
+}
+
 .m-card__label {
   font-size: 10px;
   font-weight: 700;

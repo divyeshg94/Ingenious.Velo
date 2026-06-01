@@ -84,14 +84,19 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 PeriodEnd = metricsDto.PeriodEnd,
                 DeploymentFrequency = metricsDto.DeploymentFrequency,
                 DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating,
+                IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated,
                 LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours,
                 LeadTimeRating = metricsDto.LeadTimeRating,
+                IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate,
                 ChangeFailureRate = metricsDto.ChangeFailureRate,
                 ChangeFailureRating = metricsDto.ChangeFailureRating,
+                IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated,
                 MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours,
                 MttrRating = metricsDto.MttrRating,
+                IsMttrEstimated = metricsDto.IsMttrEstimated,
                 ReworkRate = metricsDto.ReworkRate,
-                ReworkRateRating = metricsDto.ReworkRateRating
+                ReworkRateRating = metricsDto.ReworkRateRating,
+                IsReworkRateEstimated = metricsDto.IsReworkRateEstimated
             };
 
             dbContext.DoraMetrics.Add(metric);
@@ -508,14 +513,19 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         PeriodEnd = metric.PeriodEnd,
         DeploymentFrequency = metric.DeploymentFrequency,
         DeploymentFrequencyRating = metric.DeploymentFrequencyRating,
+        IsDeploymentFrequencyEstimated = metric.IsDeploymentFrequencyEstimated,
         LeadTimeForChangesHours = metric.LeadTimeForChangesHours,
         LeadTimeRating = metric.LeadTimeRating,
+        IsLeadTimeApproximate = metric.IsLeadTimeApproximate,
         ChangeFailureRate = metric.ChangeFailureRate,
         ChangeFailureRating = metric.ChangeFailureRating,
+        IsChangeFailureRateEstimated = metric.IsChangeFailureRateEstimated,
         MeanTimeToRestoreHours = metric.MeanTimeToRestoreHours,
         MttrRating = metric.MttrRating,
+        IsMttrEstimated = metric.IsMttrEstimated,
         ReworkRate = metric.ReworkRate,
-        ReworkRateRating = metric.ReworkRateRating
+        ReworkRateRating = metric.ReworkRateRating,
+        IsReworkRateEstimated = metric.IsReworkRateEstimated
     };
 
     private static PipelineRunDto MapPipelineRunToDto(PipelineRun run) => new()
