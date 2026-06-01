@@ -21,8 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ### Changed
 - Extracted shared `WorkItemReworkCalculator` static helper (`Velo.Api.Services`) — eliminates the duplicated done/active state sets and rework logic that previously existed in `TeamHealthComputeService` (dead code) and replaces the flawed proxy in `DoraComputeService`.
-- `DoraMetricsDto` and `DoraMetrics` entity gain three new boolean fields: `IsDeploymentFrequencyEstimated`, `IsLeadTimeApproximate`, `IsReworkRateEstimated`.
-- DB migration `016` adds the corresponding BIT columns to the `DoraMetrics` table.
+- `DoraMetricsDto` and `DoraMetrics` entity gain five new boolean fields: `IsDeploymentFrequencyEstimated`, `IsLeadTimeApproximate`, `IsChangeFailureRateEstimated`, `IsMttrEstimated`, `IsReworkRateEstimated`.
+- DB migrations `016` and `017` add the corresponding BIT columns to the `DoraMetrics` table.
 - `dora.component.html` renders "estimated", "approx. build duration", and "insufficient data" indicator badges on the affected metric cards.
 - `dora.component.scss` adds `.tag-estimated`, `.tag-approx`, `.tag-no-data`, and `.m-card__note` styles.
 - README updated to accurately describe what each metric measures, including proxy/approximation caveats.
