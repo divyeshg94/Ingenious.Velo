@@ -14,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
   When no work-item events have been received the metric shows "insufficient data" (returns 0 and sets `IsReworkRateEstimated = true`) rather than a misleading figure.
 - **Change Failure Rate** is now restricted to deployment-tagged pipeline runs only (failed deployments ÷ total deployments).  
   Previously it counted every failed pipeline run — including CI builds, lint checks, and flaky tests — inflating the figure significantly.  
-  When no deployment-tagged pipelines exist it falls back to all runs and sets the same `IsDeploymentFrequencyEstimated` flag.
+  When no deployment-tagged pipelines exist it falls back to all runs and sets `IsChangeFailureRateEstimated = true`.
 - **Lead Time for Changes** now clearly documents and labels itself as an approximation (average pipeline build duration) in the code, DTO, and dashboard UI ("approx. build duration").  
   Previously the README claimed "PR merge-to-deploy time" which was never implemented.
 - **Deployment Frequency** fallback (when no deployment-tagged pipelines are detected) now surfaces a visible "estimated" badge on the dashboard card so users know the figure is an approximation rather than a true deployment count.
