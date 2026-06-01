@@ -12,14 +12,20 @@ export interface DoraMetricsDto {
   periodEnd: string;
   deploymentFrequency: number;
   deploymentFrequencyRating: string;
+  /** True when no deployment-tagged pipelines were detected; metric is an estimate from all successful runs. */
+  isDeploymentFrequencyEstimated: boolean;
   leadTimeForChangesHours: number;
   leadTimeRating: string;
+  /** Always true: Lead Time is currently average pipeline build duration, not PR-merge-to-deploy time. */
+  isLeadTimeApproximate: boolean;
   changeFailureRate: number;
   changeFailureRating: string;
   meanTimeToRestoreHours: number;
   mttrRating: string;
   reworkRate: number;
   reworkRateRating: string;
+  /** True when no work-item events were available; Rework Rate defaulted to 0 (insufficient data). */
+  isReworkRateEstimated: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

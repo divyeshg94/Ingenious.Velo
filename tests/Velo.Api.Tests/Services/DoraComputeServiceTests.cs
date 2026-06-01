@@ -33,10 +33,27 @@ public class DoraComputeServiceTests
         };
     }
 
-    private void SetupRepo(List<PipelineRunDto> runs)
+    private static WorkItemEventDto WiEvent(string oldState, string newState,
+        DateTimeOffset? changedAt = null)
+    {
+        return new WorkItemEventDto
+        {
+            Id = Guid.NewGuid(), OrgId = "org", ProjectId = "proj",
+            WorkItemId = 1,
+            OldState = oldState, NewState = newState,
+            ChangedAt = changedAt ?? DateTimeOffset.UtcNow.AddDays(-1),
+            IngestedAt = DateTimeOffset.UtcNow,
+        };
+    }
+
+    private void SetupRepo(List<PipelineRunDto> runs,
+        List<WorkItemEventDto>? workItemEvents = null)
     {
         _repoMock.Setup(r => r.GetRunsAsync("org", "proj", 1, 500, It.IsAny<CancellationToken>()))
                  .ReturnsAsync(runs);
+        _repoMock.Setup(r => r.GetWorkItemEventsAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(workItemEvents ?? []);
         _repoMock.Setup(r => r.SaveAsync(It.IsAny<DoraMetricsDto>(), It.IsAny<CancellationToken>()))
                  .Returns(Task.CompletedTask);
     }
@@ -102,6 +119,36 @@ public class DoraComputeServiceTests
         result.DeploymentFrequency.Should().BeLessThan(0.1);
     }
 
+    [Fact]
+    public async Task ComputeAndSaveAsync_SetsEstimatedFlag_WhenNoDeploymentTaggedPipelines()
+    {
+        var runs = new List<PipelineRunDto>
+        {
+            Run("succeeded", isDeploy: false),
+            Run("succeeded", isDeploy: false),
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.IsDeploymentFrequencyEstimated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_ClearsEstimatedFlag_WhenDeploymentTaggedPipelinesExist()
+    {
+        var runs = new List<PipelineRunDto>
+        {
+            Run("succeeded", isDeploy: true),
+            Run("succeeded", isDeploy: false),
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.IsDeploymentFrequencyEstimated.Should().BeFalse();
+    }
+
     // ── Change Failure Rate ───────────────────────────────────────────────────────
 
     [Fact]
@@ -138,6 +185,46 @@ public class DoraComputeServiceTests
         result.ChangeFailureRate.Should().Be(100.0);
     }
 
+    [Fact]
+    public async Task ComputeAndSaveAsync_ChangeFailureRate_UsesDeploymentRunsOnly_WhenTagged()
+    {
+        // 5 failed non-deployment runs should NOT inflate CFR when deployment runs exist
+        var runs = new List<PipelineRunDto>
+        {
+            Run("failed",    isDeploy: false),
+            Run("failed",    isDeploy: false),
+            Run("failed",    isDeploy: false),
+            Run("failed",    isDeploy: false),
+            Run("failed",    isDeploy: false),
+            Run("succeeded", isDeploy: true),
+            Run("succeeded", isDeploy: true),
+            Run("failed",    isDeploy: true),   // 1 failed deployment out of 3
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        // CFR = 1 failed deploy / 3 total deploy runs × 100 ≈ 33.3 %
+        result.ChangeFailureRate.Should().BeApproximately(33.3, 0.1);
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_ChangeFailureRate_FallsBackToAllRuns_WhenNoDeploymentTagged()
+    {
+        // No deployment-tagged runs; falls back to all runs
+        var runs = new List<PipelineRunDto>
+        {
+            Run("succeeded", isDeploy: false),
+            Run("failed",    isDeploy: false),
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.ChangeFailureRate.Should().Be(50.0);
+        result.IsDeploymentFrequencyEstimated.Should().BeTrue();
+    }
+
     // ── Lead Time ─────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -163,6 +250,16 @@ public class DoraComputeServiceTests
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
         result.LeadTimeForChangesHours.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_LeadTime_IsAlwaysMarkedApproximate()
+    {
+        SetupRepo([Run("succeeded", durationMs: 3_600_000)]);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.IsLeadTimeApproximate.Should().BeTrue();
     }
 
     // ── MTTR ──────────────────────────────────────────────────────────────────────
@@ -210,38 +307,85 @@ public class DoraComputeServiceTests
         result.MeanTimeToRestoreHours.Should().Be(0);
     }
 
-    // ── Rework Rate ───────────────────────────────────────────────────────────────
+    // ── Rework Rate — work-item event based ───────────────────────────────────────
 
     [Fact]
-    public async Task ComputeAndSaveAsync_ReworkRate_IsZero_WhenAllDistinctPipelines()
+    public async Task ReworkRate_IsZero_AndEstimated_WhenNoWorkItemEvents()
     {
-        var runs = new List<PipelineRunDto>
-        {
-            Run("succeeded", pipeline: "pipe-1"),
-            Run("succeeded", pipeline: "pipe-2"),
-            Run("succeeded", pipeline: "pipe-3"),
-        };
-        SetupRepo(runs);
+        // No work-item events at all
+        SetupRepo([Run("succeeded")], workItemEvents: []);
 
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
         result.ReworkRate.Should().Be(0);
+        result.IsReworkRateEstimated.Should().BeTrue();
     }
 
     [Fact]
-    public async Task ComputeAndSaveAsync_ReworkRate_IsPositive_WhenPipelineRerun()
+    public async Task ReworkRate_IsNotEstimated_WhenWorkItemEventsPresent()
     {
-        var runs = new List<PipelineRunDto>
+        // One completion, no rework
+        var events = new List<WorkItemEventDto>
         {
-            Run("succeeded", pipeline: "pipe-1"),
-            Run("succeeded", pipeline: "pipe-1"),   // rerun
-            Run("succeeded", pipeline: "pipe-2"),
+            WiEvent("Active", "Done"),
         };
-        SetupRepo(runs);
+        SetupRepo([Run("succeeded")], workItemEvents: events);
 
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
-        result.ReworkRate.Should().BeGreaterThan(0);
+        result.IsReworkRateEstimated.Should().BeFalse();
+        result.ReworkRate.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ReworkRate_ComputesChurnFromWorkItemStateTransitions()
+    {
+        // 2 completions (Active→Done), 1 rework (Done→Active) → 50 %
+        var events = new List<WorkItemEventDto>
+        {
+            WiEvent("Active", "Done"),
+            WiEvent("Active", "Done"),
+            WiEvent("Done",   "Active"),
+        };
+        SetupRepo([Run("succeeded")], workItemEvents: events);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.ReworkRate.Should().BeApproximately(50.0, 0.01);
+    }
+
+    [Fact]
+    public async Task ReworkRate_DoesNotRiseWhenSinglePipelineRunsManyTimes()
+    {
+        // A single pipeline that ran 100 times must NOT produce a high rework rate.
+        // Rework rate is now driven by work-item events, not pipeline run counts.
+        var runs = Enumerable.Range(0, 100)
+            .Select(_ => Run("succeeded", pipeline: "ci-pipeline"))
+            .ToList();
+        // No work-item events → rework = 0
+        SetupRepo(runs, workItemEvents: []);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.ReworkRate.Should().Be(0);
+        result.IsReworkRateEstimated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ReworkRate_IsZero_WhenOnlyCompletions_NoRework()
+    {
+        var events = new List<WorkItemEventDto>
+        {
+            WiEvent("Active",      "Done"),
+            WiEvent("In Progress", "Resolved"),
+            WiEvent("New",         "Closed"),
+        };
+        SetupRepo([Run("succeeded")], workItemEvents: events);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.ReworkRate.Should().Be(0);
+        result.IsReworkRateEstimated.Should().BeFalse();
     }
 
     // ── Ratings ───────────────────────────────────────────────────────────────────
@@ -316,18 +460,20 @@ public class DoraComputeServiceTests
     }
 
     [Theory]
-    [InlineData(3, "Elite")]
-    [InlineData(8, "High")]
-    [InlineData(15, "Medium")]
-    [InlineData(25, "Low")]
-    public async Task ReworkRateRating_IsCorrect(int reruns, string expected)
+    [InlineData(0,   "Elite")]  // 0 rework transitions → 0 % → Elite
+    [InlineData(5,   "Elite")]  // 5/100 completions → 5 % → Elite
+    [InlineData(8,   "High")]   // 8 % → High
+    [InlineData(15,  "Medium")] // 15 % → Medium
+    [InlineData(25,  "Low")]    // 25 % → Low
+    public async Task ReworkRateRating_IsCorrect_UsingWorkItemEvents(int reworkCount, string expected)
     {
-        int total = 100;
-        var runs = Enumerable.Range(0, total - reruns)
-            .Select(i => Run("succeeded", pipeline: $"unique-{i}"))
-            .Concat(Enumerable.Range(0, reruns).Select(_ => Run("succeeded", pipeline: "shared")))
+        int totalCompletions = 100;
+        var events = Enumerable.Range(0, totalCompletions)
+            .Select(_ => WiEvent("Active", "Done"))
+            .Concat(Enumerable.Range(0, reworkCount)
+                .Select(_ => WiEvent("Done", "Active")))
             .ToList();
-        SetupRepo(runs);
+        SetupRepo([Run("succeeded")], workItemEvents: events);
 
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
@@ -352,7 +498,11 @@ public class DoraComputeServiceTests
     [Fact]
     public async Task ComputeAndSaveAsync_SetsCorrectOrgAndProjectId()
     {
-        SetupRepo([]);
+        _repoMock.Setup(r => r.GetRunsAsync("myorg", "myproj", 1, 500, It.IsAny<CancellationToken>()))
+                 .ReturnsAsync([]);
+        _repoMock.Setup(r => r.GetWorkItemEventsAsync(
+                     "myorg", "myproj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync([]);
         DoraMetricsDto? saved = null;
         _repoMock.Setup(r => r.SaveAsync(It.IsAny<DoraMetricsDto>(), It.IsAny<CancellationToken>()))
                  .Callback<DoraMetricsDto, CancellationToken>((d, _) => saved = d)

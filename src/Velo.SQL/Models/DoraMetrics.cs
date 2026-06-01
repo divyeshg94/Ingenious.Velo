@@ -22,8 +22,20 @@ public class DoraMetrics : AuditableEntity
     public double DeploymentFrequency { get; set; }
     public string DeploymentFrequencyRating { get; set; } = string.Empty;
 
+    /// <summary>
+    /// True when no deployment-tagged pipelines were detected and the metric
+    /// was computed from all successful runs as a fallback estimate.
+    /// </summary>
+    public bool IsDeploymentFrequencyEstimated { get; set; }
+
     public double LeadTimeForChangesHours { get; set; }
     public string LeadTimeRating { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Always true: Lead Time is currently computed as average pipeline build duration,
+    /// not as PR-merge-to-deploy time.
+    /// </summary>
+    public bool IsLeadTimeApproximate { get; set; }
 
     public double ChangeFailureRate { get; set; }
     public string ChangeFailureRating { get; set; } = string.Empty;
@@ -33,4 +45,10 @@ public class DoraMetrics : AuditableEntity
 
     public double ReworkRate { get; set; }
     public string ReworkRateRating { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when work-item event data was unavailable and Rework Rate
+    /// defaulted to 0 (insufficient data).
+    /// </summary>
+    public bool IsReworkRateEstimated { get; set; }
 }

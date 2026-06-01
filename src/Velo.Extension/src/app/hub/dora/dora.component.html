@@ -192,6 +192,9 @@
             {{ getDelta('deploymentFrequency') > 0 ? '+' : '' }}{{ getDelta('deploymentFrequency') | number:'1.1-1' }} vs prev
           </span>
         </div>
+        <div class="m-card__note" *ngIf="latest.isDeploymentFrequencyEstimated">
+          <span class="tag-estimated" title="No deployment-tagged pipelines detected. Count is estimated from all successful runs.">estimated</span>
+        </div>
         <div class="sparkline">
           <div class="spark-bar"
             *ngFor="let h of getSparkHeights('deploymentFrequency', 'deploymentFrequencyRating'); let last = last"
@@ -220,6 +223,9 @@
             {{ getDelta('leadTimeForChangesHours') > 0 ? '+' : '' }}{{ formatDelta(getDelta('leadTimeForChangesHours'), 'hours') }} vs prev
           </span>
         </div>
+        <div class="m-card__note" *ngIf="latest.isLeadTimeApproximate">
+          <span class="tag-approx" title="Approximation: average pipeline build duration. True PR-merge-to-deploy time is not yet available.">approx. build duration</span>
+        </div>
         <div class="sparkline">
           <div class="spark-bar"
             *ngFor="let h of getSparkHeights('leadTimeForChangesHours', 'leadTimeRating'); let last = last"
@@ -247,6 +253,9 @@
             [class.trend--down]="!isImprovement('changeFailureRate', true) && getDelta('changeFailureRate') !== 0">
             {{ getDelta('changeFailureRate') > 0 ? '+' : '' }}{{ getDelta('changeFailureRate') | number:'1.1-1' }}% vs prev
           </span>
+        </div>
+        <div class="m-card__note" *ngIf="latest.isDeploymentFrequencyEstimated">
+          <span class="tag-estimated" title="No deployment-tagged pipelines detected. Rate is estimated from all pipeline runs.">estimated</span>
         </div>
         <div class="sparkline">
           <div class="spark-bar"
@@ -300,7 +309,10 @@
         <div class="m-card__value">
           {{ latest.reworkRate | number:'1.1-1' }}<span class="m-card__unit"> %</span>
         </div>
-        <div class="m-card__trend" *ngIf="previous">
+        <div class="m-card__note" *ngIf="latest.isReworkRateEstimated">
+          <span class="tag-no-data" title="No work-item events received yet. Connect ADO service hooks to enable this metric.">insufficient data</span>
+        </div>
+        <div class="m-card__trend" *ngIf="previous && !latest.isReworkRateEstimated">
           <span
             [class.trend--up]="isImprovement('reworkRate', true)"
             [class.trend--down]="!isImprovement('reworkRate', true) && getDelta('reworkRate') !== 0">
@@ -394,7 +406,7 @@
             <span class="insight__icon">{{ getInsightIcon(latest.leadTimeRating) }}</span>
             <div class="insight__body">
               <strong>Lead Time — {{ formatLeadTime(latest.leadTimeForChangesHours) }} {{ leadTimeUnit(latest.leadTimeForChangesHours) }}</strong>
-              <p>Time from code commit to production deployment. Shorter lead times correlate with higher team agility.</p>
+              <p>Approximation: average pipeline build duration of successful runs. True lead time (PR merge → production) requires PR-event linkage.</p>
             </div>
           </div>
           <div class="insight" [ngClass]="'insight--' + getInsightType(latest.mttrRating)">
@@ -407,8 +419,9 @@
           <div class="insight" [ngClass]="'insight--' + getInsightType(latest.reworkRateRating)">
             <span class="insight__icon">{{ getInsightIcon(latest.reworkRateRating) }}</span>
             <div class="insight__body">
-              <strong>Rework Rate — {{ latest.reworkRate | number:'1.1-1' }}%</strong>
-              <p>Proportion of commits reverted or requiring a hotfix within 48h of deployment.</p>
+              <strong>Rework Rate — <span *ngIf="!latest.isReworkRateEstimated">{{ latest.reworkRate | number:'1.1-1' }}%</span><span *ngIf="latest.isReworkRateEstimated">insufficient data</span></strong>
+              <p *ngIf="!latest.isReworkRateEstimated">Work-item churn: proportion of completed items that transitioned back to an active state, indicating rework.</p>
+              <p *ngIf="latest.isReworkRateEstimated">No ADO work-item events received yet. Connect the <strong>workitem.updated</strong> service hook to enable this metric.</p>
             </div>
           </div>
         </div>
