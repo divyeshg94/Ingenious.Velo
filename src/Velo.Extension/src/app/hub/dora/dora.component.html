@@ -254,7 +254,7 @@
             {{ getDelta('changeFailureRate') > 0 ? '+' : '' }}{{ getDelta('changeFailureRate') | number:'1.1-1' }}% vs prev
           </span>
         </div>
-        <div class="m-card__note" *ngIf="latest.isDeploymentFrequencyEstimated">
+        <div class="m-card__note" *ngIf="latest.isChangeFailureRateEstimated">
           <span class="tag-estimated" title="No deployment-tagged pipelines detected. Rate is estimated from all pipeline runs.">estimated</span>
         </div>
         <div class="sparkline">
