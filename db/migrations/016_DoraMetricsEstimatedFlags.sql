@@ -6,7 +6,7 @@
 -- a precisely measured figure, so users are never misled.
 --
 -- IsDeploymentFrequencyEstimated: no deployment-tagged pipelines
---   were detected; DF (and CFR) were computed from all successful
+--   were detected; DF was computed from all successful
 --   runs as a fallback estimate.
 --
 -- IsLeadTimeApproximate: Lead Time is always the average pipeline
