@@ -3,7 +3,7 @@ using Velo.Shared.Models;
 namespace Velo.Api.Services;
 
 /// <summary>
-/// Shared work-item rework-rate computation used by both DoraComputeService and TeamHealthComputeService.
+/// Shared work-item rework-rate computation for DoraComputeService.
 ///
 /// Implements a proxy for the DORA Rework Rate metric:
 ///   Rework Rate = Unplanned Deployments ÷ Total Deployments
