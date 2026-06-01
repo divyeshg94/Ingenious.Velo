@@ -90,8 +90,10 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate,
                 ChangeFailureRate = metricsDto.ChangeFailureRate,
                 ChangeFailureRating = metricsDto.ChangeFailureRating,
+                IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated,
                 MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours,
                 MttrRating = metricsDto.MttrRating,
+                IsMttrEstimated = metricsDto.IsMttrEstimated,
                 ReworkRate = metricsDto.ReworkRate,
                 ReworkRateRating = metricsDto.ReworkRateRating,
                 IsReworkRateEstimated = metricsDto.IsReworkRateEstimated
@@ -517,8 +519,10 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         IsLeadTimeApproximate = metric.IsLeadTimeApproximate,
         ChangeFailureRate = metric.ChangeFailureRate,
         ChangeFailureRating = metric.ChangeFailureRating,
+        IsChangeFailureRateEstimated = metric.IsChangeFailureRateEstimated,
         MeanTimeToRestoreHours = metric.MeanTimeToRestoreHours,
         MttrRating = metric.MttrRating,
+        IsMttrEstimated = metric.IsMttrEstimated,
         ReworkRate = metric.ReworkRate,
         ReworkRateRating = metric.ReworkRateRating,
         IsReworkRateEstimated = metric.IsReworkRateEstimated

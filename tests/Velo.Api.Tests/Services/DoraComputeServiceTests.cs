@@ -24,12 +24,12 @@ public class DoraComputeServiceTests
         return new PipelineRunDto
         {
             Id = Guid.NewGuid(), OrgId = "org", ProjectId = "proj",
-            PipelineName = isDeploy ? "deploy-pipeline" : pipeline,
+            PipelineName = pipeline,
             RunNumber = Guid.NewGuid().ToString(),
             Result = result, IsDeployment = isDeploy,
             StartTime = s, FinishTime = s.AddMilliseconds(durationMs),
             DurationMs = (long)durationMs,
-            AdoPipelineId = isDeploy ? 2 : pipelineId
+            AdoPipelineId = pipelineId
         };
     }
 
@@ -222,6 +222,7 @@ public class DoraComputeServiceTests
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
         result.ChangeFailureRate.Should().Be(50.0);
+        result.IsChangeFailureRateEstimated.Should().BeTrue();
         result.IsDeploymentFrequencyEstimated.Should().BeTrue();
     }
 
@@ -265,7 +266,24 @@ public class DoraComputeServiceTests
     // ── MTTR ──────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ComputeAndSaveAsync_Mttr_ComputedFromFailureToNextSuccess()
+    public async Task ComputeAndSaveAsync_Mttr_ComputedFromDeploymentFailureToNextSuccess()
+    {
+        var base1 = DateTimeOffset.UtcNow.AddDays(-5);
+        var runs = new List<PipelineRunDto>
+        {
+            Run("failed",    start: base1,             pipeline: "deploy-pipeline", isDeploy: true),
+            Run("succeeded", start: base1.AddHours(3), pipeline: "deploy-pipeline", isDeploy: true),
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        result.MeanTimeToRestoreHours.Should().BeApproximately(3.0, 0.1);
+        result.IsMttrEstimated.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_Mttr_FallsBackToAllRuns_WhenNoDeploymentTagged()
     {
         var base1 = DateTimeOffset.UtcNow.AddDays(-5);
         var runs = new List<PipelineRunDto>
@@ -278,12 +296,13 @@ public class DoraComputeServiceTests
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
         result.MeanTimeToRestoreHours.Should().BeApproximately(3.0, 0.1);
+        result.IsMttrEstimated.Should().BeTrue();
     }
 
     [Fact]
     public async Task ComputeAndSaveAsync_Mttr_IsZero_WhenNoSuccessAfterFailure()
     {
-        SetupRepo([Run("failed")]);
+        SetupRepo([Run("failed", isDeploy: true)]);
 
         var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
 
@@ -296,8 +315,8 @@ public class DoraComputeServiceTests
         var base1 = DateTimeOffset.UtcNow.AddDays(-5);
         var runs = new List<PipelineRunDto>
         {
-            Run("failed",    start: base1,             pipeline: "pipe-a"),
-            Run("succeeded", start: base1.AddHours(2), pipeline: "pipe-b"), // different pipeline
+            Run("failed",    start: base1,             pipeline: "pipe-a", isDeploy: true),
+            Run("succeeded", start: base1.AddHours(2), pipeline: "pipe-b", isDeploy: true), // different pipeline
         };
         SetupRepo(runs);
 
@@ -305,6 +324,28 @@ public class DoraComputeServiceTests
 
         // MTTR only matches same pipeline name
         result.MeanTimeToRestoreHours.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_Mttr_IgnoresNonDeploymentFailures_WhenDeploymentRunsExist()
+    {
+        var base1 = DateTimeOffset.UtcNow.AddDays(-5);
+        var runs = new List<PipelineRunDto>
+        {
+            // Non-deployment failure should be ignored when deployment runs exist
+            Run("failed",    start: base1,             pipeline: "ci-pipeline"),
+            Run("succeeded", start: base1.AddHours(1), pipeline: "ci-pipeline"),
+            // Deployment failure takes 5h to restore
+            Run("failed",    start: base1,                pipeline: "deploy-pipeline", isDeploy: true),
+            Run("succeeded", start: base1.AddHours(5),    pipeline: "deploy-pipeline", isDeploy: true),
+        };
+        SetupRepo(runs);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+
+        // Should only measure deployment pipeline MTTR (5h), not CI pipeline (1h)
+        result.MeanTimeToRestoreHours.Should().BeApproximately(5.0, 0.1);
+        result.IsMttrEstimated.Should().BeFalse();
     }
 
     // ── Rework Rate — work-item event based ───────────────────────────────────────
@@ -423,10 +464,10 @@ public class DoraComputeServiceTests
     }
 
     [Theory]
-    [InlineData(3, "Elite")]
-    [InlineData(8, "High")]
-    [InlineData(12, "Medium")]
-    [InlineData(20, "Low")]
+    [InlineData(10, "Elite")]   // 10% ≤ 15% → Elite
+    [InlineData(20, "High")]    // 20% ≤ 30% → High
+    [InlineData(40, "Medium")]  // 40% ≤ 45% → Medium
+    [InlineData(50, "Low")]     // 50% > 45% → Low
     public async Task ChangeFailureRating_IsCorrect(int failCount, string expected)
     {
         var runs = Enumerable.Range(0, 100 - failCount).Select(_ => Run("succeeded"))
@@ -449,8 +490,8 @@ public class DoraComputeServiceTests
         var t = DateTimeOffset.UtcNow.AddDays(-5);
         var runs = new List<PipelineRunDto>
         {
-            Run("failed",    start: t,                pipeline: "p"),
-            Run("succeeded", start: t.AddHours(hours), pipeline: "p"),
+            Run("failed",    start: t,                pipeline: "deploy-pipeline", isDeploy: true),
+            Run("succeeded", start: t.AddHours(hours), pipeline: "deploy-pipeline", isDeploy: true),
         };
         SetupRepo(runs);
 

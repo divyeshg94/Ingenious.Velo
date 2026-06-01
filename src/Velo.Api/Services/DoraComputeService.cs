@@ -12,26 +12,35 @@ public interface IDoraComputeService
 /// Computes DORA metrics from stored pipeline runs and work-item events, then saves them.
 /// Called after each ingestion so the dashboard always has fresh metrics.
 ///
-/// Metric notes:
+/// Metric notes (aligned with DORA 2024 benchmarks — https://dora.dev/guides/dora-metrics/):
+///
 ///   Deployment Frequency — successful deployment-tagged runs ÷ 30 days.
 ///     Fallback: all successful runs when no pipelines are tagged as deployments
 ///     (IsDeploymentFrequencyEstimated = true in that case).
+///     Benchmarks: Elite ≥1/day, High ≥1/week, Medium ≥1/month, Low &lt;1/month.
 ///
 ///   Lead Time for Changes — average pipeline build duration of successful runs (proxy).
-///     IsLeadTimeApproximate is always true; true PR-merge-to-deploy time requires
+///     IsLeadTimeApproximate is always true; true commit-to-production time requires
 ///     PR event linkage which is not yet implemented.
+///     Benchmarks: Elite ≤1h, High ≤1day, Medium ≤1week, Low &gt;1week.
 ///
-///   Change Failure Rate — failed deployment runs ÷ total deployment runs × 100.
-///     Same fallback as Deployment Frequency: uses all runs when none are tagged.
+///   Change Failure Rate — percentage of deployments that cause a production failure
+///     (require hotfix, rollback, or remedial action).
+///     Uses deployment-tagged failed runs ÷ total deployment runs × 100.
+///     Fallback: all runs when none are tagged (IsChangeFailureRateEstimated = true).
+///     Benchmarks: Elite ≤15%, High ≤30%, Medium ≤45%, Low &gt;45%.
 ///
-///   Mean Time to Restore — average time from a failed run to the next successful
-///     run of the same pipeline (pipeline-recovery proxy).
+///   Mean Time to Restore (Time to Restore Service) — average time from a failed
+///     deployment run to the next successful run of the same pipeline.
+///     Uses deployment-tagged runs only; falls back to all runs when none are tagged
+///     (IsMttrEstimated = true in that case).
+///     Benchmarks: Elite ≤1h, High ≤1day, Medium ≤1week, Low &gt;1week.
 ///
 ///   Rework Rate — measures the ratio of unplanned work (hotfixes/rollbacks) to total
 ///     completions, aligned with the DORA standard: Unplanned Deployments ÷ Total Deployments.
 ///     Proxied here via work-item state-transition churn: transitions from a done state
 ///     back to an active state ÷ total completions × 100 (via WorkItemReworkCalculator).
-///     Benchmarks: Elite ≤4%, High ≤8%, Medium ≤32%, Low >32%.
+///     Benchmarks: Elite ≤4%, High ≤8%, Medium ≤32%, Low &gt;32%.
 ///     IsReworkRateEstimated = true when no work-item events were available for the period.
 /// </summary>
 public class DoraComputeService(
@@ -102,19 +111,27 @@ public class DoraComputeService(
         metrics.IsLeadTimeApproximate = true; // always a proxy until PR linkage is available
 
         // ── Change Failure Rate ───────────────────────────────────────────────────
-        // Use deployment-tagged runs only; same fallback as Deployment Frequency.
+        // DORA defines CFR as deployments causing production failures ÷ total deployments.
+        // Use deployment-tagged runs only; fallback to all runs when none are tagged.
         var allDeploymentRuns = periodRuns.Where(r => r.IsDeployment).ToList();
-        var runsForCfr = allDeploymentRuns.Any() ? allDeploymentRuns : periodRuns;
+        var cfrUsingFallback = !allDeploymentRuns.Any();
+        var runsForCfr = cfrUsingFallback ? periodRuns : allDeploymentRuns;
         var failedForCfr = runsForCfr.Count(r => r.Result.Equals("failed", StringComparison.OrdinalIgnoreCase));
 
         metrics.ChangeFailureRate = runsForCfr.Any()
             ? failedForCfr / (double)runsForCfr.Count * 100.0
             : 0;
         metrics.ChangeFailureRating = RateChangeFailureRate(metrics.ChangeFailureRate);
+        metrics.IsChangeFailureRateEstimated = cfrUsingFallback;
 
-        // ── MTTR ─────────────────────────────────────────────────────────────────
-        metrics.MeanTimeToRestoreHours = ComputeMttr(periodRuns);
+        // ── MTTR (Time to Restore Service) ───────────────────────────────────────
+        // DORA defines this as time from production incident to full service restoration.
+        // Use deployment-tagged runs only; fallback to all runs when none are tagged.
+        var mttrUsingFallback = !allDeploymentRuns.Any();
+        var runsForMttr = mttrUsingFallback ? periodRuns : allDeploymentRuns;
+        metrics.MeanTimeToRestoreHours = ComputeMttr(runsForMttr);
         metrics.MttrRating = RateMttr(metrics.MeanTimeToRestoreHours);
+        metrics.IsMttrEstimated = mttrUsingFallback;
 
         // ── Rework Rate (work-item state-transition churn) ────────────────────────
         // Counts work items that transitioned FROM a done state BACK TO an active state,
@@ -127,11 +144,12 @@ public class DoraComputeService(
 
         logger.LogInformation(
             "DORA_COMPUTE: Saved metrics for OrgId={OrgId}, ProjectId={ProjectId} — " +
-            "DF={DF:F2}/day (estimated={DFEst}), LT={LT:F2}h (approx), CFR={CFR:F1}%, MTTR={MTTR:F2}h, ReworkRate={RR:F1}% (estimated={RREst})",
+            "DF={DF:F2}/day (estimated={DFEst}), LT={LT:F2}h (approx), CFR={CFR:F1}% (estimated={CFREst}), MTTR={MTTR:F2}h (estimated={MTTREst}), ReworkRate={RR:F1}% (estimated={RREst})",
             SanitizeForLog(orgId), SanitizeForLog(projectId),
             metrics.DeploymentFrequency, metrics.IsDeploymentFrequencyEstimated,
             metrics.LeadTimeForChangesHours,
-            metrics.ChangeFailureRate, metrics.MeanTimeToRestoreHours,
+            metrics.ChangeFailureRate, metrics.IsChangeFailureRateEstimated,
+            metrics.MeanTimeToRestoreHours, metrics.IsMttrEstimated,
             metrics.ReworkRate, metrics.IsReworkRateEstimated);
 
         return metrics;
@@ -169,7 +187,7 @@ public class DoraComputeService(
     }
 
     // ── Rating helpers ────────────────────────────────────────────────────────────
-    // Based on DORA 2023 benchmarks
+    // Based on DORA 2024 benchmarks (https://dora.dev/guides/dora-metrics/)
 
     private static string RateDeploymentFrequency(double deploymentsPerDay) => deploymentsPerDay switch
     {
@@ -189,9 +207,9 @@ public class DoraComputeService(
 
     private static string RateChangeFailureRate(double percent) => percent switch
     {
-        <= 5 => "Elite",
-        <= 10 => "High",
-        <= 15 => "Medium",
+        <= 15 => "Elite",
+        <= 30 => "High",
+        <= 45 => "Medium",
         _ => "Low"
     };
 

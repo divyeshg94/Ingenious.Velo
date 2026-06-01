@@ -40,8 +40,20 @@ public class DoraMetrics : AuditableEntity
     public double ChangeFailureRate { get; set; }
     public string ChangeFailureRating { get; set; } = string.Empty;
 
+    /// <summary>
+    /// True when no deployment-tagged pipelines were detected and CFR was computed
+    /// from all pipeline runs as a fallback estimate.
+    /// </summary>
+    public bool IsChangeFailureRateEstimated { get; set; }
+
     public double MeanTimeToRestoreHours { get; set; }
     public string MttrRating { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when no deployment-tagged pipelines were detected and MTTR was computed
+    /// from all pipeline failures as a fallback (may include non-production failures).
+    /// </summary>
+    public bool IsMttrEstimated { get; set; }
 
     public double ReworkRate { get; set; }
     public string ReworkRateRating { get; set; } = string.Empty;
