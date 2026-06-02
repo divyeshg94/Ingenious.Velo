@@ -48,9 +48,10 @@ public class TeamHealthComputeService(
         var to   = DateTimeOffset.UtcNow;
         var from = to.AddDays(-PeriodDays);
 
-        // Fetch up to 500 most recent runs; filter to the rolling 30-day window.
-        var allRuns  = (await repo.GetRunsAsync(orgId, projectId, 1, 500, cancellationToken)).ToList();
-        var runs     = allRuns.Where(r => r.StartTime >= from).ToList();
+        // Period-based query for runs — no page cap so busy customers' older runs
+        // don't silently fall out of the 30-day window.
+        var runs = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, cancellationToken))
+            .ToList();
 
         // Fetch PR events for the same 30-day window.
         var prEvents  = (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken)).ToList();
@@ -61,8 +62,8 @@ public class TeamHealthComputeService(
         var hasWorkItemData = workItemEvents.Count > 0;
 
         logger.LogInformation(
-            "HEALTH: Found {Total} total runs, {Period} in last {Days} days, {PrCount} PR events, {WiCount} WI events — OrgId={OrgId}",
-            allRuns.Count, runs.Count, PeriodDays, prEvents.Count, workItemEvents.Count, orgId);
+            "HEALTH: Found {Period} runs in last {Days} days, {PrCount} PR events, {WiCount} WI events — OrgId={OrgId}",
+            runs.Count, PeriodDays, prEvents.Count, workItemEvents.Count, orgId);
 
         // ── Cycle time metrics ────────────────────────────────────────────
         var codingTimeHours = ComputeCodingTime(runs);

@@ -51,8 +51,10 @@ public class TeamHealthComputeServiceTests
 
     private void SetupRepo(List<PipelineRunDto> runs, List<PullRequestEventDto>? prs = null)
     {
-        _repoMock.Setup(r => r.GetRunsAsync("org", "proj", 1, 500, It.IsAny<CancellationToken>()))
-                 .ReturnsAsync(runs);
+        _repoMock.Setup(r => r.GetRunsInPeriodAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, CancellationToken _c) =>
+                     runs.Where(r => r.StartTime >= from && r.StartTime < to).ToList());
         _repoMock.Setup(r => r.GetPrEventsAsync("org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(prs ?? []);
         _repoMock.Setup(r => r.SaveTeamHealthAsync(It.IsAny<TeamHealthDto>(), It.IsAny<CancellationToken>()))

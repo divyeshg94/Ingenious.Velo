@@ -79,6 +79,15 @@ docs/                   Architecture, API, extension, and contributing docs
   // Wrong
   logger.LogInformation($"Processing run: {run.PipelineId} {orgId}");
   ```
+- **Sanitize every user-supplied log argument.** Any value that originates from a request, webhook, ADO API, or other untrusted source MUST be wrapped in `Velo.Api.Logging.LogSanitizer.SanitiseForLog(...)` before being passed to `ILogger`. This includes `orgId`, `projectId`, `repoName`, build numbers, branch names, URLs, exception messages from third parties, and anything else not generated server-side. CodeQL's log-injection rule flags structured-template arguments too — sanitization at the call site is the only way to avoid repeated review findings.
+  ```csharp
+  // Correct
+  logger.LogInformation("Saved DORA metrics for OrgId={OrgId}, ProjectId={ProjectId}",
+      LogSanitizer.SanitiseForLog(orgId), LogSanitizer.SanitiseForLog(projectId));
+
+  // Wrong — flagged by CodeQL even though it uses structured properties
+  logger.LogInformation("Saved DORA metrics for OrgId={OrgId}, ProjectId={ProjectId}", orgId, projectId);
+  ```
 
 ---
 
@@ -109,6 +118,10 @@ await connection.ExecuteAsync("EXEC sp_set_session_context N'org_id', @OrgId", n
 ### Resolving OrgId
 
 `TenantResolutionMiddleware` extracts `org_id` from the Azure AD B2C token's `oid` claim and sets it on the scoped `VeloDbContext`. Do not re-read the org ID from the request in service or controller code — read it from `dbContext.CurrentOrgId`.
+
+### Background work (Task.Run, hosted services, webhooks)
+
+Any code that resolves a fresh DI scope outside the HTTP pipeline (e.g. `Task.Run` with `IServiceScopeFactory.CreateAsyncScope()`, `IHostedService`, anonymous webhooks) MUST call `Velo.Api.Services.TenantContextHelper.SetAsync(scopedDb, orgId, ct)` before any database access. Setting `dbContext.CurrentOrgId` alone is **not** sufficient — that satisfies the EF query filter but not the SQL Server `SESSION_CONTEXT(N'org_id')` that RLS reads. Skipping the helper will cause RLS-protected writes to fail and, more dangerously, can defeat tenant isolation for raw-SQL reads.
 
 ---
 

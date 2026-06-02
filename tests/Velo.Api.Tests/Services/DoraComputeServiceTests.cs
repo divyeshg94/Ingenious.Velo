@@ -49,8 +49,13 @@ public class DoraComputeServiceTests
     private void SetupRepo(List<PipelineRunDto> runs,
         List<WorkItemEventDto>? workItemEvents = null)
     {
-        _repoMock.Setup(r => r.GetRunsAsync("org", "proj", 1, 500, It.IsAny<CancellationToken>()))
-                 .ReturnsAsync(runs);
+        _repoMock.Setup(r => r.GetRunsInPeriodAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, CancellationToken _c) =>
+                     runs.Where(r => r.StartTime >= from && r.StartTime < to).ToList());
+        _repoMock.Setup(r => r.GetPrEventsAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<PullRequestEventDto>());
         _repoMock.Setup(r => r.GetWorkItemEventsAsync(
                      "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(workItemEvents ?? []);
@@ -487,7 +492,9 @@ public class DoraComputeServiceTests
     [InlineData(200, "Low")]
     public async Task MttrRating_IsCorrect(double hours, string expected)
     {
-        var t = DateTimeOffset.UtcNow.AddDays(-5);
+        // Anchor the failure far enough back that the subsequent success still lands
+        // before "now" (and inside the 30-day rolling window the SUT queries).
+        var t = DateTimeOffset.UtcNow.AddHours(-(hours + 1));
         var runs = new List<PipelineRunDto>
         {
             Run("failed",    start: t,                pipeline: "deploy-pipeline", isDeploy: true),

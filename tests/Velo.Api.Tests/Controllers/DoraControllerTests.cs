@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Velo.Api.Controllers;
@@ -8,6 +9,8 @@ using Velo.Api.Services;
 using Velo.Api.Tests.Helpers;
 using Velo.Shared.Contracts;
 using Velo.Shared.Models;
+using Velo.SQL;
+using Microsoft.EntityFrameworkCore;
 
 namespace Velo.Api.Tests.Controllers;
 
@@ -16,14 +19,24 @@ public class DoraControllerTests
     private readonly Mock<IMetricsRepository> _repoMock = new();
     private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
     private readonly Mock<IDoraComputeService> _doraComputeMock = new();
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DoraController _sut;
 
     public DoraControllerTests()
     {
+        // Background auto-recovery resolves its services from a fresh DI scope (the controller
+        // request scope is gone by the time Task.Run runs). Build a tiny ServiceProvider that
+        // hands out the mocks so the spawned background work still observes them.
+        var services = new ServiceCollection();
+        services.AddSingleton(_ingestMock.Object);
+        services.AddSingleton(_doraComputeMock.Object);
+        services.AddDbContext<VeloDbContext>(o => o.UseInMemoryDatabase("dora-ctrl-tests-" + Guid.NewGuid()));
+        var provider = services.BuildServiceProvider();
+        _scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
         _sut = new DoraController(
             _repoMock.Object,
-            _ingestMock.Object,
-            _doraComputeMock.Object,
+            _scopeFactory,
             NullLogger<DoraController>.Instance);
     }
 

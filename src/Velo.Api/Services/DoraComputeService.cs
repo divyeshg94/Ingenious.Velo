@@ -57,15 +57,24 @@ public class DoraComputeService(
         var to = DateTimeOffset.UtcNow;
         var from = to.AddDays(-PeriodDays);
 
-        var runs = (await repo.GetRunsAsync(orgId, projectId, 1, 500, cancellationToken)).ToList();
-        var periodRuns = runs.Where(r => r.StartTime >= from).ToList();
+        // Period-based query — no page cap. Busy customers (hundreds of runs/day)
+        // were silently truncated to the most recent 500 runs which biased every
+        // metric toward "Elite" as older failures fell out of the window.
+        var periodRuns = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, cancellationToken))
+            .ToList();
 
         var workItemEvents = (await repo.GetWorkItemEventsAsync(orgId, projectId, from, cancellationToken))
             .ToList();
 
+        // PR events drive real Lead Time computation when available. The repo
+        // projection now carries diff + cycle data; when absent we fall back to
+        // a build-duration proxy and flag the result as approximate.
+        var prEvents = (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken))
+            .ToList();
+
         logger.LogInformation(
-            "DORA_COMPUTE: {Total} total runs, {Period} in last {Days} days, {WiCount} WI events — OrgId={OrgId}, ProjectId={ProjectId}",
-            runs.Count, periodRuns.Count, PeriodDays, workItemEvents.Count,
+            "DORA_COMPUTE: {Period} runs in last {Days} days, {WiCount} WI events, {PrCount} PR events — OrgId={OrgId}, ProjectId={ProjectId}",
+            periodRuns.Count, PeriodDays, workItemEvents.Count, prEvents.Count,
             SanitizeForLog(orgId), SanitizeForLog(projectId));
 
         var metrics = new DoraMetricsDto
@@ -97,18 +106,30 @@ public class DoraComputeService(
         metrics.DeploymentFrequencyRating = RateDeploymentFrequency(metrics.DeploymentFrequency);
         metrics.IsDeploymentFrequencyEstimated = usingFallback;
 
-        // ── Lead Time (average build duration — proxy) ───────────────────────────
-        // True lead time (PR merge → production deploy) requires PR-event linkage,
-        // which is not yet implemented. We use average successful-run duration as a proxy.
-        var completedRuns = periodRuns
-            .Where(r => r.DurationMs.HasValue && r.Result.Equals("succeeded", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // ── Lead Time for Changes ────────────────────────────────────────────────
+        // DORA: average time from a code change being committed to running in production.
+        // Best signal: PR merge time → next successful deployment finish time.
+        // Fallback: average successful build duration (clearly flagged as approximate).
+        var leadTime = ComputeLeadTimeFromPrAndDeploys(prEvents, deployments);
 
-        metrics.LeadTimeForChangesHours = completedRuns.Any()
-            ? completedRuns.Average(r => r.DurationMs!.Value) / 3_600_000.0
-            : 0;
+        if (leadTime is { } realLeadTimeHours)
+        {
+            metrics.LeadTimeForChangesHours = realLeadTimeHours;
+            metrics.IsLeadTimeApproximate = false;
+        }
+        else
+        {
+            // Proxy: avg successful run duration. Always marked approximate.
+            var completedRuns = periodRuns
+                .Where(r => r.DurationMs.HasValue && r.Result.Equals("succeeded", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            metrics.LeadTimeForChangesHours = completedRuns.Any()
+                ? completedRuns.Average(r => r.DurationMs!.Value) / 3_600_000.0
+                : 0;
+            metrics.IsLeadTimeApproximate = true;
+        }
         metrics.LeadTimeRating = RateLeadTime(metrics.LeadTimeForChangesHours);
-        metrics.IsLeadTimeApproximate = true; // always a proxy until PR linkage is available
 
         // ── Change Failure Rate ───────────────────────────────────────────────────
         // DORA defines CFR as deployments causing production failures ÷ total deployments.
@@ -144,15 +165,89 @@ public class DoraComputeService(
 
         logger.LogInformation(
             "DORA_COMPUTE: Saved metrics for OrgId={OrgId}, ProjectId={ProjectId} — " +
-            "DF={DF:F2}/day (estimated={DFEst}), LT={LT:F2}h (approx), CFR={CFR:F1}% (estimated={CFREst}), MTTR={MTTR:F2}h (estimated={MTTREst}), ReworkRate={RR:F1}% (estimated={RREst})",
+            "DF={DF:F2}/day (estimated={DFEst}), LT={LT:F2}h (approx={LTApprox}), CFR={CFR:F1}% (estimated={CFREst}), MTTR={MTTR:F2}h (estimated={MTTREst}), ReworkRate={RR:F1}% (estimated={RREst})",
             SanitizeForLog(orgId), SanitizeForLog(projectId),
             metrics.DeploymentFrequency, metrics.IsDeploymentFrequencyEstimated,
-            metrics.LeadTimeForChangesHours,
+            metrics.LeadTimeForChangesHours, metrics.IsLeadTimeApproximate,
             metrics.ChangeFailureRate, metrics.IsChangeFailureRateEstimated,
             metrics.MeanTimeToRestoreHours, metrics.IsMttrEstimated,
             metrics.ReworkRate, metrics.IsReworkRateEstimated);
 
         return metrics;
+    }
+
+    // ── Lead Time from PR + deploy linkage ───────────────────────────────────────
+    /// <summary>
+    /// Real DORA lead time: for each completed (merged) PR, find the first successful
+    /// deployment that finished AFTER the PR's close time. Returns the average hours
+    /// across at least <see cref="MinPrLinkagesForRealLeadTime"/> linkages, or null
+    /// when there is insufficient PR/deploy signal to be meaningful.
+    ///
+    /// Why this approach:
+    ///   • PR ClosedAt is the closest available proxy for "code merged to main"
+    ///   • The next successful deployment is the first time those changes ran in production
+    ///   • Outliers above 60 days are dropped — stale PRs that merged into long-running
+    ///     branches would otherwise dominate the average
+    /// </summary>
+    private const int MinPrLinkagesForRealLeadTime = 3;
+
+    private static double? ComputeLeadTimeFromPrAndDeploys(
+        List<PullRequestEventDto> prEvents,
+        List<PipelineRunDto> successfulDeployments)
+    {
+        if (prEvents.Count == 0) return null;
+        if (successfulDeployments.Count == 0) return null;
+
+        var mergedPrs = prEvents
+            .Where(p => p.Status.Equals("completed", StringComparison.OrdinalIgnoreCase)
+                        && p.ClosedAt.HasValue)
+            .ToList();
+
+        if (mergedPrs.Count == 0) return null;
+
+        // Sort deploys by their finish (or start) time once, into a parallel array
+        // of effective deploy timestamps so binary search can target it directly.
+        var orderedDeploys = successfulDeployments
+            .Where(d => (d.FinishTime ?? d.StartTime) != default)
+            .OrderBy(d => d.FinishTime ?? d.StartTime)
+            .ToList();
+
+        if (orderedDeploys.Count == 0) return null;
+
+        var deployTimes = new DateTimeOffset[orderedDeploys.Count];
+        for (var i = 0; i < orderedDeploys.Count; i++)
+            deployTimes[i] = orderedDeploys[i].FinishTime ?? orderedDeploys[i].StartTime;
+
+        // Walk merged PRs in chronological order so we can advance a single
+        // monotonically-increasing pointer into deployTimes — O(PR + Deployments)
+        // instead of the previous O(PR * Deployments) LINQ FirstOrDefault scan.
+        // For the very first PR (or after a regression in PR order) we fall back
+        // to Array.BinarySearch which is O(log Deployments).
+        var sortedPrs = mergedPrs
+            .OrderBy(p => p.ClosedAt!.Value)
+            .ToList();
+
+        var leadHours = new List<double>(sortedPrs.Count);
+        var cursor = 0;
+        foreach (var pr in sortedPrs)
+        {
+            var mergedAt = pr.ClosedAt!.Value;
+
+            // Advance the cursor until deployTimes[cursor] >= mergedAt.
+            while (cursor < deployTimes.Length && deployTimes[cursor] < mergedAt)
+                cursor++;
+
+            if (cursor >= deployTimes.Length) break; // no future deploy for any remaining PR
+
+            var deployTime = deployTimes[cursor];
+            var hours = (deployTime - mergedAt).TotalHours;
+            if (hours <= 0 || hours > 60 * 24) continue;
+
+            leadHours.Add(hours);
+        }
+
+        if (leadHours.Count < MinPrLinkagesForRealLeadTime) return null;
+        return leadHours.Average();
     }
 
     // ── Log-forging prevention ────────────────────────────────────────────────────
@@ -161,9 +256,15 @@ public class DoraComputeService(
         Velo.Api.Logging.LogSanitizer.SanitiseForLog(value);
 
     // ── MTTR: average time from a failure until the next success ─────────────────
+    // Uses FinishTime so a long-running failed build isn't measured as instant restoration.
+    // Only runs that have a FinishTime contribute — partial runs are skipped.
     private static double ComputeMttr(List<PipelineRunDto> runs)
     {
-        var sorted = runs.OrderBy(r => r.StartTime).ToList();
+        var sorted = runs
+            .Where(r => r.FinishTime.HasValue)
+            .OrderBy(r => r.FinishTime!.Value)
+            .ToList();
+
         var restoreTimes = new List<double>();
 
         for (int i = 0; i < sorted.Count; i++)
@@ -179,7 +280,7 @@ public class DoraComputeService(
 
             if (nextSuccess == null) continue;
 
-            var restoreHours = (nextSuccess.StartTime - failure.StartTime).TotalHours;
+            var restoreHours = (nextSuccess.FinishTime!.Value - failure.FinishTime!.Value).TotalHours;
             if (restoreHours > 0) restoreTimes.Add(restoreHours);
         }
 
