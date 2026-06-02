@@ -72,7 +72,8 @@ public class AdoPipelineIngestService(
                 urlBuilder.Append("&continuationToken=").Append(Uri.EscapeDataString(continuationToken));
 
             var url = urlBuilder.ToString();
-            logger.LogInformation("ADO_INGEST: Page {Page} GET {Url}", page, url);
+            logger.LogInformation("ADO_INGEST: Page {Page} GET {Url}", page,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(url));
 
             HttpResponseMessage response;
             try
@@ -86,6 +87,11 @@ public class AdoPipelineIngestService(
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), page);
                 throw;
             }
+
+            // Dispose the response at the end of every iteration; a long-running
+            // ingest could otherwise leak HttpResponseMessage instances and
+            // contribute to socket exhaustion.
+            using var _responseScope = response;
 
             if (!response.IsSuccessStatusCode)
             {

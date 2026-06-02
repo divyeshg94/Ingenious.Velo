@@ -699,23 +699,7 @@ public class WebhookController(
     /// </summary>
     private async Task SetTenantContextAsync(string orgId, CancellationToken cancellationToken)
     {
-        dbContext.CurrentOrgId = orgId;
-
-        // sp_set_session_context is SQL Server-specific; skip for non-relational providers (e.g., InMemory in tests)
-        if (!dbContext.Database.IsRelational()) return;
-
-        var connection = dbContext.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync(cancellationToken);
-
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = "EXEC sp_set_session_context N'org_id', @OrgId";
-        cmd.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@OrgId", orgId));
-
-        // SECURITY: If we cannot set the RLS session context we must NOT continue — proceeding
-        // without it would allow this unauthenticated webhook code path to read/write rows for
-        // ALL organisations. Let the exception propagate so the caller returns 500.
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        await Velo.Api.Services.TenantContextHelper.SetAsync(dbContext, orgId, cancellationToken);
         logger.LogDebug("WEBHOOK: Tenant context set for OrgId={OrgId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
     }
 }

@@ -110,7 +110,7 @@ public class DoraComputeService(
         // DORA: average time from a code change being committed to running in production.
         // Best signal: PR merge time → next successful deployment finish time.
         // Fallback: average successful build duration (clearly flagged as approximate).
-        var leadTime = ComputeLeadTimeFromPrAndDeploys(prEvents, periodRuns, deployments);
+        var leadTime = ComputeLeadTimeFromPrAndDeploys(prEvents, deployments);
 
         if (leadTime is { } realLeadTimeHours)
         {
@@ -193,7 +193,6 @@ public class DoraComputeService(
 
     private static double? ComputeLeadTimeFromPrAndDeploys(
         List<PullRequestEventDto> prEvents,
-        List<PipelineRunDto> periodRuns,
         List<PipelineRunDto> successfulDeployments)
     {
         if (prEvents.Count == 0) return null;

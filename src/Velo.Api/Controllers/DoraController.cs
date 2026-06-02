@@ -102,10 +102,13 @@ public class DoraController(
                         var scopedIngest = sp.GetRequiredService<IAdoPipelineIngestService>();
                         var scopedCompute = sp.GetRequiredService<IDoraComputeService>();
                         var scopedDb = sp.GetRequiredService<Velo.SQL.VeloDbContext>();
-                        scopedDb.CurrentOrgId = capturedOrgId;
 
                         try
                         {
+                            // Set EF query-filter org AND SQL Server SESSION_CONTEXT(N'org_id')
+                            // so RLS lets the background ingest/compute path read & write.
+                            await TenantContextHelper.SetAsync(scopedDb, capturedOrgId, CancellationToken.None);
+
                             logger.LogInformation(
                                 "AUTO_RECOVERY: Background sync triggered from dora/latest — OrgId={OrgId}, ProjectId={ProjectId}, " +
                                 "RepositoryName={RepositoryName}, TeamName={TeamName}",

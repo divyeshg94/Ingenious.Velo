@@ -148,11 +148,15 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
             logger.LogInformation(
                 "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}, Upsert: {Upsert}",
-                metricsDto.OrgId, metricsDto.ProjectId, metricsDto.Id, existing is not null);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
+                metricsDto.Id, existing is not null);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error saving DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}", metricsDto.OrgId, metricsDto.ProjectId);
+            logger.LogError(ex, "Error saving DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId));
             throw;
         }
     }
