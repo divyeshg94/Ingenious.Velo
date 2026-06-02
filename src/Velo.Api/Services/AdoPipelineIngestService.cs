@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Velo.Shared.Models.Ado;
@@ -27,19 +28,17 @@ public class AdoPipelineIngestService(
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
+    private const int PageSize = 200;
+    private const int MaxPages = 25;             // 25 × 200 = 5,000 builds — safety cap
+    private const int IngestLookbackDays = 60;   // bound first-sync work
+
     public async Task<int> IngestAsync(
         string orgId,
         string projectId,
         string adoAccessToken,
         CancellationToken cancellationToken)
     {
-
-        // orgId is the ADO organisation name (e.g. "mycompany"), set from SDK.getHost().name
-        var url = $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
-                  "/_apis/build/builds?api-version=7.1&$top=200&queryOrder=finishTimeDescending" +
-                  "&statusFilter=completed";
-
-        logger.LogInformation("ADO_INGEST: Fetching builds from {Url}", url);
+        var minTime = DateTimeOffset.UtcNow.AddDays(-IngestLookbackDays).ToString("O");
 
         using var http = httpClientFactory.CreateClient();
         // Explicit timeout prevents thread-pool exhaustion if ADO is slow or unreachable.
@@ -47,97 +46,145 @@ public class AdoPipelineIngestService(
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adoAccessToken);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await http.GetAsync(url, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}",
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-            throw;
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            // Log status + reason at ERROR; log full body at DEBUG only — body may contain
-            // internal ADO service detail we don't want persisted to the log table.
-            logger.LogError(
-                "ADO_INGEST: ADO API returned {Status} {Reason} for OrgId={OrgId}, ProjectId={ProjectId}",
-                (int)response.StatusCode, response.ReasonPhrase,
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-            logger.LogDebug(
-                "ADO_INGEST: Error body for OrgId={OrgId}, ProjectId={ProjectId}: {Body}",
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(await response.Content.ReadAsStringAsync(cancellationToken), 1000));
-            throw new InvalidOperationException(
-                $"Azure DevOps API returned {(int)response.StatusCode}: {response.ReasonPhrase}. " +
-                "Check the access token scope (vso.build required).");
-        }
-
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var builds = JsonSerializer.Deserialize<AdoBuildsResponse>(json, _json);
-
-        if (builds?.Value == null || builds.Value.Length == 0)
-        {
-            logger.LogInformation("ADO_INGEST: No builds found for OrgId={OrgId}, ProjectId={ProjectId}",
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-            return 0;
-        }
-
-        logger.LogInformation(
-            "ADO_INGEST: Fetched {Count} builds for OrgId={OrgId}, ProjectId={ProjectId}",
-            builds.Value.Length,
-            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-
         int saved = 0;
+        int totalFetched = 0;
+        int page = 0;
+        string? continuationToken = null;
         Dictionary<int, string?> repoCache = new();
-        foreach (var build in builds.Value)
+
+        // Paginate via the ADO `x-ms-continuationtoken` response header. The previous
+        // implementation fetched only the latest 200 builds on first sync, which silently
+        // truncated history for any customer with more than 200 builds in the lookback
+        // window. We now walk pages until ADO stops returning a continuation token,
+        // we hit a page where every build already exists (incremental short-circuit),
+        // or the safety cap kicks in.
+        while (page < MaxPages)
         {
-            if (build.StartTime == null || build.FinishTime == null) continue;
+            page++;
 
-            var defId = build.Definition?.Id ?? 0;
+            var urlBuilder = new StringBuilder(
+                $"https://dev.azure.com/{orgId}/{Uri.EscapeDataString(projectId)}" +
+                $"/_apis/build/builds?api-version=7.1&$top={PageSize}" +
+                "&queryOrder=finishTimeDescending&statusFilter=completed" +
+                $"&minTime={Uri.EscapeDataString(minTime)}");
 
-            // Resolve repo name once per definition (cached for the whole sync pass)
-            if (!repoCache.TryGetValue(defId, out var repoName))
+            if (!string.IsNullOrEmpty(continuationToken))
+                urlBuilder.Append("&continuationToken=").Append(Uri.EscapeDataString(continuationToken));
+
+            var url = urlBuilder.ToString();
+            logger.LogInformation("ADO_INGEST: Page {Page} GET {Url}", page, url);
+
+            HttpResponseMessage response;
+            try
             {
-                repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
-                repoCache[defId] = repoName;
+                response = await http.GetAsync(url, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "ADO_INGEST: HTTP request failed for OrgId={OrgId}, ProjectId={ProjectId}, Page={Page}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), page);
+                throw;
             }
 
-            // Skip if already stored
-            var alreadyExists = await repo.RunExistsAsync(
-                orgId, projectId, defId, build.BuildNumber ?? string.Empty, cancellationToken);
-            if (alreadyExists) continue;
-
-            var run = new PipelineRunDto
+            if (!response.IsSuccessStatusCode)
             {
-                Id = Guid.NewGuid(),
-                OrgId = orgId,
-                ProjectId = projectId,
-                AdoPipelineId = defId,
-                PipelineName = build.Definition?.Name ?? "Unknown",
-                RunNumber = build.BuildNumber ?? string.Empty,
-                Result = build.Result ?? "unknown",
-                StartTime = build.StartTime.Value,
-                FinishTime = build.FinishTime,
-                DurationMs = build.FinishTime.HasValue
-                    ? (long)(build.FinishTime.Value - build.StartTime.Value).TotalMilliseconds
-                    : null,
-                IsDeployment = IsDeploymentPipeline(build),
-                TriggeredBy = build.RequestedBy?.DisplayName,
-                RepositoryName = repoName,
-                IngestedAt = DateTimeOffset.UtcNow
-            };
+                logger.LogError(
+                    "ADO_INGEST: ADO API returned {Status} {Reason} for OrgId={OrgId}, ProjectId={ProjectId}, Page={Page}",
+                    (int)response.StatusCode, response.ReasonPhrase,
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), page);
+                logger.LogDebug(
+                    "ADO_INGEST: Error body for OrgId={OrgId}, ProjectId={ProjectId}, Page={Page}: {Body}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), page,
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(await response.Content.ReadAsStringAsync(cancellationToken), 1000));
+                throw new InvalidOperationException(
+                    $"Azure DevOps API returned {(int)response.StatusCode}: {response.ReasonPhrase}. " +
+                    "Check the access token scope (vso.build required).");
+            }
 
-            await repo.SaveRunAsync(run, cancellationToken);
-            saved++;
+            // Extract continuation token from response header BEFORE consuming body.
+            continuationToken = response.Headers.TryGetValues("x-ms-continuationtoken", out var ct)
+                ? ct.FirstOrDefault()
+                : null;
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var builds = JsonSerializer.Deserialize<AdoBuildsResponse>(json, _json);
+
+            if (builds?.Value == null || builds.Value.Length == 0)
+            {
+                logger.LogInformation(
+                    "ADO_INGEST: Page {Page} returned 0 builds — stopping pagination for OrgId={OrgId}, ProjectId={ProjectId}",
+                    page,
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
+                break;
+            }
+
+            totalFetched += builds.Value.Length;
+
+            int pageSaved = 0;
+            int pageExisting = 0;
+            foreach (var build in builds.Value)
+            {
+                if (build.StartTime == null || build.FinishTime == null) continue;
+
+                var defId = build.Definition?.Id ?? 0;
+
+                // Resolve repo name once per definition (cached for the whole sync pass)
+                if (!repoCache.TryGetValue(defId, out var repoName))
+                {
+                    repoName = await ResolveRepositoryNameAsync(orgId, projectId, defId, adoAccessToken, http, cancellationToken);
+                    repoCache[defId] = repoName;
+                }
+
+                // Skip if already stored
+                var alreadyExists = await repo.RunExistsAsync(
+                    orgId, projectId, defId, build.BuildNumber ?? string.Empty, cancellationToken);
+                if (alreadyExists)
+                {
+                    pageExisting++;
+                    continue;
+                }
+
+                var run = new PipelineRunDto
+                {
+                    Id = Guid.NewGuid(),
+                    OrgId = orgId,
+                    ProjectId = projectId,
+                    AdoPipelineId = defId,
+                    PipelineName = build.Definition?.Name ?? "Unknown",
+                    RunNumber = build.BuildNumber ?? string.Empty,
+                    Result = build.Result ?? "unknown",
+                    StartTime = build.StartTime.Value,
+                    FinishTime = build.FinishTime,
+                    DurationMs = build.FinishTime.HasValue
+                        ? (long)(build.FinishTime.Value - build.StartTime.Value).TotalMilliseconds
+                        : null,
+                    IsDeployment = IsDeploymentPipeline(build),
+                    TriggeredBy = build.RequestedBy?.DisplayName,
+                    RepositoryName = repoName,
+                    IngestedAt = DateTimeOffset.UtcNow
+                };
+
+                await repo.SaveRunAsync(run, cancellationToken);
+                pageSaved++;
+                saved++;
+            }
+
+            logger.LogInformation(
+                "ADO_INGEST: Page {Page} — fetched={Fetched}, saved={Saved}, existing={Existing}, continuation={HasCont}",
+                page, builds.Value.Length, pageSaved, pageExisting, !string.IsNullOrEmpty(continuationToken));
+
+            // Incremental short-circuit: every build in this page was already stored.
+            // Older pages are guaranteed to be older still (queryOrder=finishTimeDescending),
+            // so they cannot contain anything new. Stop walking.
+            if (pageSaved == 0 && pageExisting == builds.Value.Length)
+                break;
+
+            if (string.IsNullOrEmpty(continuationToken))
+                break;
         }
 
         // Backfill RepositoryName on pre-existing runs that were ingested before the column existed.
@@ -163,8 +210,8 @@ public class AdoPipelineIngestService(
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
         logger.LogInformation(
-            "ADO_INGEST: Saved {Saved}/{Total} runs for OrgId={OrgId}, ProjectId={ProjectId}",
-            saved, builds.Value.Length,
+            "ADO_INGEST: Saved {Saved} new runs across {Fetched} fetched (pages={Pages}) for OrgId={OrgId}, ProjectId={ProjectId}",
+            saved, totalFetched, page,
             Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
             Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
 
@@ -323,10 +370,7 @@ public class AdoPipelineIngestService(
         }
     }
 
-    // Heuristic: pipelines with "deploy", "release", "prod" in their name are deployments
+    // Heuristic delegated to DeploymentDetector so all ingestion paths agree.
     private static bool IsDeploymentPipeline(AdoBuild build)
-    {
-        var name = (build.Definition?.Name ?? string.Empty).ToLowerInvariant();
-        return name.Contains("deploy") || name.Contains("release") || name.Contains("prod");
-    }
+        => DeploymentDetector.IsDeployment(build.Definition?.Name);
 }

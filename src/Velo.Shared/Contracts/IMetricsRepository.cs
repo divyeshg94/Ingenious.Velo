@@ -15,6 +15,16 @@ public interface IMetricsRepository
 
     // Pipeline Runs
     Task<IEnumerable<PipelineRunDto>> GetRunsAsync(string orgId, string projectId, int page, int pageSize, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns every pipeline run for the given org/project whose StartTime falls
+    /// within [from, to). Unlike <see cref="GetRunsAsync"/> there is no page cap —
+    /// callers computing rolling-window metrics must see every run in the window
+    /// or the result is silently wrong.
+    /// </summary>
+    Task<IEnumerable<PipelineRunDto>> GetRunsInPeriodAsync(
+        string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+
     Task<bool> RunExistsAsync(string orgId, string projectId, int adoPipelineId, string runNumber, CancellationToken cancellationToken);
     Task SaveRunAsync(PipelineRunDto run, CancellationToken cancellationToken);
 

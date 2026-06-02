@@ -18,8 +18,7 @@ namespace Velo.Api.Controllers;
 [Authorize]
 public class DoraController(
     IMetricsRepository metricsRepository,
-    IAdoPipelineIngestService ingestService,
-    IDoraComputeService doraComputeService,
+    IServiceScopeFactory scopeFactory,
     ILogger<DoraController> logger) : ControllerBase
 {
     private const string AdoTokenHeader = "X-Ado-Access-Token";
@@ -91,8 +90,20 @@ public class DoraController(
                     var capturedRepo = repositoryName;
                     var capturedTeam = teamName;
 
+                    // IMPORTANT: spawn the background work on a NEW DI scope.
+                    // The request scope is disposed the moment this action returns, so
+                    // `ingestService` / `doraComputeService` captured from the controller
+                    // would hit ObjectDisposedException on their first DB/HttpClient call.
+                    // Resolving fresh from a new IServiceScope avoids that.
                     _ = Task.Run(async () =>
                     {
+                        await using var scope = scopeFactory.CreateAsyncScope();
+                        var sp = scope.ServiceProvider;
+                        var scopedIngest = sp.GetRequiredService<IAdoPipelineIngestService>();
+                        var scopedCompute = sp.GetRequiredService<IDoraComputeService>();
+                        var scopedDb = sp.GetRequiredService<Velo.SQL.VeloDbContext>();
+                        scopedDb.CurrentOrgId = capturedOrgId;
+
                         try
                         {
                             logger.LogInformation(
@@ -100,12 +111,15 @@ public class DoraController(
                                 "RepositoryName={RepositoryName}, TeamName={TeamName}",
                                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedOrgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedProjectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedRepo ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(capturedTeam ?? "(all)"));
 
-                            var ingested = await ingestService.IngestAsync(
+                            var ingested = await scopedIngest.IngestAsync(
                                 capturedOrgId, capturedProjectId, capturedToken, CancellationToken.None);
 
-                            if (ingested > 0)
-                                await doraComputeService.ComputeAndSaveAsync(
-                                    capturedOrgId, capturedProjectId, CancellationToken.None);
+                            // Always recompute — even when nothing new was ingested, the
+                            // background sync may have run AFTER a webhook delivered the latest
+                            // build, in which case the existing rows still need a fresh metrics
+                            // snapshot for the dashboard to render.
+                            await scopedCompute.ComputeAndSaveAsync(
+                                capturedOrgId, capturedProjectId, CancellationToken.None);
 
                             logger.LogInformation(
                                 "AUTO_RECOVERY: Done — {Ingested} runs ingested, OrgId={OrgId}, ProjectId={ProjectId}",

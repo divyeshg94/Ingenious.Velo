@@ -74,37 +74,81 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
     {
         try
         {
-            var metric = new DoraMetrics
-            {
-                Id = metricsDto.Id == Guid.Empty ? Guid.NewGuid() : metricsDto.Id,
-                OrgId = metricsDto.OrgId,
-                ProjectId = metricsDto.ProjectId,
-                ComputedAt = metricsDto.ComputedAt,
-                PeriodStart = metricsDto.PeriodStart,
-                PeriodEnd = metricsDto.PeriodEnd,
-                DeploymentFrequency = metricsDto.DeploymentFrequency,
-                DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating,
-                IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated,
-                LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours,
-                LeadTimeRating = metricsDto.LeadTimeRating,
-                IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate,
-                ChangeFailureRate = metricsDto.ChangeFailureRate,
-                ChangeFailureRating = metricsDto.ChangeFailureRating,
-                IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated,
-                MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours,
-                MttrRating = metricsDto.MttrRating,
-                IsMttrEstimated = metricsDto.IsMttrEstimated,
-                ReworkRate = metricsDto.ReworkRate,
-                ReworkRateRating = metricsDto.ReworkRateRating,
-                IsReworkRateEstimated = metricsDto.IsReworkRateEstimated
-            };
+            // Upsert by (OrgId, ProjectId, ComputedAt.Date) so the webhook can recompute
+            // many times per day without writing a new row per build. We keep one row
+            // per project per UTC day — enough granularity for history charts, bounded
+            // growth even on customers with thousands of daily builds.
+            var bucketDate = metricsDto.ComputedAt.UtcDateTime.Date;
+            var bucketStart = new DateTimeOffset(bucketDate, TimeSpan.Zero);
+            var bucketEnd = bucketStart.AddDays(1);
 
-            dbContext.DoraMetrics.Add(metric);
+            var existing = await dbContext.DoraMetrics
+                .Where(m => m.OrgId == metricsDto.OrgId
+                            && m.ProjectId == metricsDto.ProjectId
+                            && m.ComputedAt >= bucketStart
+                            && m.ComputedAt < bucketEnd)
+                .OrderByDescending(m => m.ComputedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existing is not null)
+            {
+                existing.ComputedAt = metricsDto.ComputedAt;
+                existing.PeriodStart = metricsDto.PeriodStart;
+                existing.PeriodEnd = metricsDto.PeriodEnd;
+                existing.DeploymentFrequency = metricsDto.DeploymentFrequency;
+                existing.DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating;
+                existing.IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated;
+                existing.LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours;
+                existing.LeadTimeRating = metricsDto.LeadTimeRating;
+                existing.IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate;
+                existing.ChangeFailureRate = metricsDto.ChangeFailureRate;
+                existing.ChangeFailureRating = metricsDto.ChangeFailureRating;
+                existing.IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated;
+                existing.MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours;
+                existing.MttrRating = metricsDto.MttrRating;
+                existing.IsMttrEstimated = metricsDto.IsMttrEstimated;
+                existing.ReworkRate = metricsDto.ReworkRate;
+                existing.ReworkRateRating = metricsDto.ReworkRateRating;
+                existing.IsReworkRateEstimated = metricsDto.IsReworkRateEstimated;
+                existing.ModifiedBy = "dora-compute";
+                existing.ModifiedDate = DateTimeOffset.UtcNow;
+                metricsDto.Id = existing.Id;
+            }
+            else
+            {
+                var metric = new DoraMetrics
+                {
+                    Id = metricsDto.Id == Guid.Empty ? Guid.NewGuid() : metricsDto.Id,
+                    OrgId = metricsDto.OrgId,
+                    ProjectId = metricsDto.ProjectId,
+                    ComputedAt = metricsDto.ComputedAt,
+                    PeriodStart = metricsDto.PeriodStart,
+                    PeriodEnd = metricsDto.PeriodEnd,
+                    DeploymentFrequency = metricsDto.DeploymentFrequency,
+                    DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating,
+                    IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated,
+                    LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours,
+                    LeadTimeRating = metricsDto.LeadTimeRating,
+                    IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate,
+                    ChangeFailureRate = metricsDto.ChangeFailureRate,
+                    ChangeFailureRating = metricsDto.ChangeFailureRating,
+                    IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated,
+                    MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours,
+                    MttrRating = metricsDto.MttrRating,
+                    IsMttrEstimated = metricsDto.IsMttrEstimated,
+                    ReworkRate = metricsDto.ReworkRate,
+                    ReworkRateRating = metricsDto.ReworkRateRating,
+                    IsReworkRateEstimated = metricsDto.IsReworkRateEstimated
+                };
+                dbContext.DoraMetrics.Add(metric);
+                metricsDto.Id = metric.Id;
+            }
+
             await dbContext.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}",
-                metricsDto.OrgId, metricsDto.ProjectId, metric.Id);
+                "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}, Upsert: {Upsert}",
+                metricsDto.OrgId, metricsDto.ProjectId, metricsDto.Id, existing is not null);
         }
         catch (Exception ex)
         {
@@ -138,6 +182,37 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         catch (Exception ex)
         {
             logger.LogError(ex, "Error fetching pipeline runs for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<PipelineRunDto>> GetRunsInPeriodAsync(
+        string orgId, string projectId, DateTimeOffset from, DateTimeOffset to,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var runs = await dbContext.PipelineRuns
+                .AsNoTracking()
+                .Where(r => r.OrgId == orgId && r.ProjectId == projectId
+                            && r.StartTime >= from && r.StartTime < to)
+                .OrderByDescending(r => r.StartTime)
+                .ToListAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Retrieved {RunCount} pipeline runs in period for OrgId: {OrgId}, ProjectId: {ProjectId}, From: {From}, To: {To}",
+                runs.Count,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                from, to);
+
+            return runs.Select(MapPipelineRunToDto).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching pipeline runs in period for OrgId: {OrgId}, ProjectId: {ProjectId}",
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             throw;
@@ -428,19 +503,30 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
         return events.Select(p => new PullRequestEventDto
         {
-            Id            = p.Id,
-            OrgId         = p.OrgId,
-            ProjectId     = p.ProjectId,
-            PrId          = p.PrId,
-            Title         = p.Title,
-            Status        = p.Status,
-            SourceBranch  = p.SourceBranch,
-            TargetBranch  = p.TargetBranch,
-            CreatedAt     = p.CreatedAt,
-            ClosedAt      = p.ClosedAt,
-            IsApproved    = p.IsApproved,
-            ReviewerCount = p.ReviewerCount,
-            IngestedAt    = p.IngestedAt
+            Id                   = p.Id,
+            OrgId                = p.OrgId,
+            ProjectId            = p.ProjectId,
+            PrId                 = p.PrId,
+            Title                = p.Title,
+            Status               = p.Status,
+            SourceBranch         = p.SourceBranch,
+            TargetBranch         = p.TargetBranch,
+            CreatedAt            = p.CreatedAt,
+            ClosedAt             = p.ClosedAt,
+            IsApproved           = p.IsApproved,
+            ReviewerCount        = p.ReviewerCount,
+            // Phase 2 diff metrics — required by TeamHealth, PR Insights, and DORA
+            // Lead Time computation. The earlier projection dropped these and the
+            // dashboard silently rendered zeros.
+            FilesChanged         = p.FilesChanged,
+            LinesAdded           = p.LinesAdded,
+            LinesDeleted         = p.LinesDeleted,
+            ReviewerNames        = p.ReviewerNames,
+            ApprovedCount        = p.ApprovedCount,
+            RejectedCount        = p.RejectedCount,
+            FirstApprovedAt      = p.FirstApprovedAt,
+            CycleDurationMinutes = p.CycleDurationMinutes,
+            IngestedAt           = p.IngestedAt,
         }).ToList();
     }
 

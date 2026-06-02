@@ -691,10 +691,7 @@ public class WebhookController(
     }
 
     private static bool IsDeploymentPipeline(string? name)
-    {
-        var n = (name ?? string.Empty).ToLowerInvariant();
-        return n.Contains("deploy") || n.Contains("release") || n.Contains("prod");
-    }
+        => DeploymentDetector.IsDeployment(name);
 
     /// <summary>
     /// Sets CurrentOrgId on the DbContext and calls sp_set_session_context so that
