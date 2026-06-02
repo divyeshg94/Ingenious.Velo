@@ -12,7 +12,7 @@ DORA metrics are industry-standard delivery health indicators:
 4. **Mean Time to Restore (MTTR)** - how quickly service recovers after failures.
 5. **Rework Rate** - how much completed work is reopened or redone.
 
-Velo computes these metrics on a **rolling 30-day window**.
+Velo computes these metrics on a **rolling 30-day window**. On first connect, Velo back-fills up to **60 days** of historical pipeline runs so the rolling window has data immediately; older history is ingested incrementally as new builds complete.
 
 ## How Velo Calculates Each Metric
 
@@ -26,11 +26,15 @@ If no deployment-tagged pipelines exist, Velo estimates using all successful run
 
 ### 2) Lead Time for Changes
 
-**Current formula used by Velo**  
-`Average duration of successful pipeline runs (in hours)`
+**Preferred formula used by Velo**  
+For each merged pull request in the rolling 30-day window, Velo finds the **first successful production deployment** that finishes at or after the PR's merge time, then computes:
 
-**Important note**  
-This is currently an **approximation** (build duration proxy), not full commit/merge-to-production lead time.
+`Deployment finish time − PR merge time`
+
+Lead Time is the **average** of those PR→deploy durations (in hours). PR↔deploy pairs older than 60 days are dropped as outliers.
+
+**Fallback behavior**  
+When fewer than 3 PR→deploy linkages exist in the window (e.g. PR ingestion hasn't caught up, or the project deploys infrequently), Velo falls back to the **average successful build duration** as a proxy and flags the metric with `IsLeadTimeApproximate = true` so the dashboard can show an "Approximate" badge.
 
 ### 3) Change Failure Rate
 
@@ -38,19 +42,19 @@ This is currently an **approximation** (build duration proxy), not full commit/m
 `Failed deployment runs / Total deployment runs * 100`
 
 **Fallback behavior**  
-If no deployment-tagged pipelines exist, Velo uses all runs in the period and marks the metric as **Estimated**.
+If no deployment-tagged pipelines exist, Velo uses all runs in the period and marks the metric as **Estimated** (`IsChangeFailureRateEstimated = true`).
 
 ### 4) Mean Time to Restore (MTTR)
 
 **Formula used by Velo**  
 For each failed deployment run, Velo finds the next successful run of the same pipeline and computes:
 
-`Next success start time - Failure start time`
+`Next success finish time − Failure finish time`
 
-MTTR is the average of those restore times (in hours).
+MTTR is the average of those restore times (in hours). Using finish times (rather than start times) means MTTR reflects the time service was actually unhealthy, not the duration of the recovery pipeline itself.
 
 **Fallback behavior**  
-If no deployment-tagged pipelines exist, Velo uses all runs in the period and marks the metric as **Estimated**.
+If no deployment-tagged pipelines exist, Velo uses all runs in the period and marks the metric as **Estimated** (`IsMttrEstimated = true`).
 
 ### 5) Rework Rate
 
@@ -128,10 +132,13 @@ Teams that reach and sustain Elite performance typically:
 ## FAQ
 
 **Why can Lead Time look better or worse than expected?**  
-Velo currently uses successful build duration as the lead-time proxy. It does not yet measure PR merge-to-production elapsed time.
+Velo prefers PR-merge-to-production lead time. When fewer than 3 PR→deploy linkages are available in the 30-day window — for example, while pull-request ingestion is still catching up after first connect, or on projects with very low deploy frequency — it falls back to the successful-build-duration proxy and flags the metric as **Approximate**. The Approximate badge is the signal to wait a few days or check that the Velo extension has PR read access.
 
 **Why are some metrics marked as Estimated?**  
 Estimated status appears when deployment-tagged runs or work-item events are missing, and Velo uses documented fallback logic.
+
+**How does Velo decide which pipelines are "deployments"?**  
+Velo tags a pipeline run as a deployment when the pipeline name or any stage name contains one of: `deploy`, `release`, `prod`, `production`, `publish`, `rollout`, `canary`, `promote`, or the whole word `cd` (e.g. `API-CD`). Matching is case-insensitive. If your team uses different terminology, set `IsDeployment` explicitly via the `Velo@1` pipeline task to short-circuit the heuristic.
 
 **Should we optimize one metric first?**  
 Start with the biggest bottleneck in your flow. Most teams gain fastest by improving review queues, deployment automation, and incident recovery readiness.

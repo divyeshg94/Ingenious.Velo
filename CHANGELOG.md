@@ -8,6 +8,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ## [Unreleased]
 
+### Fixed — DORA computation correctness, ingestion completeness, and runtime bugs (PR #31)
+- **Lead Time for Changes** now measures real PR-merge → first-successful-deployment time when at least 3 PR↔deploy linkages exist in the 30-day window (averaged in hours, outliers > 60 days dropped). Falls back to the previous build-duration proxy with `IsLeadTimeApproximate = true` only when linkage data is too sparse.
+- **MTTR** now uses pipeline **finish** times instead of start times when measuring restore duration (`nextSuccess.FinishTime − failure.FinishTime`). The previous formula under-reported MTTR by the duration of the recovery pipeline itself.
+- **DORA metrics persistence** now upserts one row per `(OrgId, ProjectId, ComputedDate)` UTC day, atomically. A new `ComputedDate` (date) column plus `UX_DoraMetrics_OrgId_ProjectId_ComputedDate` unique index guarantees the one-row-per-day invariant under concurrent webhook recomputes; `SaveAsync` retries on SqlException 2627/2601 by detaching and re-reading. Previously every webhook inserted a new row, bloating the `DoraMetrics` table.
+- **30-day rolling window** is now enforced at the repository via a new period-based query (`GetRunsInPeriodAsync`) with no page cap. The previous code path was capped at 500 runs per query, silently dropping data for busy orgs.
+- **ADO build ingest** now paginates via the `x-ms-continuationtoken` header (bounded by a 60-day lookback and 25-page safety ceiling, short-circuits when an entire page is already stored). Previously capped at 200 builds on first sync, which truncated history for any customer with more than 200 builds in the window.
+- **DoraController auto-recovery** background `Task.Run` now resolves services from a fresh `IServiceScope` and calls the new `TenantContextHelper.SetAsync` so both EF query filters and SQL Server `SESSION_CONTEXT(N'org_id')` are populated. Previously threw `ObjectDisposedException` once the request scope was torn down and ran without RLS.
+- **PR event projection** no longer drops `FilesChanged`, `LinesAdded/Deleted`, `FirstApprovedAt`, `CycleDurationMinutes`, and reviewer fields. TeamHealth and the Foundry agent now see real PR data again.
+
+### Changed
+- New shared `DeploymentDetector` heuristic used by both webhook and ingest paths. Keyword set expanded to: `deploy`, `release`, `prod`, `production`, `publish`, `rollout`, `canary`, `promote`, plus whole-word `cd` (e.g. `API-CD`). Customer-facing docs updated accordingly.
+- New shared `TenantContextHelper` consolidates the EF + SQL Server RLS session-context setup; `WebhookController.SetTenantContextAsync` and the DoraController background scope both delegate to it.
+- `ComputeLeadTimeFromPrAndDeploys` rewritten from O(PR × Deployments) `FirstOrDefault` scan to a two-pointer linear walk after sorting merged PRs by `ClosedAt` — O(PR + Deployments).
+- All user-supplied log arguments (orgId, projectId, repository name, URL, build numbers) are now wrapped in `LogSanitizer.SanitiseForLog(...)` to satisfy CodeQL log-injection rules.
+
+### Documentation
+- `docs/DORA_Metrics_Customer_Guide.md` updated to reflect the real Lead Time formula (PR merge → first successful deploy with build-duration fallback), the corrected MTTR formula (finish-time-based), the 60-day first-connect back-fill, and a new FAQ entry explaining how Velo decides which pipelines are "deployments".
+- `README.md` DORA section updated to drop the "PR-merge-to-deploy time not yet implemented" caveat for Lead Time and clarify the MTTR finish-time formula.
+- `.github/copilot-instructions.md` adds an explicit "sanitize every user-supplied log argument" rule and a new "Background work" subsection under Multi-Tenancy describing when to call `TenantContextHelper`.
+
+---
+
+## [0.x.0] - Previous Unreleased entries
+
 ### Fixed — DORA metric accuracy
 - **Rework Rate** no longer uses a nonsensical pipeline-name-count proxy (`(total runs − distinct names) ÷ total runs`).  
   It now measures real work-item churn: items that transitioned from a completed state back to an active state ÷ total completions, sourced from ADO `workitem.updated` service hook events.  
