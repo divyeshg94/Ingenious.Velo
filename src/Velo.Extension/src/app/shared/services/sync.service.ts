@@ -40,30 +40,30 @@ export class SyncService {
   // ── Build webhook ──────────────────────────────────────────────────────────
 
   getHookStatus(projectId: string): Observable<WebhookStatus> {
-    return this.http.get<WebhookStatus>(`${this.apiUrl}/hook-status/${encodeURIComponent(projectId)}`);
+    return this.http.get<WebhookStatus>(`${this.apiUrl}/${encodeURIComponent(projectId)}/hook-status`);
   }
 
   registerHook(projectId: string): Observable<WebhookStatus> {
-    return this.http.post<WebhookStatus>(`${this.apiUrl}/hook/${encodeURIComponent(projectId)}`, {});
+    return this.http.post<WebhookStatus>(`${this.apiUrl}/${encodeURIComponent(projectId)}/register-hook`, {});
   }
 
-  removeHook(subscriptionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/hook/${encodeURIComponent(subscriptionId)}`);
+  removeHook(projectId: string, subscriptionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${encodeURIComponent(projectId)}/remove-hook?subscriptionId=${encodeURIComponent(subscriptionId)}`);
   }
 
   // ── PR webhook (git.pullrequest.created + git.pullrequest.updated) ─────────
 
   getPrHookStatus(projectId: string): Observable<WebhookStatus> {
-    return this.http.get<WebhookStatus>(`${this.apiUrl}/pr-hook-status/${encodeURIComponent(projectId)}`);
+    return this.http.get<WebhookStatus>(`${this.apiUrl}/${encodeURIComponent(projectId)}/pr-hook-status`);
   }
 
   registerPrHook(projectId: string): Observable<WebhookStatus> {
-    return this.http.post<WebhookStatus>(`${this.apiUrl}/pr-hook/${encodeURIComponent(projectId)}`, {});
+    return this.http.post<WebhookStatus>(`${this.apiUrl}/${encodeURIComponent(projectId)}/register-pr-hook`, {});
   }
 
   /** Reuse the same DELETE endpoint — subscription ID is generic for both build and PR hooks. */
-  removePrHook(subscriptionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/hook/${encodeURIComponent(subscriptionId)}`);
+  removePrHook(projectId: string, subscriptionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${encodeURIComponent(projectId)}/remove-hook?subscriptionId=${encodeURIComponent(subscriptionId)}`);
   }
 
   // ── Work item webhook (workitem.updated → rework-rate tracking) ────────────
@@ -77,7 +77,7 @@ export class SyncService {
   }
 
   /** Reuse the same DELETE endpoint — subscription ID is generic across all hook types. */
-  removeWorkItemHook(subscriptionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/hook/${encodeURIComponent(subscriptionId)}`);
+  removeWorkItemHook(projectId: string, subscriptionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${encodeURIComponent(projectId)}/remove-hook?subscriptionId=${encodeURIComponent(subscriptionId)}`);
   }
 }

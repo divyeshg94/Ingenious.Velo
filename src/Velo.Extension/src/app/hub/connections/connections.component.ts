@@ -244,7 +244,7 @@ export class ConnectionsComponent implements OnInit {
     this.isHookLoading = true;
     this.webhookError  = '';
 
-    this.syncService.removeHook(this.webhookStatus.subscriptionId).subscribe({
+    this.syncService.removeHook(this.selectedProjectId!, this.webhookStatus.subscriptionId).subscribe({
       next: () => {
         this.webhookStatus = { isRegistered: false, webhookUrl: this.webhookStatus?.webhookUrl, manualSetupUrl: this.webhookStatus?.manualSetupUrl };
         this.isHookLoading = false;
@@ -295,7 +295,7 @@ export class ConnectionsComponent implements OnInit {
     this.isPrHookLoading = true;
     this.prWebhookError  = '';
 
-    this.syncService.removePrHook(this.prWebhookStatus.subscriptionId).subscribe({
+    this.syncService.removePrHook(this.selectedProjectId!, this.prWebhookStatus.subscriptionId).subscribe({
       next: () => {
         this.prWebhookStatus = { isRegistered: false, webhookUrl: this.prWebhookStatus?.webhookUrl, manualSetupUrl: this.prWebhookStatus?.manualSetupUrl };
         this.isPrHookLoading = false;
@@ -346,7 +346,7 @@ export class ConnectionsComponent implements OnInit {
     this.isWorkItemHookLoading = true;
     this.workItemWebhookError  = '';
 
-    this.syncService.removeWorkItemHook(this.workItemWebhookStatus.subscriptionId).subscribe({
+    this.syncService.removeWorkItemHook(this.selectedProjectId!, this.workItemWebhookStatus.subscriptionId).subscribe({
       next: () => {
         this.workItemWebhookStatus = { isRegistered: false, webhookUrl: this.workItemWebhookStatus?.webhookUrl, manualSetupUrl: this.workItemWebhookStatus?.manualSetupUrl };
         this.isWorkItemHookLoading = false;
