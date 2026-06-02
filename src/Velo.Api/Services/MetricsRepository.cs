@@ -72,93 +72,112 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
     public async Task SaveAsync(DoraMetricsDto metricsDto, CancellationToken cancellationToken)
     {
-        try
+        // Upsert by (OrgId, ProjectId, ComputedDate) so the webhook can recompute
+        // many times per day without writing a new row per build. Uniqueness is
+        // enforced by the UX_DoraMetrics_OrgId_ProjectId_ComputedDate index — see
+        // migration 20260602193035_DoraMetricsComputedDate — which means concurrent
+        // recomputes can race on insert, but the second one will hit a unique-
+        // constraint violation that we catch and convert to an update. This is the
+        // atomic "MERGE" pattern recommended by the SQL Server team for low-rate
+        // contention.
+        var bucketDate = metricsDto.ComputedAt.UtcDateTime.Date;
+
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // Upsert by (OrgId, ProjectId, ComputedAt.Date) so the webhook can recompute
-            // many times per day without writing a new row per build. We keep one row
-            // per project per UTC day — enough granularity for history charts, bounded
-            // growth even on customers with thousands of daily builds.
-            var bucketDate = metricsDto.ComputedAt.UtcDateTime.Date;
-            var bucketStart = new DateTimeOffset(bucketDate, TimeSpan.Zero);
-            var bucketEnd = bucketStart.AddDays(1);
-
-            var existing = await dbContext.DoraMetrics
-                .Where(m => m.OrgId == metricsDto.OrgId
-                            && m.ProjectId == metricsDto.ProjectId
-                            && m.ComputedAt >= bucketStart
-                            && m.ComputedAt < bucketEnd)
-                .OrderByDescending(m => m.ComputedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (existing is not null)
+            try
             {
-                existing.ComputedAt = metricsDto.ComputedAt;
-                existing.PeriodStart = metricsDto.PeriodStart;
-                existing.PeriodEnd = metricsDto.PeriodEnd;
-                existing.DeploymentFrequency = metricsDto.DeploymentFrequency;
-                existing.DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating;
-                existing.IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated;
-                existing.LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours;
-                existing.LeadTimeRating = metricsDto.LeadTimeRating;
-                existing.IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate;
-                existing.ChangeFailureRate = metricsDto.ChangeFailureRate;
-                existing.ChangeFailureRating = metricsDto.ChangeFailureRating;
-                existing.IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated;
-                existing.MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours;
-                existing.MttrRating = metricsDto.MttrRating;
-                existing.IsMttrEstimated = metricsDto.IsMttrEstimated;
-                existing.ReworkRate = metricsDto.ReworkRate;
-                existing.ReworkRateRating = metricsDto.ReworkRateRating;
-                existing.IsReworkRateEstimated = metricsDto.IsReworkRateEstimated;
-                existing.ModifiedBy = "dora-compute";
-                existing.ModifiedDate = DateTimeOffset.UtcNow;
-                metricsDto.Id = existing.Id;
-            }
-            else
-            {
-                var metric = new DoraMetrics
+                var existing = await dbContext.DoraMetrics
+                    .FirstOrDefaultAsync(
+                        m => m.OrgId == metricsDto.OrgId
+                             && m.ProjectId == metricsDto.ProjectId
+                             && m.ComputedDate == bucketDate,
+                        cancellationToken);
+
+                if (existing is not null)
                 {
-                    Id = metricsDto.Id == Guid.Empty ? Guid.NewGuid() : metricsDto.Id,
-                    OrgId = metricsDto.OrgId,
-                    ProjectId = metricsDto.ProjectId,
-                    ComputedAt = metricsDto.ComputedAt,
-                    PeriodStart = metricsDto.PeriodStart,
-                    PeriodEnd = metricsDto.PeriodEnd,
-                    DeploymentFrequency = metricsDto.DeploymentFrequency,
-                    DeploymentFrequencyRating = metricsDto.DeploymentFrequencyRating,
-                    IsDeploymentFrequencyEstimated = metricsDto.IsDeploymentFrequencyEstimated,
-                    LeadTimeForChangesHours = metricsDto.LeadTimeForChangesHours,
-                    LeadTimeRating = metricsDto.LeadTimeRating,
-                    IsLeadTimeApproximate = metricsDto.IsLeadTimeApproximate,
-                    ChangeFailureRate = metricsDto.ChangeFailureRate,
-                    ChangeFailureRating = metricsDto.ChangeFailureRating,
-                    IsChangeFailureRateEstimated = metricsDto.IsChangeFailureRateEstimated,
-                    MeanTimeToRestoreHours = metricsDto.MeanTimeToRestoreHours,
-                    MttrRating = metricsDto.MttrRating,
-                    IsMttrEstimated = metricsDto.IsMttrEstimated,
-                    ReworkRate = metricsDto.ReworkRate,
-                    ReworkRateRating = metricsDto.ReworkRateRating,
-                    IsReworkRateEstimated = metricsDto.IsReworkRateEstimated
-                };
-                dbContext.DoraMetrics.Add(metric);
-                metricsDto.Id = metric.Id;
+                    ApplyMetricsToEntity(metricsDto, existing, bucketDate);
+                    existing.ModifiedBy = "dora-compute";
+                    existing.ModifiedDate = DateTimeOffset.UtcNow;
+                    metricsDto.Id = existing.Id;
+                }
+                else
+                {
+                    var metric = new DoraMetrics
+                    {
+                        Id = metricsDto.Id == Guid.Empty ? Guid.NewGuid() : metricsDto.Id,
+                        OrgId = metricsDto.OrgId,
+                        ProjectId = metricsDto.ProjectId,
+                    };
+                    ApplyMetricsToEntity(metricsDto, metric, bucketDate);
+                    dbContext.DoraMetrics.Add(metric);
+                    metricsDto.Id = metric.Id;
+                }
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                logger.LogInformation(
+                    "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}, Upsert: {Upsert}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
+                    metricsDto.Id, existing is not null);
+                return;
             }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex) && attempt < maxAttempts)
+            {
+                // A concurrent SaveAsync for the same (OrgId, ProjectId, ComputedDate)
+                // beat us to the INSERT. Detach our pending entity, re-read, and try
+                // again as an UPDATE.
+                foreach (var entry in dbContext.ChangeTracker.Entries<DoraMetrics>().ToList())
+                    entry.State = EntityState.Detached;
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogInformation(
+                    "DORA metrics upsert race detected for OrgId={OrgId}, ProjectId={ProjectId}, attempt={Attempt} — retrying",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
+                    attempt);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error saving DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId));
+                throw;
+            }
+        }
 
-            logger.LogInformation(
-                "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}, Upsert: {Upsert}",
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
-                metricsDto.Id, existing is not null);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error saving DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}",
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
-                Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId));
-            throw;
-        }
+        throw new InvalidOperationException(
+            $"Failed to upsert DORA metrics for {metricsDto.OrgId}/{metricsDto.ProjectId} after {maxAttempts} attempts.");
+    }
+
+    private static void ApplyMetricsToEntity(DoraMetricsDto dto, DoraMetrics entity, DateTime bucketDate)
+    {
+        entity.ComputedAt = dto.ComputedAt;
+        entity.ComputedDate = bucketDate;
+        entity.PeriodStart = dto.PeriodStart;
+        entity.PeriodEnd = dto.PeriodEnd;
+        entity.DeploymentFrequency = dto.DeploymentFrequency;
+        entity.DeploymentFrequencyRating = dto.DeploymentFrequencyRating;
+        entity.IsDeploymentFrequencyEstimated = dto.IsDeploymentFrequencyEstimated;
+        entity.LeadTimeForChangesHours = dto.LeadTimeForChangesHours;
+        entity.LeadTimeRating = dto.LeadTimeRating;
+        entity.IsLeadTimeApproximate = dto.IsLeadTimeApproximate;
+        entity.ChangeFailureRate = dto.ChangeFailureRate;
+        entity.ChangeFailureRating = dto.ChangeFailureRating;
+        entity.IsChangeFailureRateEstimated = dto.IsChangeFailureRateEstimated;
+        entity.MeanTimeToRestoreHours = dto.MeanTimeToRestoreHours;
+        entity.MttrRating = dto.MttrRating;
+        entity.IsMttrEstimated = dto.IsMttrEstimated;
+        entity.ReworkRate = dto.ReworkRate;
+        entity.ReworkRateRating = dto.ReworkRateRating;
+        entity.IsReworkRateEstimated = dto.IsReworkRateEstimated;
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        // SQL Server reports 2627 (PRIMARY KEY violation) or 2601 (UNIQUE INDEX violation).
+        return ex.InnerException is Microsoft.Data.SqlClient.SqlException sql
+               && (sql.Number == 2627 || sql.Number == 2601);
     }
 
     public async Task<IEnumerable<PipelineRunDto>> GetRunsAsync(string orgId, string projectId, int page, int pageSize, CancellationToken cancellationToken)

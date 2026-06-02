@@ -103,6 +103,14 @@ public class VeloDbContext : DbContext
             .IsDescending(true)
             .HasDatabaseName("IX_DoraMetrics_ComputedAt_DESC");
 
+        // Enforce one snapshot per (org, project, UTC day) at the database level so
+        // concurrent recomputes cannot create duplicate rows. MetricsRepository.SaveAsync
+        // races to insert, then catches the unique-violation and updates instead.
+        modelBuilder.Entity<DoraMetrics>()
+            .HasIndex(m => new { m.OrgId, m.ProjectId, m.ComputedDate })
+            .IsUnique()
+            .HasDatabaseName("UX_DoraMetrics_OrgId_ProjectId_ComputedDate");
+
         // TeamHealth indexes
         modelBuilder.Entity<TeamHealth>()
             .HasIndex(h => new { h.OrgId, h.ProjectId, h.ComputedAt })

@@ -19,6 +19,14 @@ public class DoraMetrics : AuditableEntity
     public DateTimeOffset PeriodStart { get; set; }
     public DateTimeOffset PeriodEnd { get; set; }
 
+    /// <summary>
+    /// UTC date bucket for the metric snapshot. Backs the unique index
+    /// (OrgId, ProjectId, ComputedDate) so concurrent recomputes cannot
+    /// insert duplicate per-day rows.
+    /// </summary>
+    [Column(TypeName = "date")]
+    public DateTime ComputedDate { get; set; }
+
     public double DeploymentFrequency { get; set; }
     public string DeploymentFrequencyRating { get; set; } = string.Empty;
 

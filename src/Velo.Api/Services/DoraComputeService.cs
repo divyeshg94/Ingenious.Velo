@@ -205,7 +205,8 @@ public class DoraComputeService(
 
         if (mergedPrs.Count == 0) return null;
 
-        // Sort deploys by their finish (or start) time once.
+        // Sort deploys by their finish (or start) time once, into a parallel array
+        // of effective deploy timestamps so binary search can target it directly.
         var orderedDeploys = successfulDeployments
             .Where(d => (d.FinishTime ?? d.StartTime) != default)
             .OrderBy(d => d.FinishTime ?? d.StartTime)
@@ -213,16 +214,32 @@ public class DoraComputeService(
 
         if (orderedDeploys.Count == 0) return null;
 
-        var leadHours = new List<double>();
-        foreach (var pr in mergedPrs)
+        var deployTimes = new DateTimeOffset[orderedDeploys.Count];
+        for (var i = 0; i < orderedDeploys.Count; i++)
+            deployTimes[i] = orderedDeploys[i].FinishTime ?? orderedDeploys[i].StartTime;
+
+        // Walk merged PRs in chronological order so we can advance a single
+        // monotonically-increasing pointer into deployTimes — O(PR + Deployments)
+        // instead of the previous O(PR * Deployments) LINQ FirstOrDefault scan.
+        // For the very first PR (or after a regression in PR order) we fall back
+        // to Array.BinarySearch which is O(log Deployments).
+        var sortedPrs = mergedPrs
+            .OrderBy(p => p.ClosedAt!.Value)
+            .ToList();
+
+        var leadHours = new List<double>(sortedPrs.Count);
+        var cursor = 0;
+        foreach (var pr in sortedPrs)
         {
             var mergedAt = pr.ClosedAt!.Value;
-            var nextDeploy = orderedDeploys
-                .FirstOrDefault(d => (d.FinishTime ?? d.StartTime) >= mergedAt);
 
-            if (nextDeploy is null) continue;
+            // Advance the cursor until deployTimes[cursor] >= mergedAt.
+            while (cursor < deployTimes.Length && deployTimes[cursor] < mergedAt)
+                cursor++;
 
-            var deployTime = nextDeploy.FinishTime ?? nextDeploy.StartTime;
+            if (cursor >= deployTimes.Length) break; // no future deploy for any remaining PR
+
+            var deployTime = deployTimes[cursor];
             var hours = (deployTime - mergedAt).TotalHours;
             if (hours <= 0 || hours > 60 * 24) continue;
 

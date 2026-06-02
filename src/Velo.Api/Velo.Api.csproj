@@ -36,6 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Velo.Api.Tests" />
+    <InternalsVisibleTo Include="Velo.Api.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Data\" />
     <Folder Include="Models\Ado\" />
     <Folder Include="Models\Requests\" />
