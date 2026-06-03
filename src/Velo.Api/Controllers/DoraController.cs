@@ -80,13 +80,13 @@ public class DoraController(
             }
             catch (TeamHasNoMappingsException)
             {
-                return Ok(new
+                return Ok(new DoraMetricsResponse
                 {
-                    status = "empty",
-                    note = "Team has no mapped pipelines",
-                    orgId,
-                    projectId,
-                    teamName
+                    Status = "empty",
+                    Note = "Team has no mapped pipelines",
+                    OrgId = orgId,
+                    ProjectId = projectId,
+                    TeamName = teamName
                 });
             }
 
@@ -271,14 +271,15 @@ public class DoraController(
             }
             catch (TeamHasNoMappingsException)
             {
-                return Ok(new
+                return Ok(new DoraMetricsHistoryResponse
                 {
-                    status = "empty",
-                    note = "Team has no mapped pipelines",
-                    orgId,
-                    projectId,
-                    teamName,
-                    history = Array.Empty<DoraMetricsDto>()
+                    Status = "empty",
+                    Note = "Team has no mapped pipelines",
+                    OrgId = orgId,
+                    ProjectId = projectId,
+                    TeamName = teamName,
+                    Days = days,
+                    History = []
                 });
             }
 
@@ -331,7 +332,7 @@ public class DoraController(
             if (repos.Count == 0)
                 throw new TeamHasNoMappingsException(team);
 
-            return repos.Count == 1 ? repos[0] : $"team:{team}";
+            return repos.Count == 1 ? repos[0] : $"team:{team.ToLowerInvariant()}";
         }
 
         return null;

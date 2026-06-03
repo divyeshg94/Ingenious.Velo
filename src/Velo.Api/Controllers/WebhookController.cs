@@ -330,7 +330,9 @@ public class WebhookController(
         {
             logger.LogError(ex,
                 "WEBHOOK: Failed to save run -- Org={Org}, Project={Project}, Build={Build}",
-                orgName, projectName, runNumber);
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectName),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(runNumber));
             return StatusCode(500, new { error = "Failed to save pipeline run" });
         }
 

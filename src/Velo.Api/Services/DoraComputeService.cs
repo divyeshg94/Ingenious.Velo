@@ -327,7 +327,7 @@ public class DoraComputeService(
             if (repos.Count == 0)
                 throw new TeamHasNoMappingsException(team);
 
-            var key = repos.Count == 1 ? repos[0] : $"team:{team}";
+            var key = repos.Count == 1 ? repos[0] : $"team:{team.ToLowerInvariant()}";
             return (key, repos);
         }
 

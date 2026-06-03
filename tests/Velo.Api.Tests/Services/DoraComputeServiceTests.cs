@@ -640,6 +640,6 @@ public class DoraComputeServiceTests
 
         var result = await _sut.ComputeAndSaveAsync("org", "proj", null, "Phoenix", CancellationToken.None);
 
-        result.RepositoryName.Should().Be("team:Phoenix");
+        result.RepositoryName.Should().Be("team:phoenix");
     }
 }
