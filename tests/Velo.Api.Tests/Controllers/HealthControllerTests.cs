@@ -70,7 +70,9 @@ public class HealthControllerTests
         var result = await _sut.GetTeamHealth("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().Be(existing);
+        var payload = ok.Value.Should().BeOfType<TeamHealthResponse>().Subject;
+        payload.Status.Should().Be("ok");
+        payload.Health.Should().Be(existing);
         _healthServiceMock.Verify(h => h.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -87,7 +89,9 @@ public class HealthControllerTests
         var result = await _sut.GetTeamHealth("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().Be(computed);
+        var payload = ok.Value.Should().BeOfType<TeamHealthResponse>().Subject;
+        payload.Status.Should().Be("ok");
+        payload.Health.Should().Be(computed);
         _healthServiceMock.Verify(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -137,7 +141,9 @@ public class HealthControllerTests
         var result = await _sut.Recompute("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().Be(fresh);
+        var payload = ok.Value.Should().BeOfType<TeamHealthResponse>().Subject;
+        payload.Status.Should().Be("ok");
+        payload.Health.Should().Be(fresh);
     }
 
     [Fact]

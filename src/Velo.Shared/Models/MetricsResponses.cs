@@ -13,6 +13,7 @@ public class DoraMetricsResponse
     /// resolved to no data (with <see cref="Note"/> explaining why).
     /// </summary>
     public string Status { get; set; } = "ok";
+    public string? Message { get; set; }
     public string? Note { get; set; }
     public string? OrgId { get; set; }
     public string? ProjectId { get; set; }
@@ -28,6 +29,7 @@ public class DoraMetricsResponse
 public class DoraMetricsHistoryResponse
 {
     public string Status { get; set; } = "ok";
+    public string? Message { get; set; }
     public string? Note { get; set; }
     public string? OrgId { get; set; }
     public string? ProjectId { get; set; }
@@ -44,6 +46,7 @@ public class DoraMetricsHistoryResponse
 public class TeamHealthResponse
 {
     public string Status { get; set; } = "ok";
+    public string? Message { get; set; }
     public string? Note { get; set; }
     public string? OrgId { get; set; }
     public string? ProjectId { get; set; }

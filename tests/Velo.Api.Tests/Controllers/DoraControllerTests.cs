@@ -82,7 +82,9 @@ public class DoraControllerTests
         var result = await _sut.GetLatestMetrics("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().Be(dto);
+        var payload = ok.Value.Should().BeOfType<DoraMetricsResponse>().Subject;
+        payload.Status.Should().Be("ok");
+        payload.Metrics.Should().Be(dto);
     }
 
     [Fact]
@@ -95,7 +97,8 @@ public class DoraControllerTests
         var result = await _sut.GetLatestMetrics("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value!.ToString().Should().Contain("gathering");
+        var payload = ok.Value.Should().BeOfType<DoraMetricsResponse>().Subject;
+        payload.Status.Should().Be("gathering");
     }
 
     [Fact]
@@ -108,7 +111,8 @@ public class DoraControllerTests
         var result = await _sut.GetLatestMetrics("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value!.ToString().Should().Contain("syncing");
+        var payload = ok.Value.Should().BeOfType<DoraMetricsResponse>().Subject;
+        payload.Status.Should().Be("syncing");
     }
 
     [Fact]
@@ -189,7 +193,9 @@ public class DoraControllerTests
         var result = await _sut.GetMetricsHistory("proj1", 30);
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().BeEquivalentTo(list);
+        var payload = ok.Value.Should().BeOfType<DoraMetricsHistoryResponse>().Subject;
+        payload.Status.Should().Be("ok");
+        payload.History.Should().BeEquivalentTo(list);
     }
 
     [Fact]

@@ -27,7 +27,7 @@ public class HealthController(
     /// Auto-computes and saves a new snapshot if none exists.
     /// </summary>
     [HttpGet("team")]
-    public async Task<ActionResult<TeamHealthDto>> GetTeamHealth(
+    public async Task<ActionResult<TeamHealthResponse>> GetTeamHealth(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
         [FromQuery] string? teamName = null,
@@ -100,7 +100,15 @@ public class HealthController(
                 }
             }
 
-            return Ok(health);
+            return Ok(new TeamHealthResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Health = health
+            });
         }
         catch (Exception ex)
         {
@@ -116,7 +124,7 @@ public class HealthController(
     /// Called when the user clicks "Refresh" in the UI.
     /// </summary>
     [HttpPost("recompute")]
-    public async Task<ActionResult<TeamHealthDto>> Recompute(
+    public async Task<ActionResult<TeamHealthResponse>> Recompute(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
         [FromQuery] string? teamName = null,
@@ -140,7 +148,15 @@ public class HealthController(
         try
         {
             var health = await healthService.ComputeAndSaveAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
-            return Ok(health);
+            return Ok(new TeamHealthResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Health = health
+            });
         }
         catch (TeamHasNoMappingsException)
         {

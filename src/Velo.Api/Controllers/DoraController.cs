@@ -34,7 +34,7 @@ public class DoraController(
     /// from webhook failures or missed events without any manual intervention.
     /// </summary>
     [HttpGet("latest")]
-    public async Task<ActionResult<DoraMetricsDto>> GetLatestMetrics(
+    public async Task<ActionResult<DoraMetricsResponse>> GetLatestMetrics(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
         [FromQuery] string? teamName = null,
@@ -175,23 +175,27 @@ public class DoraController(
                     });
 
                     // Return "syncing" so the UI can show a progress indicator and poll
-                    return Ok(new
+                    return Ok(new DoraMetricsResponse
                     {
-                        status = "syncing",
-                        message = "Syncing your pipeline history — metrics will appear in a few seconds.",
-                        orgId,
-                        projectId
+                        Status = "syncing",
+                        Message = "Syncing your pipeline history — metrics will appear in a few seconds.",
+                        OrgId = orgId,
+                        ProjectId = projectId,
+                        RepositoryName = repositoryName,
+                        TeamName = teamName
                     });
                 }
 
                 // Return 200 with a status flag instead of 404 so the UI can show
                 // a friendly "gathering data" message rather than an error.
-                return Ok(new
+                return Ok(new DoraMetricsResponse
                 {
-                    status = "gathering",
-                    message = "Successfully connected! We are gathering your pipeline data. Metrics will appear after your next pipeline run.",
-                    orgId,
-                    projectId
+                    Status = "gathering",
+                    Message = "Successfully connected! We are gathering your pipeline data. Metrics will appear after your next pipeline run.",
+                    OrgId = orgId,
+                    ProjectId = projectId,
+                    RepositoryName = repositoryName,
+                    TeamName = teamName
                 });
             }
 
@@ -200,7 +204,15 @@ public class DoraController(
                 "DeploymentFrequency: {DeploymentFrequency}, Rating: {Rating}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), metrics.DeploymentFrequency, metrics.DeploymentFrequencyRating, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
-            return Ok(metrics);
+            return Ok(new DoraMetricsResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Metrics = metrics
+            });
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -224,7 +236,7 @@ public class DoraController(
     /// Enforced by: EF Core global query filter + SQL Server RLS.
     /// </summary>
     [HttpGet("history")]
-    public async Task<ActionResult<IEnumerable<DoraMetricsDto>>> GetMetricsHistory(
+    public async Task<ActionResult<DoraMetricsHistoryResponse>> GetMetricsHistory(
         [FromQuery] string projectId,
         [FromQuery] int days = 30,
         [FromQuery] string? repositoryName = null,
@@ -283,14 +295,23 @@ public class DoraController(
                 });
             }
 
-            var metrics = await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, filterKey, cancellationToken);
+            var metrics = (await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, filterKey, cancellationToken)).ToList();
 
             logger.LogInformation(
                 "AUDIT: Successfully returned {MetricsCount} historical DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
                 "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
-                metrics.Count(), Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
+                metrics.Count, Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
-            return Ok(metrics);
+            return Ok(new DoraMetricsHistoryResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Days = days,
+                History = metrics
+            });
         }
         catch (Exception ex)
         {

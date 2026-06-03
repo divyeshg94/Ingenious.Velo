@@ -44,9 +44,13 @@ public static class AdoTimelineParser
                     : null;
                 if (string.IsNullOrWhiteSpace(name)) continue;
 
-                var order = record.TryGetProperty("order", out var orderEl) && orderEl.ValueKind == JsonValueKind.Number
-                    ? orderEl.GetInt32()
-                    : int.MaxValue;
+                var order = int.MaxValue;
+                if (record.TryGetProperty("order", out var orderEl) &&
+                    orderEl.ValueKind == JsonValueKind.Number &&
+                    orderEl.TryGetInt32(out var parsedOrder))
+                {
+                    order = parsedOrder;
+                }
 
                 stages.Add((order, name));
             }
