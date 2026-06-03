@@ -13,21 +13,24 @@ namespace Velo.Api.Services;
 /// </summary>
 public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepository> logger) : IMetricsRepository
 {
-    public async Task<DoraMetricsDto?> GetLatestAsync(string orgId, string projectId, CancellationToken cancellationToken)
+    public async Task<DoraMetricsDto?> GetLatestAsync(string orgId, string projectId, string? repositoryName, CancellationToken cancellationToken)
     {
         try
         {
+            var filterKey = repositoryName ?? string.Empty;
+
             var metric = await dbContext.DoraMetrics
                 .AsNoTracking()
-                .Where(m => m.OrgId == orgId && m.ProjectId == projectId)
+                .Where(m => m.OrgId == orgId && m.ProjectId == projectId && m.RepositoryName == filterKey)
                 .OrderByDescending(m => m.ComputedAt)
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (metric == null)
             {
-                logger.LogInformation("No latest metrics found for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                logger.LogInformation("No latest metrics found for OrgId: {OrgId}, ProjectId: {ProjectId}, Filter: {Filter}",
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(filterKey.Length == 0 ? "(all)" : filterKey));
                 return null;
             }
 
@@ -42,21 +45,25 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
     }
 
-    public async Task<IEnumerable<DoraMetricsDto>> GetHistoryAsync(string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    public async Task<IEnumerable<DoraMetricsDto>> GetHistoryAsync(string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, string? repositoryName, CancellationToken cancellationToken)
     {
         try
         {
+            var filterKey = repositoryName ?? string.Empty;
+
             var metrics = await dbContext.DoraMetrics
                 .AsNoTracking()
-                .Where(m => m.OrgId == orgId && m.ProjectId == projectId && m.ComputedAt >= from && m.ComputedAt <= to)
+                .Where(m => m.OrgId == orgId && m.ProjectId == projectId && m.RepositoryName == filterKey
+                            && m.ComputedAt >= from && m.ComputedAt <= to)
                 .OrderByDescending(m => m.ComputedAt)
                 .ToListAsync(cancellationToken);
 
             logger.LogInformation(
-                "Retrieved {MetricCount} historical DORA records for OrgId: {OrgId}, ProjectId: {ProjectId}, Range: {From} to {To}",
+                "Retrieved {MetricCount} historical DORA records for OrgId: {OrgId}, ProjectId: {ProjectId}, Filter: {Filter}, Range: {From} to {To}",
                 metrics.Count,
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(filterKey.Length == 0 ? "(all)" : filterKey),
                 from, to);
 
             return metrics.Select(MapDoraMetricsToDto).ToList();
@@ -72,15 +79,22 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
     public async Task SaveAsync(DoraMetricsDto metricsDto, CancellationToken cancellationToken)
     {
-        // Upsert by (OrgId, ProjectId, ComputedDate) so the webhook can recompute
-        // many times per day without writing a new row per build. Uniqueness is
-        // enforced by the UX_DoraMetrics_OrgId_ProjectId_ComputedDate index — see
-        // migration 20260602193035_DoraMetricsComputedDate — which means concurrent
-        // recomputes can race on insert, but the second one will hit a unique-
-        // constraint violation that we catch and convert to an update. This is the
-        // atomic "MERGE" pattern recommended by the SQL Server team for low-rate
-        // contention.
+        // Upsert by (OrgId, ProjectId, ComputedDate, RepositoryName) so the webhook can
+        // recompute many times per day without writing a new row per build, and so
+        // per-repo / per-team filtered snapshots get their own row alongside the
+        // project-wide snapshot. Uniqueness is enforced by the
+        // UX_DoraMetrics_OrgId_ProjectId_ComputedDate_RepositoryName index — see
+        // migration DoraMetricsRepositoryFilter — which means concurrent recomputes
+        // can race on insert; the second one will hit a unique-constraint violation
+        // that we catch and convert to an update. This is the atomic "MERGE" pattern
+        // recommended by the SQL Server team for low-rate contention.
+        //
+        // RepositoryName uses the empty-string sentinel "" for the project-wide
+        // aggregate so the standard non-nullable UNIQUE index does the right thing
+        // (SQL Server treats NULLs as distinct under UNIQUE, which would let
+        // duplicate project-wide rows slip in).
         var bucketDate = metricsDto.ComputedAt.UtcDateTime.Date;
+        var filterKey = metricsDto.RepositoryName ?? string.Empty;
 
         const int maxAttempts = 3;
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -91,12 +105,13 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                     .FirstOrDefaultAsync(
                         m => m.OrgId == metricsDto.OrgId
                              && m.ProjectId == metricsDto.ProjectId
-                             && m.ComputedDate == bucketDate,
+                             && m.ComputedDate == bucketDate
+                             && m.RepositoryName == filterKey,
                         cancellationToken);
 
                 if (existing is not null)
                 {
-                    ApplyMetricsToEntity(metricsDto, existing, bucketDate);
+                    ApplyMetricsToEntity(metricsDto, existing, bucketDate, filterKey);
                     existing.ModifiedBy = "dora-compute";
                     existing.ModifiedDate = DateTimeOffset.UtcNow;
                     metricsDto.Id = existing.Id;
@@ -109,7 +124,7 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                         OrgId = metricsDto.OrgId,
                         ProjectId = metricsDto.ProjectId,
                     };
-                    ApplyMetricsToEntity(metricsDto, metric, bucketDate);
+                    ApplyMetricsToEntity(metricsDto, metric, bucketDate, filterKey);
                     dbContext.DoraMetrics.Add(metric);
                     metricsDto.Id = metric.Id;
                 }
@@ -117,24 +132,26 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 await dbContext.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation(
-                    "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, MetricId: {MetricId}, Upsert: {Upsert}",
+                    "Saved DORA metrics for OrgId: {OrgId}, ProjectId: {ProjectId}, Filter: {Filter}, MetricId: {MetricId}, Upsert: {Upsert}",
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(filterKey.Length == 0 ? "(all)" : filterKey),
                     metricsDto.Id, existing is not null);
                 return;
             }
             catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex) && attempt < maxAttempts)
             {
-                // A concurrent SaveAsync for the same (OrgId, ProjectId, ComputedDate)
+                // A concurrent SaveAsync for the same (OrgId, ProjectId, ComputedDate, RepositoryName)
                 // beat us to the INSERT. Detach our pending entity, re-read, and try
                 // again as an UPDATE.
                 foreach (var entry in dbContext.ChangeTracker.Entries<DoraMetrics>().ToList())
                     entry.State = EntityState.Detached;
 
                 logger.LogInformation(
-                    "DORA metrics upsert race detected for OrgId={OrgId}, ProjectId={ProjectId}, attempt={Attempt} — retrying",
+                    "DORA metrics upsert race detected for OrgId={OrgId}, ProjectId={ProjectId}, Filter={Filter}, attempt={Attempt} — retrying",
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.OrgId),
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(metricsDto.ProjectId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(filterKey.Length == 0 ? "(all)" : filterKey),
                     attempt);
             }
             catch (Exception ex)
@@ -150,10 +167,11 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
             $"Failed to upsert DORA metrics for {metricsDto.OrgId}/{metricsDto.ProjectId} after {maxAttempts} attempts.");
     }
 
-    private static void ApplyMetricsToEntity(DoraMetricsDto dto, DoraMetrics entity, DateTime bucketDate)
+    private static void ApplyMetricsToEntity(DoraMetricsDto dto, DoraMetrics entity, DateTime bucketDate, string filterKey)
     {
         entity.ComputedAt = dto.ComputedAt;
         entity.ComputedDate = bucketDate;
+        entity.RepositoryName = filterKey;
         entity.PeriodStart = dto.PeriodStart;
         entity.PeriodEnd = dto.PeriodEnd;
         entity.DeploymentFrequency = dto.DeploymentFrequency;
