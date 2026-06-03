@@ -66,6 +66,40 @@ public class MetricsRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetRunsInPeriodAsync_WithRepositoryFilter_ReturnsOnlyMatchingRepo()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var runA = MakeRun(runNum: "A"); runA.RepositoryName = "RepoA"; runA.StartTime = now.AddDays(-2); runA.FinishTime = now.AddDays(-2).AddHours(1);
+        var runB = MakeRun(runNum: "B"); runB.RepositoryName = "RepoB"; runB.StartTime = now.AddDays(-2); runB.FinishTime = now.AddDays(-2).AddHours(1);
+        var runC = MakeRun(runNum: "C"); runC.RepositoryName = "RepoA"; runC.StartTime = now.AddDays(-1); runC.FinishTime = now.AddDays(-1).AddHours(1);
+        await _sut.SaveRunAsync(runA, CancellationToken.None);
+        await _sut.SaveRunAsync(runB, CancellationToken.None);
+        await _sut.SaveRunAsync(runC, CancellationToken.None);
+
+        var filtered = (await _sut.GetRunsInPeriodAsync(
+            "org1", "proj1", now.AddDays(-5), now, new[] { "RepoA" }, CancellationToken.None)).ToList();
+        var all = (await _sut.GetRunsInPeriodAsync(
+            "org1", "proj1", now.AddDays(-5), now, null, CancellationToken.None)).ToList();
+
+        filtered.Should().HaveCount(2);
+        filtered.Select(r => r.RepositoryName).Should().OnlyContain(n => n == "RepoA");
+        all.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task UpdateRunStageAsync_UpdatesStageNameAndIsDeployment()
+    {
+        var run = MakeRun(runNum: "X");
+        await _sut.SaveRunAsync(run, CancellationToken.None);
+
+        await _sut.UpdateRunStageAsync("org1", "proj1", run.Id, "Build → Deploy to Prod", true, CancellationToken.None);
+
+        var reloaded = await _dbContext.PipelineRuns.IgnoreQueryFilters().FirstAsync(r => r.Id == run.Id);
+        reloaded.StageName.Should().Be("Build → Deploy to Prod");
+        reloaded.IsDeployment.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetRunsAsync_ReturnsRuns_ForOrgAndProject()
     {
         await _sut.SaveRunAsync(MakeRun(), CancellationToken.None);
@@ -128,7 +162,7 @@ public class MetricsRepositoryTests : IDisposable
         var dto = MakeDoraMetrics();
         await _sut.SaveAsync(dto, CancellationToken.None);
 
-        var latest = await _sut.GetLatestAsync("org1", "proj1", CancellationToken.None);
+        var latest = await _sut.GetLatestAsync("org1", "proj1", null, CancellationToken.None);
 
         latest.Should().NotBeNull();
         latest!.DeploymentFrequency.Should().Be(1.5);
@@ -137,7 +171,7 @@ public class MetricsRepositoryTests : IDisposable
     [Fact]
     public async Task GetLatestAsync_ReturnsNull_WhenNoMetrics()
     {
-        var latest = await _sut.GetLatestAsync("org1", "no-project", CancellationToken.None);
+        var latest = await _sut.GetLatestAsync("org1", "no-project", null, CancellationToken.None);
         latest.Should().BeNull();
     }
 
@@ -147,7 +181,7 @@ public class MetricsRepositoryTests : IDisposable
         await _sut.SaveAsync(MakeDoraMetrics(computedAt: DateTimeOffset.UtcNow.AddDays(-5)), CancellationToken.None);
         await _sut.SaveAsync(MakeDoraMetrics(computedAt: DateTimeOffset.UtcNow), CancellationToken.None);
 
-        var latest = await _sut.GetLatestAsync("org1", "proj1", CancellationToken.None);
+        var latest = await _sut.GetLatestAsync("org1", "proj1", null, CancellationToken.None);
 
         latest.Should().NotBeNull();
         latest!.ComputedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
@@ -160,7 +194,7 @@ public class MetricsRepositoryTests : IDisposable
         await _sut.SaveAsync(MakeDoraMetrics(computedAt: now.AddDays(-5)), CancellationToken.None);   // in range
         await _sut.SaveAsync(MakeDoraMetrics(computedAt: now.AddDays(-40)), CancellationToken.None);  // out of range
 
-        var history = (await _sut.GetHistoryAsync("org1", "proj1", now.AddDays(-10), now, CancellationToken.None)).ToList();
+        var history = (await _sut.GetHistoryAsync("org1", "proj1", now.AddDays(-10), now, null, CancellationToken.None)).ToList();
 
         history.Should().ContainSingle();
         history[0].ComputedAt.Should().BeCloseTo(now.AddDays(-5), TimeSpan.FromSeconds(5));
@@ -171,8 +205,7 @@ public class MetricsRepositoryTests : IDisposable
     {
         await _sut.SaveAsync(MakeDoraMetrics(computedAt: DateTimeOffset.UtcNow.AddDays(-60)), CancellationToken.None);
 
-        var history = await _sut.GetHistoryAsync("org1", "proj1",
-            DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow, CancellationToken.None);
+        var history = await _sut.GetHistoryAsync("org1", "proj1", DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow, null, CancellationToken.None);
 
         history.Should().BeEmpty();
     }
@@ -192,7 +225,7 @@ public class MetricsRepositoryTests : IDisposable
         };
 
         await _sut.SaveTeamHealthAsync(dto, CancellationToken.None);
-        var saved = await _sut.GetTeamHealthAsync("org1", "proj1", CancellationToken.None);
+        var saved = await _sut.GetTeamHealthAsync("org1", "proj1", null, CancellationToken.None);
 
         saved.Should().NotBeNull();
         saved!.TestPassRate.Should().Be(95);
@@ -202,7 +235,7 @@ public class MetricsRepositoryTests : IDisposable
     [Fact]
     public async Task GetTeamHealthAsync_ReturnsNull_WhenNotFound()
     {
-        var result = await _sut.GetTeamHealthAsync("org1", "no-project", CancellationToken.None);
+        var result = await _sut.GetTeamHealthAsync("org1", "no-project", null, CancellationToken.None);
         result.Should().BeNull();
     }
 
@@ -222,7 +255,7 @@ public class MetricsRepositoryTests : IDisposable
         await _sut.SaveTeamHealthAsync(old, CancellationToken.None);
         await _sut.SaveTeamHealthAsync(recent, CancellationToken.None);
 
-        var saved = await _sut.GetTeamHealthAsync("org1", "proj1", CancellationToken.None);
+        var saved = await _sut.GetTeamHealthAsync("org1", "proj1", null, CancellationToken.None);
 
         saved!.TestPassRate.Should().Be(90);
     }

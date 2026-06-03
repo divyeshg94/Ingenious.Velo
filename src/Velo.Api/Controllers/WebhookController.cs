@@ -25,6 +25,7 @@ public class WebhookController(
     VeloDbContext dbContext,
     IDoraComputeService doraService,
     IConfiguration config,
+    IServiceScopeFactory scopeFactory,
     ILogger<WebhookController> logger) : ControllerBase
 {
     private const string SecretHeader = "X-Velo-Secret";
@@ -333,10 +334,55 @@ public class WebhookController(
             return StatusCode(500, new { error = "Failed to save pipeline run" });
         }
 
+        // Fire-and-forget: fetch the build timeline to populate StageName and refine
+        // the IsDeployment heuristic. The webhook is anonymous so the only credential
+        // we could use is an org-scoped PAT stored on the Organizations row. None
+        // exists today, so this task currently no-ops with a debug log and stage
+        // capture happens on the next authenticated sync. The plumbing is in place
+        // so that once a PAT field is added this path picks it up automatically.
+        var savedRunId = run.Id;
+        var orgSnapshot = orgName;
+        var projectSnapshot = projectName;
+        var buildSnapshot = resource.Id;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var bgDb = scope.ServiceProvider.GetRequiredService<VeloDbContext>();
+                var bgRepo = scope.ServiceProvider.GetRequiredService<IMetricsRepository>();
+                var bgTimeline = scope.ServiceProvider.GetRequiredService<IAdoTimelineService>();
+                var bgLogger = scope.ServiceProvider.GetRequiredService<ILogger<WebhookController>>();
+
+                await TenantContextHelper.SetAsync(bgDb, orgSnapshot, CancellationToken.None);
+
+                // No webhook-scoped token; pass null and let the timeline service log+skip.
+                var stageName = await bgTimeline.ResolveStageNamesAsync(
+                    orgSnapshot, projectSnapshot, buildSnapshot, accessToken: null, CancellationToken.None);
+                if (string.IsNullOrWhiteSpace(stageName)) return;
+
+                var refinedIsDeployment = DeploymentDetector.IsDeployment(run.PipelineName, stageName);
+                await bgRepo.UpdateRunStageAsync(orgSnapshot, projectSnapshot, savedRunId, stageName, refinedIsDeployment, CancellationToken.None);
+                bgLogger.LogInformation(
+                    "WEBHOOK: Stage capture updated run -- Org={Org}, Project={Project}, Stage={Stage}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgSnapshot),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectSnapshot),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(stageName));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "WEBHOOK: Stage capture background task failed -- Org={Org}, Project={Project}, BuildId={BuildId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgSnapshot),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectSnapshot),
+                    buildSnapshot);
+            }
+        });
+
         // Recompute DORA metrics (non-fatal if this fails)
         try
         {
-            await doraService.ComputeAndSaveAsync(orgName, projectName, cancellationToken);
+            await doraService.ComputeAndSaveAsync(orgName, projectName, repositoryName: null, teamName: null, cancellationToken);
         }
         catch (Exception ex)
         {

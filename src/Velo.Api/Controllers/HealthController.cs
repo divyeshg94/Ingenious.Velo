@@ -56,14 +56,28 @@ public class HealthController(
 
         try
         {
-            var health = await metricsRepository.GetTeamHealthAsync(orgId, projectId, cancellationToken);
+            var health = await metricsRepository.GetTeamHealthAsync(orgId, projectId, repositoryName ?? teamName, cancellationToken);
 
             if (health == null)
             {
                 logger.LogInformation(
                     "HEALTH: No snapshot found — computing inline. " +
                     "OrgId={OrgId}, ProjectId={ProjectId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-                health = await healthService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
+                try
+                {
+                    health = await healthService.ComputeAndSaveAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+                }
+                catch (TeamHasNoMappingsException)
+                {
+                    return Ok(new
+                    {
+                        status = "empty",
+                        note = "Team has no mapped pipelines",
+                        orgId,
+                        projectId,
+                        teamName
+                    });
+                }
             }
 
             return Ok(health);
@@ -105,8 +119,19 @@ public class HealthController(
 
         try
         {
-            var health = await healthService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
+            var health = await healthService.ComputeAndSaveAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
             return Ok(health);
+        }
+        catch (TeamHasNoMappingsException)
+        {
+            return Ok(new
+            {
+                status = "empty",
+                note = "Team has no mapped pipelines",
+                orgId,
+                projectId,
+                teamName
+            });
         }
         catch (Exception ex)
         {

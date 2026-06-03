@@ -69,7 +69,28 @@ public class DoraController(
                 "RepositoryName: {RepositoryName}, TeamName: {TeamName}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"), Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
-            var metrics = await metricsRepository.GetLatestAsync(orgId, projectId, cancellationToken);
+            // Resolve the effective storage key:
+            //  • repositoryName trumps teamName.
+            //  • teamName is resolved to its single mapped repo, or to "team:<TeamName>"
+            //    when it maps to multiple repos; zero mappings → empty-state response.
+            string? filterKey;
+            try
+            {
+                filterKey = await ResolveFilterKeyAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+            }
+            catch (TeamHasNoMappingsException)
+            {
+                return Ok(new
+                {
+                    status = "empty",
+                    note = "Team has no mapped pipelines",
+                    orgId,
+                    projectId,
+                    teamName
+                });
+            }
+
+            var metrics = await metricsRepository.GetLatestAsync(orgId, projectId, filterKey, cancellationToken);
 
             if (metrics == null)
             {
@@ -121,8 +142,25 @@ public class DoraController(
                             // background sync may have run AFTER a webhook delivered the latest
                             // build, in which case the existing rows still need a fresh metrics
                             // snapshot for the dashboard to render.
+                            // Recompute the project-wide snapshot first so the dashboard's default
+                            // view picks up the newly ingested runs, then — when filters were on
+                            // the request — compute the filtered snapshot on top.
                             await scopedCompute.ComputeAndSaveAsync(
-                                capturedOrgId, capturedProjectId, CancellationToken.None);
+                                capturedOrgId, capturedProjectId, repositoryName: null, teamName: null, CancellationToken.None);
+
+                            if (!string.IsNullOrWhiteSpace(capturedRepo) || !string.IsNullOrWhiteSpace(capturedTeam))
+                            {
+                                try
+                                {
+                                    await scopedCompute.ComputeAndSaveAsync(
+                                        capturedOrgId, capturedProjectId, capturedRepo, capturedTeam, CancellationToken.None);
+                                }
+                                catch (TeamHasNoMappingsException)
+                                {
+                                    // Team has no mappings — surfaced to the user on the next poll
+                                    // via ResolveFilterKeyAsync. Nothing to do here.
+                                }
+                            }
 
                             logger.LogInformation(
                                 "AUTO_RECOVERY: Done — {Ingested} runs ingested, OrgId={OrgId}, ProjectId={ProjectId}",
@@ -226,7 +264,25 @@ public class DoraController(
             var from = DateTimeOffset.UtcNow.AddDays(-days);
             var to = DateTimeOffset.UtcNow;
 
-            var metrics = await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, cancellationToken);
+            string? filterKey;
+            try
+            {
+                filterKey = await ResolveFilterKeyAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+            }
+            catch (TeamHasNoMappingsException)
+            {
+                return Ok(new
+                {
+                    status = "empty",
+                    note = "Team has no mapped pipelines",
+                    orgId,
+                    projectId,
+                    teamName,
+                    history = Array.Empty<DoraMetricsDto>()
+                });
+            }
+
+            var metrics = await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, filterKey, cancellationToken);
 
             logger.LogInformation(
                 "AUDIT: Successfully returned {MetricsCount} historical DORA metrics - OrgId: {OrgId}, ProjectId: {ProjectId}, Days: {Days}, " +
@@ -242,5 +298,42 @@ public class DoraController(
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
+    }
+
+    /// <summary>
+    /// Mirrors the resolution logic in DoraComputeService.ResolveFilterAsync so the
+    /// controller can find the right snapshot row.
+    ///   • repositoryName supplied → returns the repo name (single-repo snapshot key).
+    ///   • teamName supplied → looks up TeamMappings; returns the single mapped repo
+    ///     when N=1, or "team:&lt;TeamName&gt;" when N&gt;1. Throws
+    ///     <see cref="TeamHasNoMappingsException"/> when N=0.
+    ///   • neither supplied → returns null (caller treats as project-wide aggregate,
+    ///     which the repository maps to the "" sentinel).
+    /// </summary>
+    private async Task<string?> ResolveFilterKeyAsync(
+        string orgId, string projectId, string? repositoryName, string? teamName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(repositoryName))
+            return repositoryName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(teamName))
+        {
+            var team = teamName.Trim();
+            var mappings = (await metricsRepository.GetTeamMappingsAsync(orgId, projectId, cancellationToken)).ToList();
+            var repos = mappings
+                .Where(m => string.Equals(m.TeamName, team, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.RepositoryName)
+                .Where(r => !string.IsNullOrEmpty(r))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (repos.Count == 0)
+                throw new TeamHasNoMappingsException(team);
+
+            return repos.Count == 1 ? repos[0] : $"team:{team}";
+        }
+
+        return null;
     }
 }

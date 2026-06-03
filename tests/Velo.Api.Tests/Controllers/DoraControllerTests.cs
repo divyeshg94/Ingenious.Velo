@@ -76,7 +76,7 @@ public class DoraControllerTests
     {
         SetOrgId("org1");
         var dto = new DoraMetricsDto { OrgId = "org1", ProjectId = "proj1", DeploymentFrequency = 2.5 };
-        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
         var result = await _sut.GetLatestMetrics("proj1");
@@ -89,7 +89,7 @@ public class DoraControllerTests
     public async Task GetLatestMetrics_ReturnsGathering_WhenNoMetricsAndNoToken()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((DoraMetricsDto?)null);
 
         var result = await _sut.GetLatestMetrics("proj1");
@@ -102,7 +102,7 @@ public class DoraControllerTests
     public async Task GetLatestMetrics_ReturnsSyncing_WhenNoMetricsButTokenPresent()
     {
         SetOrgIdAndAdoToken("org1", "my-ado-token");
-        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetLatestAsync("org1", "proj1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((DoraMetricsDto?)null);
 
         var result = await _sut.GetLatestMetrics("proj1");
@@ -115,7 +115,7 @@ public class DoraControllerTests
     public async Task GetLatestMetrics_Returns500_WhenRepositoryThrows()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetLatestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetLatestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("DB error"));
 
         var result = await _sut.GetLatestMetrics("proj1");
@@ -128,7 +128,7 @@ public class DoraControllerTests
     public async Task GetLatestMetrics_ReturnsForbid_WhenUnauthorizedAccessExceptionThrown()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetLatestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetLatestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
 
         var result = await _sut.GetLatestMetrics("proj1");
@@ -183,7 +183,7 @@ public class DoraControllerTests
     {
         SetOrgId("org1");
         var list = new List<DoraMetricsDto> { new() { OrgId = "org1" } };
-        _repoMock.Setup(r => r.GetHistoryAsync("org1", "proj1", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetHistoryAsync("org1", "proj1", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(list);
 
         var result = await _sut.GetMetricsHistory("proj1", 30);
@@ -196,7 +196,7 @@ public class DoraControllerTests
     public async Task GetMetricsHistory_Returns500_WhenRepositoryThrows()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("DB error"));
 
         var result = await _sut.GetMetricsHistory("proj1", 30);
@@ -209,7 +209,7 @@ public class DoraControllerTests
     public async Task GetMetricsHistory_AcceptsBoundaryDays_1()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<DoraMetricsDto>());
 
         var result = await _sut.GetMetricsHistory("proj1", days: 1);
@@ -221,7 +221,7 @@ public class DoraControllerTests
     public async Task GetMetricsHistory_AcceptsBoundaryDays_365()
     {
         SetOrgId("org1");
-        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetHistoryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<DoraMetricsDto>());
 
         var result = await _sut.GetMetricsHistory("proj1", days: 365);

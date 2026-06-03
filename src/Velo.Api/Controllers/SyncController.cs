@@ -35,7 +35,7 @@ public class SyncController(
         try
         {
             var ingested = await ingestService.IngestAsync(orgId, projectId, adoToken, cancellationToken);
-            var metrics = await doraService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
+            var metrics = await doraService.ComputeAndSaveAsync(orgId, projectId, repositoryName: null, teamName: null, cancellationToken);
 
             var webhookBase = $"{Request.Scheme}://{Request.Host}";
 

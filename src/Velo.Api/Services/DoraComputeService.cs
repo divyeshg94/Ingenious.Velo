@@ -5,7 +5,31 @@ namespace Velo.Api.Services;
 
 public interface IDoraComputeService
 {
-    Task<DoraMetricsDto> ComputeAndSaveAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Computes and persists a DORA metrics snapshot.
+    /// When <paramref name="repositoryName"/> is non-null the snapshot is restricted to
+    /// runs tagged with that repository. When <paramref name="teamName"/> is non-null
+    /// it is resolved via TeamMappings to a repo set and the snapshot is restricted
+    /// to runs tagged with any of those repositories.
+    /// Throws <see cref="TeamHasNoMappingsException"/> when teamName is supplied but
+    /// resolves to zero mappings so callers can return an empty-state response.
+    /// </summary>
+    Task<DoraMetricsDto> ComputeAndSaveAsync(
+        string orgId,
+        string projectId,
+        string? repositoryName,
+        string? teamName,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Thrown when a team filter is supplied but no TeamMappings rows match.
+/// Callers translate this to a 200 with a "team has no mapped pipelines" note.
+/// </summary>
+public class TeamHasNoMappingsException(string teamName)
+    : InvalidOperationException($"Team '{teamName}' has no mapped pipelines.")
+{
+    public string TeamName { get; } = teamName;
 }
 
 /// <summary>
@@ -52,15 +76,24 @@ public class DoraComputeService(
     public async Task<DoraMetricsDto> ComputeAndSaveAsync(
         string orgId,
         string projectId,
+        string? repositoryName,
+        string? teamName,
         CancellationToken cancellationToken)
     {
         var to = DateTimeOffset.UtcNow;
         var from = to.AddDays(-PeriodDays);
 
+        // Resolve the filter context up-front:
+        //  • null/null               -> project-wide aggregate ("" sentinel saved on the row).
+        //  • repositoryName set      -> single-repo snapshot keyed by that repo.
+        //  • teamName set            -> resolve via TeamMappings; key is the team's lone repo
+        //                               when N=1, otherwise "team:<TeamName>".
+        var (effectiveKey, repoFilter) = await ResolveFilterAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+
         // Period-based query — no page cap. Busy customers (hundreds of runs/day)
         // were silently truncated to the most recent 500 runs which biased every
         // metric toward "Elite" as older failures fell out of the window.
-        var periodRuns = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, cancellationToken))
+        var periodRuns = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, repoFilter, cancellationToken))
             .ToList();
 
         var workItemEvents = (await repo.GetWorkItemEventsAsync(orgId, projectId, from, cancellationToken))
@@ -69,8 +102,14 @@ public class DoraComputeService(
         // PR events drive real Lead Time computation when available. The repo
         // projection now carries diff + cycle data; when absent we fall back to
         // a build-duration proxy and flag the result as approximate.
-        var prEvents = (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken))
-            .ToList();
+        //
+        // When a repo/team filter is active we deliberately skip PR-based lead
+        // time because PullRequestEvent doesn't yet carry a repository column;
+        // running the PR linkage across PRs from every repo would mix signals
+        // and produce a value that doesn't match the filtered DF / CFR / MTTR.
+        var prEvents = effectiveKey.Length == 0
+            ? (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken)).ToList()
+            : new List<PullRequestEventDto>();
 
         logger.LogInformation(
             "DORA_COMPUTE: {Period} runs in last {Days} days, {WiCount} WI events, {PrCount} PR events — OrgId={OrgId}, ProjectId={ProjectId}",
@@ -82,6 +121,7 @@ public class DoraComputeService(
             Id = Guid.NewGuid(),
             OrgId = orgId,
             ProjectId = projectId,
+            RepositoryName = effectiveKey,
             ComputedAt = DateTimeOffset.UtcNow,
             PeriodStart = from,
             PeriodEnd = to,
@@ -254,6 +294,45 @@ public class DoraComputeService(
     // Strip control chars from caller-supplied strings before they reach log sinks.
     private static string SanitizeForLog(string value) =>
         Velo.Api.Logging.LogSanitizer.SanitiseForLog(value);
+
+    // ── Filter resolution ─────────────────────────────────────────────────────────
+    /// <summary>
+    /// Resolves the (repositoryName, teamName) query inputs into:
+    ///   • effectiveKey  — the value stored on DoraMetrics.RepositoryName for upsert
+    ///                     keying. "" means project-wide aggregate.
+    ///   • repoFilter    — the list of repository names to feed into the runs query.
+    ///                     null means "no repo filter" (project-wide).
+    /// </summary>
+    private async Task<(string EffectiveKey, IReadOnlyCollection<string>? RepoFilter)> ResolveFilterAsync(
+        string orgId, string projectId, string? repositoryName, string? teamName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(repositoryName))
+        {
+            var name = repositoryName.Trim();
+            return (name, new[] { name });
+        }
+
+        if (!string.IsNullOrWhiteSpace(teamName))
+        {
+            var team = teamName.Trim();
+            var mappings = (await repo.GetTeamMappingsAsync(orgId, projectId, cancellationToken)).ToList();
+            var repos = mappings
+                .Where(m => string.Equals(m.TeamName, team, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.RepositoryName)
+                .Where(r => !string.IsNullOrEmpty(r))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (repos.Count == 0)
+                throw new TeamHasNoMappingsException(team);
+
+            var key = repos.Count == 1 ? repos[0] : $"team:{team}";
+            return (key, repos);
+        }
+
+        return (string.Empty, null);
+    }
 
     // ── MTTR: average time from a failure until the next success ─────────────────
     // Uses FinishTime so a long-running failed build isn't measured as instant restoration.

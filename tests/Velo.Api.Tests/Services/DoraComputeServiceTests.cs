@@ -50,8 +50,8 @@ public class DoraComputeServiceTests
         List<WorkItemEventDto>? workItemEvents = null)
     {
         _repoMock.Setup(r => r.GetRunsInPeriodAsync(
-                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
-                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, CancellationToken _c) =>
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, IReadOnlyCollection<string>? _repos, CancellationToken _c) =>
                      runs.Where(r => r.StartTime >= from && r.StartTime < to).ToList());
         _repoMock.Setup(r => r.GetPrEventsAsync(
                      "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
@@ -70,7 +70,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentFrequency.Should().Be(0);
         result.ChangeFailureRate.Should().Be(0);
@@ -88,7 +88,7 @@ public class DoraComputeServiceTests
         var runs = Enumerable.Range(0, 30).Select(_ => Run("succeeded", isDeploy: true)).ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentFrequency.Should().Be(1.0); // 30 deploys / 30 days
     }
@@ -103,7 +103,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentFrequency.Should().BeGreaterThan(0);
     }
@@ -118,7 +118,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // Only 1 succeeded deploy counts
         result.DeploymentFrequency.Should().BeLessThan(0.1);
@@ -134,7 +134,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.IsDeploymentFrequencyEstimated.Should().BeTrue();
     }
@@ -149,7 +149,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.IsDeploymentFrequencyEstimated.Should().BeFalse();
     }
@@ -165,7 +165,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ChangeFailureRate.Should().Be(50.0);
     }
@@ -175,7 +175,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("succeeded"), Run("succeeded")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ChangeFailureRate.Should().Be(0);
     }
@@ -185,7 +185,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("failed"), Run("failed")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ChangeFailureRate.Should().Be(100.0);
     }
@@ -207,7 +207,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // CFR = 1 failed deploy / 3 total deploy runs × 100 ≈ 33.3 %
         result.ChangeFailureRate.Should().BeApproximately(33.3, 0.1);
@@ -224,7 +224,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ChangeFailureRate.Should().Be(50.0);
         result.IsChangeFailureRateEstimated.Should().BeTrue();
@@ -243,7 +243,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.LeadTimeForChangesHours.Should().BeApproximately(1.5, 0.01);
     }
@@ -253,7 +253,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("failed", durationMs: 3_600_000)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.LeadTimeForChangesHours.Should().Be(0);
     }
@@ -263,7 +263,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("succeeded", durationMs: 3_600_000)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.IsLeadTimeApproximate.Should().BeTrue();
     }
@@ -281,7 +281,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.MeanTimeToRestoreHours.Should().BeApproximately(3.0, 0.1);
         result.IsMttrEstimated.Should().BeFalse();
@@ -298,7 +298,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.MeanTimeToRestoreHours.Should().BeApproximately(3.0, 0.1);
         result.IsMttrEstimated.Should().BeTrue();
@@ -309,7 +309,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("failed", isDeploy: true)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.MeanTimeToRestoreHours.Should().Be(0);
     }
@@ -325,7 +325,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // MTTR only matches same pipeline name
         result.MeanTimeToRestoreHours.Should().Be(0);
@@ -346,7 +346,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // Should only measure deployment pipeline MTTR (5h), not CI pipeline (1h)
         result.MeanTimeToRestoreHours.Should().BeApproximately(5.0, 0.1);
@@ -361,7 +361,7 @@ public class DoraComputeServiceTests
         // No work-item events at all
         SetupRepo([Run("succeeded")], workItemEvents: []);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReworkRate.Should().Be(0);
         result.IsReworkRateEstimated.Should().BeTrue();
@@ -377,7 +377,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo([Run("succeeded")], workItemEvents: events);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.IsReworkRateEstimated.Should().BeFalse();
         result.ReworkRate.Should().Be(0);
@@ -395,7 +395,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo([Run("succeeded")], workItemEvents: events);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReworkRate.Should().BeApproximately(50.0, 0.01);
     }
@@ -411,7 +411,7 @@ public class DoraComputeServiceTests
         // No work-item events → rework = 0
         SetupRepo(runs, workItemEvents: []);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReworkRate.Should().Be(0);
         result.IsReworkRateEstimated.Should().BeTrue();
@@ -428,7 +428,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo([Run("succeeded")], workItemEvents: events);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReworkRate.Should().Be(0);
         result.IsReworkRateEstimated.Should().BeFalse();
@@ -449,7 +449,7 @@ public class DoraComputeServiceTests
             .ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentFrequencyRating.Should().Be(expected);
     }
@@ -463,7 +463,7 @@ public class DoraComputeServiceTests
     {
         SetupRepo([Run("succeeded", durationMs: hours * 3_600_000)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.LeadTimeRating.Should().Be(expected);
     }
@@ -480,7 +480,7 @@ public class DoraComputeServiceTests
             .ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ChangeFailureRating.Should().Be(expected);
     }
@@ -502,7 +502,7 @@ public class DoraComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.MttrRating.Should().Be(expected);
     }
@@ -523,7 +523,7 @@ public class DoraComputeServiceTests
             .ToList();
         SetupRepo([Run("succeeded")], workItemEvents: events);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReworkRateRating.Should().Be(expected);
     }
@@ -537,7 +537,7 @@ public class DoraComputeServiceTests
         var recent = Run("succeeded");
         SetupRepo([old, recent]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // Only the succeeded run is in window, so CFR = 0
         result.ChangeFailureRate.Should().Be(0);
@@ -556,9 +556,90 @@ public class DoraComputeServiceTests
                  .Callback<DoraMetricsDto, CancellationToken>((d, _) => saved = d)
                  .Returns(Task.CompletedTask);
 
-        await _sut.ComputeAndSaveAsync("myorg", "myproj", CancellationToken.None);
+        await _sut.ComputeAndSaveAsync("myorg", "myproj", null, null, CancellationToken.None);
 
         saved!.OrgId.Should().Be("myorg");
         saved.ProjectId.Should().Be("myproj");
+    }
+
+    // ── Repo / Team filter ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_WithRepositoryFilter_PassesRepoNameToRunsQuery()
+    {
+        var runs = new List<PipelineRunDto>
+        {
+            Run("succeeded", isDeploy: true, start: DateTimeOffset.UtcNow.AddDays(-2)),
+        };
+        IReadOnlyCollection<string>? capturedRepos = null;
+        _repoMock.Setup(r => r.GetRunsInPeriodAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<CancellationToken>()))
+                 .Callback<string, string, DateTimeOffset, DateTimeOffset, IReadOnlyCollection<string>?, CancellationToken>(
+                     (_, _, _, _, repos, _) => capturedRepos = repos)
+                 .ReturnsAsync(runs);
+        _repoMock.Setup(r => r.GetWorkItemEventsAsync("org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<WorkItemEventDto>());
+        _repoMock.Setup(r => r.SaveAsync(It.IsAny<DoraMetricsDto>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", "RepoA", null, CancellationToken.None);
+
+        capturedRepos.Should().NotBeNull();
+        capturedRepos!.Should().BeEquivalentTo(new[] { "RepoA" });
+        result.RepositoryName.Should().Be("RepoA");
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_WithTeamFilter_AndNoMappings_Throws()
+    {
+        _repoMock.Setup(r => r.GetTeamMappingsAsync("org", "proj", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<TeamMappingDto>());
+
+        var act = async () => await _sut.ComputeAndSaveAsync("org", "proj", null, "Phoenix", CancellationToken.None);
+
+        await act.Should().ThrowAsync<TeamHasNoMappingsException>();
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_WithTeamFilter_SingleRepo_UsesRepoNameAsKey()
+    {
+        _repoMock.Setup(r => r.GetTeamMappingsAsync("org", "proj", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<TeamMappingDto>
+                 {
+                     new() { Id = Guid.NewGuid(), OrgId = "org", ProjectId = "proj", TeamName = "Phoenix", RepositoryName = "RepoA" }
+                 });
+        _repoMock.Setup(r => r.GetRunsInPeriodAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<PipelineRunDto>());
+        _repoMock.Setup(r => r.GetWorkItemEventsAsync("org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<WorkItemEventDto>());
+        _repoMock.Setup(r => r.SaveAsync(It.IsAny<DoraMetricsDto>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, "Phoenix", CancellationToken.None);
+
+        result.RepositoryName.Should().Be("RepoA");
+    }
+
+    [Fact]
+    public async Task ComputeAndSaveAsync_WithTeamFilter_MultipleRepos_UsesTeamSentinel()
+    {
+        _repoMock.Setup(r => r.GetTeamMappingsAsync("org", "proj", It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<TeamMappingDto>
+                 {
+                     new() { Id = Guid.NewGuid(), OrgId = "org", ProjectId = "proj", TeamName = "Phoenix", RepositoryName = "RepoA" },
+                     new() { Id = Guid.NewGuid(), OrgId = "org", ProjectId = "proj", TeamName = "Phoenix", RepositoryName = "RepoB" }
+                 });
+        _repoMock.Setup(r => r.GetRunsInPeriodAsync(
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<PipelineRunDto>());
+        _repoMock.Setup(r => r.GetWorkItemEventsAsync("org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new List<WorkItemEventDto>());
+        _repoMock.Setup(r => r.SaveAsync(It.IsAny<DoraMetricsDto>(), It.IsAny<CancellationToken>()))
+                 .Returns(Task.CompletedTask);
+
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, "Phoenix", CancellationToken.None);
+
+        result.RepositoryName.Should().Be("team:Phoenix");
     }
 }

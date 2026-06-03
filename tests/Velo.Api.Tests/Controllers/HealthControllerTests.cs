@@ -64,14 +64,14 @@ public class HealthControllerTests
     {
         SetOrgId("myorg");
         var existing = new TeamHealthDto { OrgId = "myorg", ProjectId = "proj1" };
-        _repoMock.Setup(r => r.GetTeamHealthAsync("myorg", "proj1", It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetTeamHealthAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(existing);
 
         var result = await _sut.GetTeamHealth("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().Be(existing);
-        _healthServiceMock.Verify(h => h.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _healthServiceMock.Verify(h => h.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -79,23 +79,23 @@ public class HealthControllerTests
     {
         SetOrgId("myorg");
         var computed = new TeamHealthDto { OrgId = "myorg", ProjectId = "proj1", TestPassRate = 90 };
-        _repoMock.Setup(r => r.GetTeamHealthAsync("myorg", "proj1", It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetTeamHealthAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync((TeamHealthDto?)null);
-        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<CancellationToken>()))
+        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                           .ReturnsAsync(computed);
 
         var result = await _sut.GetTeamHealth("proj1");
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().Be(computed);
-        _healthServiceMock.Verify(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<CancellationToken>()), Times.Once);
+        _healthServiceMock.Verify(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetTeamHealth_Returns500_OnException()
     {
         SetOrgId("myorg");
-        _repoMock.Setup(r => r.GetTeamHealthAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetTeamHealthAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                  .ThrowsAsync(new Exception("DB down"));
 
         var result = await _sut.GetTeamHealth("proj1");
@@ -131,7 +131,7 @@ public class HealthControllerTests
     {
         SetOrgId("myorg");
         var fresh = new TeamHealthDto { OrgId = "myorg", ProjectId = "proj1", PrApprovalRate = 95 };
-        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<CancellationToken>()))
+        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                           .ReturnsAsync(fresh);
 
         var result = await _sut.Recompute("proj1");
@@ -144,7 +144,7 @@ public class HealthControllerTests
     public async Task Recompute_Returns500_OnException()
     {
         SetOrgId("myorg");
-        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _healthServiceMock.Setup(h => h.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                           .ThrowsAsync(new Exception("Compute failed"));
 
         var result = await _sut.Recompute("proj1");

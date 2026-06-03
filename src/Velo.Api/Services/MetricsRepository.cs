@@ -231,23 +231,35 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
 
     public async Task<IEnumerable<PipelineRunDto>> GetRunsInPeriodAsync(
         string orgId, string projectId, DateTimeOffset from, DateTimeOffset to,
-        CancellationToken cancellationToken)
+        IReadOnlyCollection<string>? repositoryNames, CancellationToken cancellationToken)
     {
         try
         {
-            var runs = await dbContext.PipelineRuns
+            var query = dbContext.PipelineRuns
                 .AsNoTracking()
                 .Where(r => r.OrgId == orgId && r.ProjectId == projectId
-                            && r.StartTime >= from && r.StartTime < to)
+                            && r.StartTime >= from && r.StartTime < to);
+
+            if (repositoryNames is { Count: > 0 })
+            {
+                // Materialise to a List so EF translates with IN(...). Empty collection
+                // would render as 1=0 and silently return zero runs, which is wrong —
+                // the caller indicates "no filter" by passing null, not an empty list.
+                var names = repositoryNames.ToList();
+                query = query.Where(r => r.RepositoryName != null && names.Contains(r.RepositoryName!));
+            }
+
+            var runs = await query
                 .OrderByDescending(r => r.StartTime)
                 .ToListAsync(cancellationToken);
 
             logger.LogInformation(
-                "Retrieved {RunCount} pipeline runs in period for OrgId: {OrgId}, ProjectId: {ProjectId}, From: {From}, To: {To}",
+                "Retrieved {RunCount} pipeline runs in period for OrgId: {OrgId}, ProjectId: {ProjectId}, From: {From}, To: {To}, RepoFilter: {RepoFilter}",
                 runs.Count,
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
-                from, to);
+                from, to,
+                repositoryNames is { Count: > 0 } ? repositoryNames.Count : 0);
 
             return runs.Select(MapPipelineRunToDto).ToList();
         }
@@ -310,21 +322,75 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         }
     }
 
-    public async Task<TeamHealthDto?> GetTeamHealthAsync(string orgId, string projectId, CancellationToken cancellationToken)
+    public async Task UpdateRunStageAsync(
+        string orgId, string projectId, Guid runId, string? stageName, bool isDeployment,
+        CancellationToken cancellationToken)
     {
         try
         {
+            var run = await dbContext.PipelineRuns
+                .FirstOrDefaultAsync(r => r.Id == runId && r.OrgId == orgId && r.ProjectId == projectId,
+                    cancellationToken);
+
+            if (run is null)
+            {
+                logger.LogWarning(
+                    "UpdateRunStageAsync: run not found OrgId={OrgId}, ProjectId={ProjectId}, RunId={RunId}",
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                    runId);
+                return;
+            }
+
+            // Truncate to fit the [MaxLength(200)] column rather than letting EF
+            // raise a SqlException on a long concatenated stage string.
+            if (stageName is { Length: > 200 })
+                stageName = stageName[..200];
+
+            run.StageName = stageName;
+            run.IsDeployment = isDeployment;
+            run.ModifiedBy = "webhook-timeline";
+            run.ModifiedDate = DateTimeOffset.UtcNow;
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "Updated stage for run OrgId={OrgId}, ProjectId={ProjectId}, RunId={RunId}, Stage={Stage}, IsDeployment={IsDeployment}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                runId,
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(stageName ?? "(null)"),
+                isDeployment);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Error updating run stage for OrgId={OrgId}, ProjectId={ProjectId}, RunId={RunId}",
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+                Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                runId);
+            throw;
+        }
+    }
+
+    public async Task<TeamHealthDto?> GetTeamHealthAsync(string orgId, string projectId, string? repositoryName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var filterKey = repositoryName ?? string.Empty;
+
             var health = await dbContext.TeamHealth
                 .AsNoTracking()
-                .Where(h => h.OrgId == orgId && h.ProjectId == projectId)
+                .Where(h => h.OrgId == orgId && h.ProjectId == projectId && h.RepositoryName == filterKey)
                 .OrderByDescending(h => h.ComputedAt)
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (health == null)
             {
-                logger.LogInformation("No team health data found for OrgId: {OrgId}, ProjectId: {ProjectId}",
+                logger.LogInformation("No team health data found for OrgId: {OrgId}, ProjectId: {ProjectId}, Filter: {Filter}",
                     Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
-                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+                    Velo.Api.Logging.LogSanitizer.SanitiseForLog(filterKey.Length == 0 ? "(all)" : filterKey));
                 return null;
             }
 
@@ -349,6 +415,7 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 OrgId = healthDto.OrgId,
                 ProjectId = healthDto.ProjectId,
                 ComputedAt = healthDto.ComputedAt,
+                RepositoryName = healthDto.RepositoryName ?? string.Empty,
                 CodingTimeHours = healthDto.CodingTimeHours,
                 ReviewTimeHours = healthDto.ReviewTimeHours,
                 MergeTimeHours = healthDto.MergeTimeHours,
@@ -636,6 +703,7 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         OrgId = metric.OrgId,
         ProjectId = metric.ProjectId,
         ComputedAt = metric.ComputedAt,
+        RepositoryName = metric.RepositoryName,
         PeriodStart = metric.PeriodStart,
         PeriodEnd = metric.PeriodEnd,
         DeploymentFrequency = metric.DeploymentFrequency,
@@ -680,6 +748,7 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         OrgId = health.OrgId,
         ProjectId = health.ProjectId,
         ComputedAt = health.ComputedAt,
+        RepositoryName = health.RepositoryName,
         CodingTimeHours = health.CodingTimeHours,
         ReviewTimeHours = health.ReviewTimeHours,
         MergeTimeHours = health.MergeTimeHours,

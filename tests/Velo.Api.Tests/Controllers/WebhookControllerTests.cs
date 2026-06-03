@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text;
@@ -40,6 +41,7 @@ public class WebhookControllerTests : IDisposable
             _dbContext,
             _doraServiceMock.Object,
             _config,
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
             NullLogger<WebhookController>.Instance);
     }
 
@@ -222,7 +224,7 @@ public class WebhookControllerTests : IDisposable
                  .ReturnsAsync(false);
         _repoMock.Setup(r => r.SaveRunAsync(It.IsAny<Velo.Shared.Models.PipelineRunDto>(), It.IsAny<CancellationToken>()))
                  .Returns(Task.CompletedTask);
-        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new Velo.Shared.Models.DoraMetricsDto());
 
         var result = await _sut.AdoEvent(CancellationToken.None);
@@ -437,7 +439,7 @@ public class WebhookControllerTests : IDisposable
                  .ReturnsAsync(false);
         _repoMock.Setup(r => r.SaveRunAsync(It.IsAny<Velo.Shared.Models.PipelineRunDto>(), It.IsAny<CancellationToken>()))
                  .Returns(Task.CompletedTask);
-        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new Velo.Shared.Models.DoraMetricsDto());
 
         var result = await _sut.AdoEvent(CancellationToken.None);
