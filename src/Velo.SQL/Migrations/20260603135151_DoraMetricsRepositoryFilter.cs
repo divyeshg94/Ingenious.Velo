@@ -64,6 +64,11 @@ namespace Velo.SQL.Migrations
                 name: "UX_DoraMetrics_OrgId_ProjectId_ComputedDate_RepositoryName",
                 table: "DoraMetrics");
 
+            // Rollback guard: this migration allows multiple rows per (OrgId, ProjectId, ComputedDate)
+            // for different RepositoryName values. The pre-migration schema cannot represent these
+            // slices, so delete filtered rows to avoid UNIQUE index violations on downgrade.
+            migrationBuilder.Sql("DELETE FROM DoraMetrics WHERE RepositoryName <> ''");
+
             migrationBuilder.DropColumn(
                 name: "RepositoryName",
                 table: "TeamHealth");
@@ -77,6 +82,5 @@ namespace Velo.SQL.Migrations
                 table: "DoraMetrics",
                 columns: new[] { "OrgId", "ProjectId", "ComputedDate" },
                 unique: true);
-        }
     }
 }
