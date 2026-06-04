@@ -9,8 +9,9 @@ namespace Velo.Shared.Models;
 public class DoraMetricsResponse
 {
     /// <summary>
-    /// "ok" when <see cref="Metrics"/> is populated. "empty" when the filter
-    /// resolved to no data (with <see cref="Note"/> explaining why).
+    /// "ok" when <see cref="Metrics"/> is populated; "empty" when the filter resolved to no data
+    /// (with <see cref="Note"/> explaining why); "gathering" when connected but no runs exist yet;
+    /// "syncing" when an authenticated background sync is in progress.
     /// </summary>
     public string Status { get; set; } = "ok";
     public string? Message { get; set; }
