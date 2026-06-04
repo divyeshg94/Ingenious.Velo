@@ -82,5 +82,6 @@ namespace Velo.SQL.Migrations
                 table: "DoraMetrics",
                 columns: new[] { "OrgId", "ProjectId", "ComputedDate" },
                 unique: true);
+        }
     }
 }
