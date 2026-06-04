@@ -73,7 +73,7 @@ public class SyncControllerTests
 
         _ingestMock.Setup(i => i.IngestAsync("myorg", "proj1", "test-token", It.IsAny<CancellationToken>()))
                    .ReturnsAsync(10);
-        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<CancellationToken>()))
+        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync("myorg", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(metrics);
         _hookServiceMock.Setup(h => h.RegisterAsync("myorg", "proj1", "test-token", It.IsAny<string>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(hookStatus);
@@ -90,7 +90,7 @@ public class SyncControllerTests
     {
         SetContext("myorg");
         _ingestMock.Setup(i => i.IngestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(5);
-        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new DoraMetricsDto());
+        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>())).ReturnsAsync(new DoraMetricsDto());
         _hookServiceMock.Setup(h => h.RegisterAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                         .ThrowsAsync(new Exception("Hook registration failed"));
         _hookServiceMock.Setup(h => h.RegisterPrHookAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -106,7 +106,7 @@ public class SyncControllerTests
     {
         SetContext("myorg");
         _ingestMock.Setup(i => i.IngestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(5);
-        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new DoraMetricsDto());
+        _doraServiceMock.Setup(d => d.ComputeAndSaveAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>())).ReturnsAsync(new DoraMetricsDto());
         _hookServiceMock.Setup(h => h.RegisterAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new WebhookStatusDto { IsRegistered = true });
         _hookServiceMock.Setup(h => h.RegisterPrHookAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

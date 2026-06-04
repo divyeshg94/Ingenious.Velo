@@ -52,8 +52,8 @@ public class TeamHealthComputeServiceTests
     private void SetupRepo(List<PipelineRunDto> runs, List<PullRequestEventDto>? prs = null)
     {
         _repoMock.Setup(r => r.GetRunsInPeriodAsync(
-                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
-                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, CancellationToken _c) =>
+                     "org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync((string _o, string _p, DateTimeOffset from, DateTimeOffset to, IReadOnlyCollection<string>? _repos, CancellationToken _c) =>
                      runs.Where(r => r.StartTime >= from && r.StartTime < to).ToList());
         _repoMock.Setup(r => r.GetPrEventsAsync("org", "proj", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
                  .ReturnsAsync(prs ?? []);
@@ -68,7 +68,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.CodingTimeHours.Should().Be(0);
         result.ReviewTimeHours.Should().Be(0);
@@ -94,7 +94,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo([MakeRun("succeeded")], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReviewTimeHours.Should().BeApproximately(6.0, 0.1);
     }
@@ -104,7 +104,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded", isDeploy: false, durationMs: 3_600_000)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReviewTimeHours.Should().BeApproximately(1.0, 0.01);
     }
@@ -120,7 +120,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo([MakeRun("succeeded")], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.MergeTimeHours.Should().Be(result.ReviewTimeHours);
     }
@@ -131,7 +131,7 @@ public class TeamHealthComputeServiceTests
         var prs = new List<PullRequestEventDto> { MakePr("active", closed: null) };
         SetupRepo([], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReviewTimeHours.Should().Be(0);
     }
@@ -150,7 +150,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo([], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.ReviewTimeHours.Should().BeApproximately(8.0, 0.1);
     }
@@ -169,7 +169,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo([], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.PrApprovalRate.Should().BeApproximately(50.0, 0.1);
     }
@@ -184,7 +184,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo([], prs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.PrApprovalRate.Should().Be(100.0);
     }
@@ -194,7 +194,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([], [MakePr("active", closed: null)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.PrApprovalRate.Should().Be(0);
     }
@@ -205,7 +205,7 @@ public class TeamHealthComputeServiceTests
         // 2 succeeded, 0 failed => pass rate 100%
         SetupRepo([MakeRun("succeeded"), MakeRun("succeeded")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.PrApprovalRate.Should().Be(result.TestPassRate);
     }
@@ -217,7 +217,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded"), MakeRun("succeeded"), MakeRun("failed")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.TestPassRate.Should().BeApproximately(66.67, 0.1);
     }
@@ -227,7 +227,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded"), MakeRun("succeeded")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.TestPassRate.Should().Be(100);
     }
@@ -237,7 +237,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded"), MakeRun("canceled")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         // canceled is not in the concluded bucket → only 1 run, 1 succeeded = 100%
         result.TestPassRate.Should().Be(100);
@@ -257,7 +257,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.CodingTimeHours.Should().BeApproximately(2.0, 0.1);
     }
@@ -267,7 +267,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded")]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.CodingTimeHours.Should().Be(0);
     }
@@ -284,7 +284,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.CodingTimeHours.Should().BeApproximately(2.0, 0.1);
     }
@@ -301,7 +301,7 @@ public class TeamHealthComputeServiceTests
         };
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeployTimeHours.Should().BeApproximately(1.5, 0.01);
     }
@@ -311,7 +311,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded", isDeploy: false)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeployTimeHours.Should().Be(0);
     }
@@ -323,7 +323,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([MakeRun("succeeded", pipelineId: 1), MakeRun("failed", pipelineId: 1)]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.FlakyTestRate.Should().Be(0);
     }
@@ -336,7 +336,7 @@ public class TeamHealthComputeServiceTests
             .ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.FlakyTestRate.Should().Be(100); // 1/1 pipelines is flaky
     }
@@ -347,7 +347,7 @@ public class TeamHealthComputeServiceTests
         var runs = Enumerable.Range(0, 5).Select(_ => MakeRun("succeeded", pipelineId: 1)).ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.FlakyTestRate.Should().Be(0);
     }
@@ -362,7 +362,7 @@ public class TeamHealthComputeServiceTests
             .ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentRiskScore.Should().Be(0);
     }
@@ -373,7 +373,7 @@ public class TeamHealthComputeServiceTests
         var runs = Enumerable.Range(0, 5).Select(_ => MakeRun("failed")).ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentRiskScore.Should().BeGreaterThan(0);
     }
@@ -386,7 +386,7 @@ public class TeamHealthComputeServiceTests
             .ToList();
         SetupRepo(runs);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.DeploymentRiskScore.Should().BeLessOrEqualTo(100);
     }
@@ -398,7 +398,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.AveragePrSizeLines.Should().Be(0);
     }
@@ -408,7 +408,7 @@ public class TeamHealthComputeServiceTests
     {
         SetupRepo([]);
 
-        var result = await _sut.ComputeAndSaveAsync("org", "proj", CancellationToken.None);
+        var result = await _sut.ComputeAndSaveAsync("org", "proj", null, null, CancellationToken.None);
 
         result.PrCommentDensity.Should().Be(0);
     }

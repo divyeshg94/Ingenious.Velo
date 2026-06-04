@@ -6,6 +6,15 @@ public class DoraMetricsDto
     public string OrgId { get; set; } = string.Empty;
     public string ProjectId { get; set; } = string.Empty;
     public DateTimeOffset ComputedAt { get; set; }
+
+    /// <summary>
+    /// Filter context for the snapshot. Empty string = project-wide aggregate.
+    /// A repo name = single-repo snapshot. "team:&lt;TeamName&gt;" = team snapshot
+    /// (mapped via TeamMappings). Lets the dashboard look up the right slice
+    /// when the user picks a repo/team filter.
+    /// </summary>
+    public string RepositoryName { get; set; } = string.Empty;
+
     public DateTimeOffset PeriodStart { get; set; }
     public DateTimeOffset PeriodEnd { get; set; }
     public double DeploymentFrequency { get; set; }

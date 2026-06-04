@@ -27,7 +27,7 @@ public class HealthController(
     /// Auto-computes and saves a new snapshot if none exists.
     /// </summary>
     [HttpGet("team")]
-    public async Task<ActionResult<TeamHealthDto>> GetTeamHealth(
+    public async Task<ActionResult<TeamHealthResponse>> GetTeamHealth(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
         [FromQuery] string? teamName = null,
@@ -56,17 +56,59 @@ public class HealthController(
 
         try
         {
-            var health = await metricsRepository.GetTeamHealthAsync(orgId, projectId, cancellationToken);
+            // Resolve the effective storage key so cached snapshots are actually hit
+            // for team filters (snapshots are keyed by the single mapped repo name
+            // when N=1, or "team:<teamName-lower>" when N>1).
+            string? filterKey;
+            try
+            {
+                filterKey = await ResolveFilterKeyAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+            }
+            catch (TeamHasNoMappingsException)
+            {
+                return Ok(new TeamHealthResponse
+                {
+                    Status = "empty",
+                    Note = "Team has no mapped pipelines",
+                    OrgId = orgId,
+                    ProjectId = projectId,
+                    TeamName = teamName
+                });
+            }
+
+            var health = await metricsRepository.GetTeamHealthAsync(orgId, projectId, filterKey, cancellationToken);
 
             if (health == null)
             {
                 logger.LogInformation(
                     "HEALTH: No snapshot found — computing inline. " +
                     "OrgId={OrgId}, ProjectId={ProjectId}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
-                health = await healthService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
+                try
+                {
+                    health = await healthService.ComputeAndSaveAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+                }
+                catch (TeamHasNoMappingsException)
+                {
+                    return Ok(new TeamHealthResponse
+                    {
+                        Status = "empty",
+                        Note = "Team has no mapped pipelines",
+                        OrgId = orgId,
+                        ProjectId = projectId,
+                        TeamName = teamName
+                    });
+                }
             }
 
-            return Ok(health);
+            return Ok(new TeamHealthResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Health = health
+            });
         }
         catch (Exception ex)
         {
@@ -82,7 +124,7 @@ public class HealthController(
     /// Called when the user clicks "Refresh" in the UI.
     /// </summary>
     [HttpPost("recompute")]
-    public async Task<ActionResult<TeamHealthDto>> Recompute(
+    public async Task<ActionResult<TeamHealthResponse>> Recompute(
         [FromQuery] string projectId,
         [FromQuery] string? repositoryName = null,
         [FromQuery] string? teamName = null,
@@ -105,8 +147,27 @@ public class HealthController(
 
         try
         {
-            var health = await healthService.ComputeAndSaveAsync(orgId, projectId, cancellationToken);
-            return Ok(health);
+            var health = await healthService.ComputeAndSaveAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+            return Ok(new TeamHealthResponse
+            {
+                Status = "ok",
+                OrgId = orgId,
+                ProjectId = projectId,
+                RepositoryName = repositoryName,
+                TeamName = teamName,
+                Health = health
+            });
+        }
+        catch (TeamHasNoMappingsException)
+        {
+            return Ok(new TeamHealthResponse
+            {
+                Status = "empty",
+                Note = "Team has no mapped pipelines",
+                OrgId = orgId,
+                ProjectId = projectId,
+                TeamName = teamName
+            });
         }
         catch (Exception ex)
         {
@@ -115,5 +176,41 @@ public class HealthController(
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId));
             return StatusCode(500, new { error = "Failed to compute team health metrics" });
         }
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="TeamHealthComputeService"/>'s ResolveFilterAsync logic so the
+    /// controller can hit the correct cached snapshot. Returns:
+    ///   • the trimmed repositoryName when supplied,
+    ///   • the single mapped repo when teamName maps to N=1,
+    ///   • "team:&lt;teamName-lower&gt;" when teamName maps to N&gt;1,
+    ///   • null when neither filter is supplied (project-wide aggregate).
+    /// Throws <see cref="TeamHasNoMappingsException"/> when teamName resolves to N=0.
+    /// </summary>
+    private async Task<string?> ResolveFilterKeyAsync(
+        string orgId, string projectId, string? repositoryName, string? teamName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(repositoryName))
+            return repositoryName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(teamName))
+        {
+            var team = teamName.Trim();
+            var mappings = (await metricsRepository.GetTeamMappingsAsync(orgId, projectId, cancellationToken)).ToList();
+            var repos = mappings
+                .Where(m => string.Equals(m.TeamName, team, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.RepositoryName)
+                .Where(r => !string.IsNullOrEmpty(r))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (repos.Count == 0)
+                throw new TeamHasNoMappingsException(team);
+
+            return repos.Count == 1 ? repos[0] : $"team:{team.ToLowerInvariant()}";
+        }
+
+        return null;
     }
 }

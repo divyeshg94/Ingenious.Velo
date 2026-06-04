@@ -27,6 +27,18 @@ public class DoraMetrics : AuditableEntity
     [Column(TypeName = "date")]
     public DateTime ComputedDate { get; set; }
 
+    /// <summary>
+    /// Filter context for the snapshot. Empty string ("") = project-wide aggregate.
+    /// A literal repository name = single-repo snapshot. "team:&lt;TeamName&gt;" = team
+    /// snapshot resolved via TeamMappings to multiple repos. Stored as part of the
+    /// composite UNIQUE index UX_DoraMetrics_OrgId_ProjectId_ComputedDate_RepositoryName
+    /// so per-filter daily snapshots don't collide with the project-wide row.
+    /// Empty string sentinel chosen so SQL Server's standard unique-index NULL semantics
+    /// don't break the upsert path.
+    /// </summary>
+    [Required, MaxLength(200)]
+    public string RepositoryName { get; set; } = string.Empty;
+
     public double DeploymentFrequency { get; set; }
     public string DeploymentFrequencyRating { get; set; } = string.Empty;
 

@@ -89,6 +89,7 @@ try
     builder.Services.AddScoped<IPrSizeMetricsService, PrSizeMetricsService>();
     builder.Services.AddScoped<ITeamHealthComputeService, TeamHealthComputeService>();
     builder.Services.AddScoped<IAdoServiceHookService, AdoServiceHookService>();
+    builder.Services.AddScoped<IAdoTimelineService, AdoTimelineService>();
     builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration

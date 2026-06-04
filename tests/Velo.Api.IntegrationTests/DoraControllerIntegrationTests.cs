@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
+using Velo.Shared.Models;
 
 namespace Velo.Api.IntegrationTests;
 
@@ -104,10 +106,12 @@ public class DoraControllerIntegrationTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateAuthenticatedClient($"dora-hist-empty-{Guid.NewGuid()}");
         var response = await client.GetAsync("/api/dora/history?projectId=myproject&days=30");
-        var body = await response.Content.ReadAsStringAsync();
+        var payload = await response.Content.ReadFromJsonAsync<DoraMetricsHistoryResponse>();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.Should().Be("[]");
+        payload.Should().NotBeNull();
+        payload!.Status.Should().Be("ok");
+        payload.History.Should().BeEmpty();
     }
 
     [Fact]

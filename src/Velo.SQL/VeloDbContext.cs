@@ -99,23 +99,36 @@ public class VeloDbContext : DbContext
             .HasDatabaseName("IX_DoraMetrics_OrgId_ProjectId_ComputedAt_DESC");
 
         modelBuilder.Entity<DoraMetrics>()
+            .HasIndex(m => new { m.OrgId, m.ProjectId, m.RepositoryName, m.ComputedAt })
+            .IsDescending(false, false, false, true)
+            .HasDatabaseName("IX_DoraMetrics_OrgId_ProjectId_RepositoryName_ComputedAt_DESC");
+
+        modelBuilder.Entity<DoraMetrics>()
             .HasIndex(m => m.ComputedAt)
             .IsDescending(true)
             .HasDatabaseName("IX_DoraMetrics_ComputedAt_DESC");
 
-        // Enforce one snapshot per (org, project, UTC day) at the database level so
-        // concurrent recomputes cannot create duplicate rows. MetricsRepository.SaveAsync
-        // races to insert, then catches the unique-violation and updates instead.
+        // Enforce one snapshot per (org, project, UTC day, repository filter) at the
+        // database level so concurrent recomputes cannot create duplicate rows for
+        // the same filter slice. MetricsRepository.SaveAsync races to insert, then
+        // catches the unique-violation and updates instead. RepositoryName is
+        // non-nullable (empty string = project-wide) so SQL Server's NULL-distinct
+        // semantics don't break the index.
         modelBuilder.Entity<DoraMetrics>()
-            .HasIndex(m => new { m.OrgId, m.ProjectId, m.ComputedDate })
+            .HasIndex(m => new { m.OrgId, m.ProjectId, m.ComputedDate, m.RepositoryName })
             .IsUnique()
-            .HasDatabaseName("UX_DoraMetrics_OrgId_ProjectId_ComputedDate");
+            .HasDatabaseName("UX_DoraMetrics_OrgId_ProjectId_ComputedDate_RepositoryName");
 
         // TeamHealth indexes
         modelBuilder.Entity<TeamHealth>()
             .HasIndex(h => new { h.OrgId, h.ProjectId, h.ComputedAt })
             .IsDescending(false, false, true)
             .HasDatabaseName("IX_TeamHealth_OrgId_ProjectId_ComputedAt_DESC");
+
+        modelBuilder.Entity<TeamHealth>()
+            .HasIndex(h => new { h.OrgId, h.ProjectId, h.RepositoryName, h.ComputedAt })
+            .IsDescending(false, false, false, true)
+            .HasDatabaseName("IX_TeamHealth_OrgId_ProjectId_RepositoryName_ComputedAt_DESC");
 
         modelBuilder.Entity<TeamHealth>()
             .HasIndex(h => h.ComputedAt)

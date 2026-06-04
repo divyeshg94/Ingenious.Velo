@@ -9,8 +9,8 @@ namespace Velo.Shared.Contracts;
 public interface IMetricsRepository
 {
     // DORA Metrics
-    Task<DoraMetricsDto?> GetLatestAsync(string orgId, string projectId, CancellationToken cancellationToken);
-    Task<IEnumerable<DoraMetricsDto>> GetHistoryAsync(string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+    Task<DoraMetricsDto?> GetLatestAsync(string orgId, string projectId, string? repositoryName, CancellationToken cancellationToken);
+    Task<IEnumerable<DoraMetricsDto>> GetHistoryAsync(string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, string? repositoryName, CancellationToken cancellationToken);
     Task SaveAsync(DoraMetricsDto metrics, CancellationToken cancellationToken);
 
     // Pipeline Runs
@@ -21,15 +21,28 @@ public interface IMetricsRepository
     /// within [from, to). Unlike <see cref="GetRunsAsync"/> there is no page cap —
     /// callers computing rolling-window metrics must see every run in the window
     /// or the result is silently wrong.
+    ///
+    /// When <paramref name="repositoryNames"/> is non-empty the result is restricted
+    /// to runs whose RepositoryName is one of the supplied values. Null/empty means
+    /// "all repositories" (project-wide aggregate).
     /// </summary>
     Task<IEnumerable<PipelineRunDto>> GetRunsInPeriodAsync(
-        string orgId, string projectId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+        string orgId, string projectId, DateTimeOffset from, DateTimeOffset to,
+        IReadOnlyCollection<string>? repositoryNames, CancellationToken cancellationToken);
 
     Task<bool> RunExistsAsync(string orgId, string projectId, int adoPipelineId, string runNumber, CancellationToken cancellationToken);
     Task SaveRunAsync(PipelineRunDto run, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Updates StageName + IsDeployment on an existing pipeline run.
+    /// Used by the webhook background path that fetches the build timeline AFTER
+    /// the run has been persisted (the webhook returns immediately, the timeline
+    /// fetch happens fire-and-forget).
+    /// </summary>
+    Task UpdateRunStageAsync(string orgId, string projectId, Guid runId, string? stageName, bool isDeployment, CancellationToken cancellationToken);
+
     // Team Health
-    Task<TeamHealthDto?> GetTeamHealthAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    Task<TeamHealthDto?> GetTeamHealthAsync(string orgId, string projectId, string? repositoryName, CancellationToken cancellationToken);
     Task SaveTeamHealthAsync(TeamHealthDto health, CancellationToken cancellationToken);
 
     // Pull Requests

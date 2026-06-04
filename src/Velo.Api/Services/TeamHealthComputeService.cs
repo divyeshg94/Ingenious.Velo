@@ -5,7 +5,12 @@ namespace Velo.Api.Services;
 
 public interface ITeamHealthComputeService
 {
-    Task<TeamHealthDto> ComputeAndSaveAsync(string orgId, string projectId, CancellationToken cancellationToken);
+    Task<TeamHealthDto> ComputeAndSaveAsync(
+        string orgId,
+        string projectId,
+        string? repositoryName,
+        string? teamName,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -39,22 +44,33 @@ public class TeamHealthComputeService(
     public async Task<TeamHealthDto> ComputeAndSaveAsync(
         string orgId,
         string projectId,
+        string? repositoryName,
+        string? teamName,
         CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "HEALTH: Computing team health — OrgId={OrgId}, ProjectId={ProjectId}",
-            orgId, projectId);
+            "HEALTH: Computing team health — OrgId={OrgId}, ProjectId={ProjectId}, RepositoryName={RepositoryName}, TeamName={TeamName}",
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(repositoryName ?? "(all)"),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(teamName ?? "(all)"));
 
         var to   = DateTimeOffset.UtcNow;
         var from = to.AddDays(-PeriodDays);
 
+        var (effectiveKey, repoFilter) = await ResolveFilterAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+
         // Period-based query for runs — no page cap so busy customers' older runs
         // don't silently fall out of the 30-day window.
-        var runs = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, cancellationToken))
+        var runs = (await repo.GetRunsInPeriodAsync(orgId, projectId, from, to, repoFilter, cancellationToken))
             .ToList();
 
-        // Fetch PR events for the same 30-day window.
-        var prEvents  = (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken)).ToList();
+        // Fetch PR events for the same 30-day window. Skip when a filter is set —
+        // PullRequestEvent has no repository column, so cross-repo PRs would
+        // contaminate the per-repo cycle-time view.
+        var prEvents = effectiveKey.Length == 0
+            ? (await repo.GetPrEventsAsync(orgId, projectId, from, cancellationToken)).ToList()
+            : new List<PullRequestEventDto>();
         var hasPrData = prEvents.Count > 0;
 
         // Fetch work item state transitions for the same 30-day window.
@@ -62,8 +78,10 @@ public class TeamHealthComputeService(
         var hasWorkItemData = workItemEvents.Count > 0;
 
         logger.LogInformation(
-            "HEALTH: Found {Period} runs in last {Days} days, {PrCount} PR events, {WiCount} WI events — OrgId={OrgId}",
-            runs.Count, PeriodDays, prEvents.Count, workItemEvents.Count, orgId);
+            "HEALTH: Found {Period} runs in last {Days} days, {PrCount} PR events, {WiCount} WI events — OrgId={OrgId}, Filter={Filter}",
+            runs.Count, PeriodDays, prEvents.Count, workItemEvents.Count,
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(effectiveKey.Length == 0 ? "(all)" : effectiveKey));
 
         // ── Cycle time metrics ────────────────────────────────────────────
         var codingTimeHours = ComputeCodingTime(runs);
@@ -87,6 +105,7 @@ public class TeamHealthComputeService(
             OrgId               = orgId,
             ProjectId           = projectId,
             ComputedAt          = DateTimeOffset.UtcNow,
+            RepositoryName      = effectiveKey,
             CodingTimeHours     = Round(codingTimeHours),
             ReviewTimeHours     = Round(reviewTimeHours),
             MergeTimeHours      = Round(mergeTimeHours),
@@ -102,10 +121,12 @@ public class TeamHealthComputeService(
         await repo.SaveTeamHealthAsync(health, cancellationToken);
 
         logger.LogInformation(
-            "HEALTH: Saved — OrgId={OrgId}, ProjectId={ProjectId}, " +
+            "HEALTH: Saved — OrgId={OrgId}, ProjectId={ProjectId}, Filter={Filter}, " +
             "ReviewTimeH={ReviewH:F1} ({PrSource}), PrApproval={Approval:F1}%, CommentDensity={Density:F1} ({DensitySource}), " +
             "TestPassRate={TestPassRate:F1}, FlakyRate={FlakyRate:F1}, RiskScore={Risk:F1}, WiEvents={WiCount}",
-            orgId, projectId,
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId),
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(effectiveKey.Length == 0 ? "(all)" : effectiveKey),
             health.ReviewTimeHours, hasPrData ? "PR data" : "CI proxy",
             health.PrApprovalRate,
             health.PrCommentDensity, hasPrData ? "avg reviewers/PR" : "no PR data",
@@ -113,6 +134,38 @@ public class TeamHealthComputeService(
             workItemEvents.Count);
 
         return health;
+    }
+
+    // ── Filter resolution ─────────────────────────────────────────────────────────
+    private async Task<(string EffectiveKey, IReadOnlyCollection<string>? RepoFilter)> ResolveFilterAsync(
+        string orgId, string projectId, string? repositoryName, string? teamName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(repositoryName))
+        {
+            var name = repositoryName.Trim();
+            return (name, new[] { name });
+        }
+
+        if (!string.IsNullOrWhiteSpace(teamName))
+        {
+            var team = teamName.Trim();
+            var mappings = (await repo.GetTeamMappingsAsync(orgId, projectId, cancellationToken)).ToList();
+            var repos = mappings
+                .Where(m => string.Equals(m.TeamName, team, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.RepositoryName)
+                .Where(r => !string.IsNullOrEmpty(r))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (repos.Count == 0)
+                throw new TeamHasNoMappingsException(team);
+
+            var key = repos.Count == 1 ? repos[0] : $"team:{team.ToLowerInvariant()}";
+            return (key, repos);
+        }
+
+        return (string.Empty, null);
     }
 
     // ── PR-based cycle time ────────────────────────────────────────────────────

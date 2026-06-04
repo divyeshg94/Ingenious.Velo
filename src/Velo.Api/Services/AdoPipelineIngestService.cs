@@ -23,6 +23,7 @@ public class AdoPipelineIngestService(
     IMetricsRepository repo,
     IHttpClientFactory httpClientFactory,
     IDoraComputeService doraComputeService,
+    IAdoTimelineService timelineService,
     ILogger<AdoPipelineIngestService> logger,
     VeloDbContext dbContext) : IAdoPipelineIngestService
 {
@@ -154,6 +155,11 @@ public class AdoPipelineIngestService(
                     continue;
                 }
 
+                // Resolve stage names from the build timeline. Failures are logged
+                // and ignored — stage capture is best-effort and must not abort ingest.
+                var stageName = await timelineService.ResolveStageNamesAsync(
+                    orgId, projectId, build.Id, adoAccessToken, cancellationToken);
+
                 var run = new PipelineRunDto
                 {
                     Id = Guid.NewGuid(),
@@ -168,7 +174,8 @@ public class AdoPipelineIngestService(
                     DurationMs = build.FinishTime.HasValue
                         ? (long)(build.FinishTime.Value - build.StartTime.Value).TotalMilliseconds
                         : null,
-                    IsDeployment = IsDeploymentPipeline(build),
+                    IsDeployment = IsDeploymentPipeline(build, stageName),
+                    StageName = stageName,
                     TriggeredBy = build.RequestedBy?.DisplayName,
                     RepositoryName = repoName,
                     IngestedAt = DateTimeOffset.UtcNow
@@ -332,7 +339,7 @@ public class AdoPipelineIngestService(
                 // Compute DORA metrics for this project after ingest, even if no new runs
                 // were saved — the compute service re-evaluates all stored runs.
                 if (saved > 0)
-                    await doraComputeService.ComputeAndSaveAsync(orgId, project.Name, cancellationToken);
+                    await doraComputeService.ComputeAndSaveAsync(orgId, project.Name, repositoryName: null, teamName: null, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -377,6 +384,6 @@ public class AdoPipelineIngestService(
     }
 
     // Heuristic delegated to DeploymentDetector so all ingestion paths agree.
-    private static bool IsDeploymentPipeline(AdoBuild build)
-        => DeploymentDetector.IsDeployment(build.Definition?.Name);
+    private static bool IsDeploymentPipeline(AdoBuild build, string? stageName = null)
+        => DeploymentDetector.IsDeployment(build.Definition?.Name, stageName);
 }
