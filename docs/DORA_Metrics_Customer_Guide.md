@@ -74,7 +74,7 @@ Velo rates metrics against DORA-aligned thresholds:
 |---|---|---|---|---|
 | Deployment Frequency | >= 1/day | >= 1/week | >= 1/month | < 1/month |
 | Lead Time for Changes | <= 1 hour | <= 1 day | <= 1 week | > 1 week |
-| Change Failure Rate | <= 15% | <= 30% | <= 45% | > 45% |
+| Change Failure Rate | <= 5% | <= 30% | <= 45% | > 45% |
 | MTTR | <= 1 hour | <= 1 day | <= 1 week | > 1 week |
 | Rework Rate | <= 4% | <= 8% | <= 32% | > 32% |
 
