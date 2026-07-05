@@ -14,11 +14,12 @@ public interface IEmailService
     /// <summary>
     /// Send a feedback notification email asynchronously.
     /// </summary>
-    /// <param name="toEmail">Recipient email address.</param>
+    /// <param name="toEmail">Recipient email address (Velo owner).</param>
     /// <param name="feedbackType">Type of feedback (Bug, FeatureRequest, etc.).</param>
     /// <param name="message">Feedback message from user.</param>
     /// <param name="orgId">Organization ID for context.</param>
     /// <param name="projectId">Optional project ID for context.</param>
+    /// <param name="userId">Email of the user who submitted feedback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task SendFeedbackNotificationAsync(
         string toEmail,
@@ -26,6 +27,7 @@ public interface IEmailService
         string message,
         string orgId,
         string? projectId,
+        string? userId = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -41,6 +43,7 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
         string message,
         string orgId,
         string? projectId,
+        string? userId = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -66,8 +69,8 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
             }
 
             // Build email body
-            var subject = $"Velo Feedback: {feedbackType}";
-            var body = BuildEmailBody(feedbackType, message, orgId, projectId);
+            var subject = $"Velo Feedback: {feedbackType} from {orgId}";
+            var body = BuildEmailBody(feedbackType, message, orgId, projectId, userId);
 
             using (var client = new SmtpClient(smtpHost, smtpPort))
             {
@@ -82,22 +85,23 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
                     mailMessage.IsBodyHtml = true;
 
                     await client.SendMailAsync(mailMessage, cancellationToken);
-                    // cs:suppress Exposure of private information - toEmail is config-controlled, not user input
+                    // cs:suppress Exposure of private information - toEmail is config-controlled Smtp:OwnerEmail, not user input
                     logger.LogInformation("Feedback notification sent to {RecipientEmail}", LogSanitizer.SanitiseForLog(toEmail));
                 }
             }
         }
         catch (Exception ex)
         {
-            // cs:suppress Exposure of private information - toEmail is config-controlled, not user input
+            // cs:suppress Exposure of private information - toEmail is config-controlled Smtp:OwnerEmail, not user input
             logger.LogError(ex, "Failed to send feedback notification email. Recipient: {Email}", LogSanitizer.SanitiseForLog(toEmail));
             throw;
         }
     }
 
-    private static string BuildEmailBody(string feedbackType, string message, string orgId, string? projectId)
+    private static string BuildEmailBody(string feedbackType, string message, string orgId, string? projectId, string? userId = null)
     {
         var projectInfo = !string.IsNullOrEmpty(projectId) ? $"<p><strong>Project:</strong> {HtmlEncode(projectId)}</p>" : "";
+        var userInfo = !string.IsNullOrEmpty(userId) ? $"<div class=\"field\"><span class=\"label\">Submitted by:</span> {HtmlEncode(userId)}</div>" : "";
 
         return $@"
 <html>
@@ -124,6 +128,7 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
             <div class=""field"">
                 <span class=""label"">Organization:</span> {HtmlEncode(orgId)}
             </div>
+            {userInfo}
             {projectInfo}
             <div class=""field"">
                 <span class=""label"">Message:</span>
