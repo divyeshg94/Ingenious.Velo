@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { isRunningInADO, getSDK } from './shared/services/sdk-initializer.service';
 import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
+import { FeedbackModalComponent } from './hub/feedback-modal/feedback-modal.component';
 
 @Component({
   selector: 'velo-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, FeedbackModalComponent],
   template: `
     <div class="velo-shell">
       <!-- Local Development Header -->
@@ -27,6 +28,9 @@ import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
         <a routerLink="/pipelines" routerLinkActive="active">Pipelines</a>
         <a routerLink="/teams" routerLinkActive="active">Teams</a>
         <a routerLink="/connections" routerLinkActive="active">Connections</a>
+        <div class="nav-spacer"></div>
+        <button class="feedback-btn" (click)="openFeedback()" title="Send feedback">💬 Feedback</button>
+        <a routerLink="/settings" routerLinkActive="active">⚙️ Settings</a>
       </nav>
       <main class="velo-content">
         <router-outlet />
@@ -58,6 +62,9 @@ import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
           </div>
         </div>
       </div>
+
+      <!-- Feedback Modal -->
+      <velo-feedback-modal *ngIf="showFeedbackModal" (closed)="showFeedbackModal = false"></velo-feedback-modal>
     </div>
   `,
   styles: [`
@@ -109,6 +116,10 @@ import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
       padding: 0.75rem 1.5rem; 
       background: var(--header-background-color, #0078d4);
       border-bottom: 1px solid var(--header-border-color, rgba(0,0,0,0.1));
+      align-items: center;
+    }
+    .nav-spacer {
+      flex: 1;
     }
     .velo-nav a { 
       color: var(--header-foreground-color, rgba(255,255,255,0.85)); 
@@ -121,6 +132,21 @@ import { DEV_MOCK_JWT } from './shared/services/mock-sdk.service';
     .velo-nav a.active, .velo-nav a:hover { 
       color: var(--header-foreground-color, #fff); 
       background: var(--primary-color-hover, rgba(255,255,255,0.15)); 
+    }
+    .feedback-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.85);
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    .feedback-btn:hover {
+      color: white;
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.5);
     }
     .velo-content { 
       flex: 1; 
@@ -205,6 +231,7 @@ export class AppComponent implements OnInit {
 
   isADO = true;
   showDevSettings = false;
+  showFeedbackModal = false;
   mockOrgId = '';
   mockUserId = '';
   mockToken = '';
@@ -221,6 +248,10 @@ export class AppComponent implements OnInit {
 
     // Initialize theme detection
     this.detectTheme();
+  }
+
+  openFeedback(): void {
+    this.showFeedbackModal = true;
   }
 
   private detectTheme(): void {

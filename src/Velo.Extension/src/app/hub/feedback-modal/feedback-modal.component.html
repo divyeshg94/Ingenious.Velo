@@ -1,0 +1,74 @@
+<div class="feedback-modal-overlay" (click)="closeModal()">
+  <div class="feedback-modal-container" (click)="$event.stopPropagation()">
+    <div class="feedback-modal-header">
+      <h2>Send Feedback</h2>
+      <button class="close-btn" (click)="closeModal()" aria-label="Close feedback modal">
+        ✕
+      </button>
+    </div>
+
+    <div class="feedback-modal-content">
+      <form [formGroup]="feedbackForm" (ngSubmit)="onSubmit()">
+        <div class="form-group">
+          <label for="feedbackType">Feedback Type *</label>
+          <select
+            id="feedbackType"
+            formControlName="feedbackType"
+            class="form-control"
+          >
+            <option *ngFor="let type of feedbackTypes" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="message">Message *</label>
+          <textarea
+            id="message"
+            formControlName="message"
+            class="form-control"
+            rows="6"
+            placeholder="Describe your feedback (10-2000 characters)"
+            [class.error]="messageControl?.invalid && messageControl?.touched"
+          ></textarea>
+          <div class="char-count">{{ remainingChars }} characters remaining</div>
+          <div class="error-message" *ngIf="messageControl?.invalid && messageControl?.touched">
+            <span *ngIf="messageControl?.errors?.['required']">Message is required</span>
+            <span *ngIf="messageControl?.errors?.['minlength']">Message must be at least 10 characters</span>
+            <span *ngIf="messageControl?.errors?.['maxlength']">Message cannot exceed 2000 characters</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="projectId">Project (Optional)</label>
+          <input
+            type="text"
+            id="projectId"
+            formControlName="projectId"
+            class="form-control"
+            placeholder="Project ID or name"
+          />
+        </div>
+
+        <div class="alert alert-success" *ngIf="submitMessage">
+          {{ submitMessage }}
+        </div>
+
+        <div class="alert alert-error" *ngIf="submitError">
+          {{ submitError }}
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="!feedbackForm.valid || isSubmitting">
+            <span *ngIf="!isSubmitting">Submit Feedback</span>
+            <span *ngIf="isSubmitting">Submitting...</span>
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

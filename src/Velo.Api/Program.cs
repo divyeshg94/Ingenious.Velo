@@ -90,6 +90,9 @@ try
     builder.Services.AddScoped<ITeamHealthComputeService, TeamHealthComputeService>();
     builder.Services.AddScoped<IAdoServiceHookService, AdoServiceHookService>();
     builder.Services.AddScoped<IAdoTimelineService, AdoTimelineService>();
+    builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+    builder.Services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
+    builder.Services.AddScoped<IEmailService, GmailEmailService>();
     builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration
