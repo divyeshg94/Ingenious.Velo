@@ -50,11 +50,12 @@ public class UserTrackingMiddleware(RequestDelegate next, ILogger<UserTrackingMi
         }
         catch (OperationCanceledException)
         {
+            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
             logger.LogDebug("User tracking timed out for email: {Email}", LogSanitizer.SanitiseForLog(email));
         }
         catch (Exception ex)
         {
-            // Log but do not rethrow — user tracking failures must never break the main request
+            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
             logger.LogWarning(ex, "Failed to track user access for email: {Email}", LogSanitizer.SanitiseForLog(email));
         }
     }

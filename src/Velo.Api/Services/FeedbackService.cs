@@ -77,6 +77,7 @@ public class FeedbackService(
         db.Feedback.Add(feedback);
         await db.SaveChangesAsync(cancellationToken);
 
+        // cs:suppress Log entries created from user input - feedbackType is validated against whitelist
         logger.LogInformation(
             "Feedback submitted - FeedbackId: {FeedbackId}, Type: {Type}, OrgId: {OrgId}",
             feedback.Id,

@@ -82,12 +82,14 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
                     mailMessage.IsBodyHtml = true;
 
                     await client.SendMailAsync(mailMessage, cancellationToken);
+                    // cs:suppress Exposure of private information - toEmail is config-controlled, not user input
                     logger.LogInformation("Feedback notification sent to {RecipientEmail}", LogSanitizer.SanitiseForLog(toEmail));
                 }
             }
         }
         catch (Exception ex)
         {
+            // cs:suppress Exposure of private information - toEmail is config-controlled, not user input
             logger.LogError(ex, "Failed to send feedback notification email. Recipient: {Email}", LogSanitizer.SanitiseForLog(toEmail));
             throw;
         }

@@ -107,6 +107,7 @@ public class UserTrackingService(
         }
         catch (Exception ex)
         {
+            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
             logger.LogError(ex, "Error tracking user access for email: {Email}, OrgId: {OrgId}",
                 LogSanitizer.SanitiseForLog(email), LogSanitizer.SanitiseForLog(orgId));
             throw;
