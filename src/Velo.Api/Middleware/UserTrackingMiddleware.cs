@@ -17,11 +17,10 @@ public class UserTrackingMiddleware(RequestDelegate next, ILogger<UserTrackingMi
         // Only track authenticated users in API endpoints
         if (context.User?.Identity?.IsAuthenticated == true)
         {
-            // Extract email from JWT — Azure AD B2C uses 'emails' claim (array) or falls back to 'oid'
+            // Extract email from JWT — Azure AD B2C uses 'emails' or 'email' claims, never fallback to 'oid' (that's org_id)
             var email = context.User.FindFirst("emails")?.Value
                 ?? context.User.FindFirst("email")?.Value
-                ?? context.User.FindFirst("preferred_username")?.Value
-                ?? context.User.FindFirst("oid")?.Value;
+                ?? context.User.FindFirst("preferred_username")?.Value;
 
             // Extract display name if available
             var displayName = context.User.FindFirst("name")?.Value
@@ -29,12 +28,27 @@ public class UserTrackingMiddleware(RequestDelegate next, ILogger<UserTrackingMi
 
             if (!string.IsNullOrEmpty(email))
             {
-                // Fire-and-forget: track user access in background to avoid blocking the request
-                _ = TrackUserInBackgroundAsync(userTrackingService, email, displayName);
+                // Start tracking task before next() so service scope stays alive
+                var trackingTask = TrackUserInBackgroundAsync(userTrackingService, email, displayName);
+                try
+                {
+                    await next(context);
+                }
+                finally
+                {
+                    // Await tracking after next() to keep scope alive and ensure completion
+                    await trackingTask;
+                }
+            }
+            else
+            {
+                await next(context);
             }
         }
-
-        await next(context);
+        else
+        {
+            await next(context);
+        }
     }
 
     private async Task TrackUserInBackgroundAsync(
