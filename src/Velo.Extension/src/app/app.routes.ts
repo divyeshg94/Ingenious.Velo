@@ -47,11 +47,6 @@ export const routes: Routes = [
       import('./hub/settings/settings.component').then((m) => m.SettingsComponent),
   },
   {
-    path: 'users',
-    loadComponent: () =>
-      import('./hub/users-list/users-list.component').then((m) => m.UsersListComponent),
-  },
-  {
     path: '**',
     redirectTo: 'dashboard',
   },
