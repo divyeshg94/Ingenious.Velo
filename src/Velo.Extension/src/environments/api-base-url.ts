@@ -5,6 +5,19 @@ export const defaultProductionApiBaseUrl = 'https://api.getvelo.dev';
 
 const normaliseApiBaseUrl = (value: string): string => value.replace(/\/+$/, '');
 
+const parseHttpApiBaseUrl = (value: string): string | null => {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    return normaliseApiBaseUrl(parsed.toString());
+  } catch {
+    return null;
+  }
+};
+
 const readApiBaseUrlOverride = (): string | null => {
   if (typeof window === 'undefined') {
     return null;
@@ -13,7 +26,10 @@ const readApiBaseUrlOverride = (): string | null => {
   for (const key of OverrideStorageKeys) {
     const value = localStorage.getItem(key)?.trim();
     if (value) {
-      return normaliseApiBaseUrl(value);
+      const parsed = parseHttpApiBaseUrl(value);
+      if (parsed) {
+        return parsed;
+      }
     }
   }
 

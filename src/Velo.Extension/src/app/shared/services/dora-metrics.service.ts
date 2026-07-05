@@ -80,7 +80,16 @@ export class DoraMetricsService {
           return response;
         }
 
-        return response.history ?? [];
+        const status = response.status?.toLowerCase() ?? 'ok';
+        if (status === 'ok') {
+          return response.history ?? [];
+        }
+
+        if (status === 'syncing' || status === 'gathering') {
+          return [];
+        }
+
+        throw new Error(response.note || response.message || 'Failed to load DORA history.');
       })
     );
   }
