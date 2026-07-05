@@ -91,7 +91,6 @@ try
     builder.Services.AddScoped<IAdoServiceHookService, AdoServiceHookService>();
     builder.Services.AddScoped<IAdoTimelineService, AdoTimelineService>();
     builder.Services.AddScoped<IFeedbackService, FeedbackService>();
-    builder.Services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
     builder.Services.AddScoped<IEmailService, GmailEmailService>();
     builder.Services.AddScoped<IUserTrackingService, UserTrackingService>();
     builder.Services.AddHttpClient();

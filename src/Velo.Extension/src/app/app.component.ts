@@ -32,7 +32,6 @@ import { FeedbackModalComponent } from './hub/feedback-modal/feedback-modal.comp
         <a class="external-link" href="https://github.com/divyeshg94/Ingenious.Velo/issues" target="_blank" rel="noopener noreferrer">Support</a>
         <a class="external-link" href="https://github.com/divyeshg94/Ingenious.Velo/tree/master/docs" target="_blank" rel="noopener noreferrer">Docs</a>
         <button class="feedback-btn" (click)="openFeedback()" title="Send feedback">💬 Feedback</button>
-        <a routerLink="/settings" routerLinkActive="active">⚙️ Settings</a>
       </nav>
       <main class="velo-content">
         <router-outlet />
