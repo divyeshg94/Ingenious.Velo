@@ -26,12 +26,21 @@
   </div>
 
   <!-- ── Empty ──────────────────────────────────────────── -->
-  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage" class="dash-empty">
+  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage && !selectedProjectId" class="dash-empty">
     <div class="dash-empty__icon">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     </div>
     <h3 class="dash-empty__title">No project selected</h3>
     <p class="dash-empty__sub">Go to the <strong>Connections</strong> tab and select a project to view your DORA metrics here.</p>
+    <p class="dash-empty__sub"><a routerLink="/connections"><strong>Open Connections</strong></a></p>
+  </div>
+
+  <div *ngIf="!isLoading && !metrics && !gatheringMessage && !errorMessage && selectedProjectId" class="dash-empty">
+    <div class="dash-empty__icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    <h3 class="dash-empty__title">No metrics yet for this project</h3>
+    <p class="dash-empty__sub">Open <strong>Connections</strong> and run sync, then refresh this page.</p>
   </div>
 
   <!-- ── Main Content ───────────────────────────────────── -->

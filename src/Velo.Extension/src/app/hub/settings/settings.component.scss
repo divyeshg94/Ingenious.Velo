@@ -134,6 +134,28 @@
   border-top: 1px solid #e0e0e0;
 }
 
+.form-actions.compact {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.support-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  a {
+    color: #106ebe;
+    font-size: 14px;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
 .btn {
   padding: 10px 20px;
   border-radius: 4px;

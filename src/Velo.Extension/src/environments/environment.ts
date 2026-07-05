@@ -1,6 +1,6 @@
-const apiBaseUrl = localStorage.getItem('api-base-url') || 'http://localhost:5001';
+import { defaultDevelopmentApiBaseUrl, resolveApiBaseUrl } from './api-base-url';
 
 export const environment = {
   production: false,
-  apiUrl: apiBaseUrl
+  apiUrl: resolveApiBaseUrl(defaultDevelopmentApiBaseUrl)
 };

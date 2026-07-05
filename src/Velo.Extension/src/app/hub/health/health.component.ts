@@ -1,14 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TeamHealthService, TeamHealthDto } from '../../shared/services/team-health.service';
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { isRunningInADO, getSDK } from '../../shared/services/sdk-initializer.service';
+import { toFriendlyApiError } from '../../shared/services/api-error.util';
 
 @Component({
   selector: 'velo-health',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, DatePipe, FormsModule],
+  imports: [CommonModule, DecimalPipe, DatePipe, FormsModule, RouterLink],
   templateUrl: './health.component.html',
   styleUrls: ['./health.component.scss'],
 })
@@ -68,7 +70,7 @@ export class HealthComponent implements OnInit {
     this.healthService.getTeamHealth(this.selectedProjectId, this.selectedRepository ?? undefined).subscribe({
       next: (h) => { this.health = h; this.isLoading = false; },
       error: (err) => {
-        this.errorMessage = err.message || 'Failed to load team health metrics.';
+        this.errorMessage = toFriendlyApiError(err, 'Failed to load team health metrics.');
         this.isLoading = false;
       },
     });
@@ -81,7 +83,7 @@ export class HealthComponent implements OnInit {
     this.healthService.recompute(this.selectedProjectId).subscribe({
       next: (h) => { this.health = h; this.isRecomputing = false; },
       error: (err) => {
-        this.errorMessage = err.message || 'Recompute failed.';
+        this.errorMessage = toFriendlyApiError(err, 'Recompute failed.');
         this.isRecomputing = false;
       },
     });

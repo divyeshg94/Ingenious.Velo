@@ -29,6 +29,8 @@ import { FeedbackModalComponent } from './hub/feedback-modal/feedback-modal.comp
         <a routerLink="/teams" routerLinkActive="active">Teams</a>
         <a routerLink="/connections" routerLinkActive="active">Connections</a>
         <div class="nav-spacer"></div>
+        <a class="external-link" href="https://github.com/divyeshg94/Ingenious.Velo/issues" target="_blank" rel="noopener noreferrer">Support</a>
+        <a class="external-link" href="https://github.com/divyeshg94/Ingenious.Velo/tree/master/docs" target="_blank" rel="noopener noreferrer">Docs</a>
         <button class="feedback-btn" (click)="openFeedback()" title="Send feedback">💬 Feedback</button>
         <a routerLink="/settings" routerLinkActive="active">⚙️ Settings</a>
       </nav>
@@ -132,6 +134,9 @@ import { FeedbackModalComponent } from './hub/feedback-modal/feedback-modal.comp
     .velo-nav a.active, .velo-nav a:hover { 
       color: var(--header-foreground-color, #fff); 
       background: var(--primary-color-hover, rgba(255,255,255,0.15)); 
+    }
+    .external-link {
+      font-size: 13px;
     }
     .feedback-btn {
       background: none;

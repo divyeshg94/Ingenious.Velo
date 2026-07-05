@@ -1,9 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
+import { toFriendlyApiError } from '../../shared/services/api-error.util';
 
 interface MetricScore {
   label: string;
@@ -15,7 +17,7 @@ interface MetricScore {
 @Component({
   selector: 'velo-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -88,8 +90,11 @@ export class DashboardComponent implements OnInit {
 
     this.doraService.getLatestMetrics(this.selectedProjectId, this.selectedRepository ?? undefined).subscribe({
       next: (response: any) => {
-        if (response?.status === 'gathering') {
+        if (response?.status === 'gathering' || response?.status === 'syncing') {
           this.gatheringMessage = response.message;
+          this.metrics = null;
+        } else if (response?.status === 'empty') {
+          this.gatheringMessage = response.note || 'No mapped repositories found for this selection yet.';
           this.metrics = null;
         } else {
           this.metrics = response as DoraMetricsDto;
@@ -99,7 +104,7 @@ export class DashboardComponent implements OnInit {
       },
       error: (err) => {
         console.error('[Dashboard] API Error:', err);
-        this.errorMessage = err.message || 'Failed to load metrics. Please check your connection and try again.';
+        this.errorMessage = toFriendlyApiError(err, 'Failed to load metrics. Please check your connection and try again.');
         this.isLoading = false;
         this.metrics = null;
       }

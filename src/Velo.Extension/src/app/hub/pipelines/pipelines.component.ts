@@ -1,13 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { PipelineService, PipelineRunDto } from '../../shared/services/pipeline.service';
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
+import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
+import { toFriendlyApiError } from '../../shared/services/api-error.util';
 
 @Component({
   selector: 'velo-pipelines',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './pipelines.component.html',
   styleUrls: ['./pipelines.component.scss']
 })
@@ -36,6 +39,19 @@ export class PipelinesComponent implements OnInit {
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
+
+    if (!this.selectedProjectId && isRunningInADO()) {
+      try {
+        const webContext = getSDK()?.getWebContext?.();
+        if (webContext?.project?.name) {
+          this.selectedProjectId = webContext.project.name;
+          sessionStorage.setItem('selectedProjectId', this.selectedProjectId!);
+        }
+      } catch {
+        // no-op: empty-state UI covers this path
+      }
+    }
+
     if (this.selectedProjectId) {
       this.loadRepositories();
       this.loadRuns();
@@ -75,7 +91,7 @@ export class PipelinesComponent implements OnInit {
         this.isLoading = false;
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || err.message || 'Failed to load pipeline runs.';
+        this.errorMessage = toFriendlyApiError(err, 'Failed to load pipeline runs.');
         this.isLoading = false;
       }
     });
@@ -93,7 +109,7 @@ export class PipelinesComponent implements OnInit {
         this.isLoading = false;
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || err.message || 'Failed to load more runs.';
+        this.errorMessage = toFriendlyApiError(err, 'Failed to load more runs.');
         this.isLoading = false;
         this.page--;
       }

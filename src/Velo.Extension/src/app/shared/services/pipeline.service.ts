@@ -28,7 +28,7 @@ export class PipelineService {
   constructor(private http: HttpClient) {}
 
   getRuns(projectId: string, page = 1, pageSize = 50): Observable<PipelineRunDto[]> {
-    return this.http.get<PipelineRunDto[]>(this.apiUrl, {
+    return this.http.get<PipelineRunDto[]>(`${this.apiUrl}/runs`, {
       params: { projectId, page: page.toString(), pageSize: pageSize.toString() }
     });
   }
