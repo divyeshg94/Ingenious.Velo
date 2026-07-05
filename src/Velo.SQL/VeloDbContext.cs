@@ -19,6 +19,9 @@ public class VeloDbContext : DbContext
     public DbSet<ProjectMapping> ProjectMappings { get; set; } = null!;
     public DbSet<AgentConfiguration> AgentConfigurations { get; set; } = null!;
     public DbSet<WorkItemEvent> WorkItemEvents { get; set; } = null!;
+    public DbSet<Feedback> Feedback { get; set; } = null!;
+    public DbSet<OrganizationSettings> OrganizationSettings { get; set; } = null!;
+    public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +35,9 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<PullRequestEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
         modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
         modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
+        modelBuilder.Entity<Feedback>().HasQueryFilter(f => CurrentOrgId != null && f.OrgId == CurrentOrgId);
+        modelBuilder.Entity<OrganizationSettings>().HasQueryFilter(s => CurrentOrgId != null && s.OrgId == CurrentOrgId);
+        modelBuilder.Entity<ApplicationUser>().HasQueryFilter(u => CurrentOrgId != null && u.OrgId == CurrentOrgId);
         // AgentConfigurations and ProjectMappings carry their own OrgId but lacked a global filter.
         // Adding fail-closed filters here as defence-in-depth; all existing queries still work
         // because they also pass an explicit .Where(x => x.OrgId == orgId) predicate.
@@ -70,6 +76,7 @@ public class VeloDbContext : DbContext
         ConfigureAuditable<PullRequestEvent>();
         ConfigureAuditable<TeamMapping>();
         ConfigureAuditable<WorkItemEvent>();
+        ConfigureAuditable<Feedback>();
 
         // Configure indexes for performance and multi-tenancy
 
@@ -215,6 +222,37 @@ public class VeloDbContext : DbContext
             eb.HasIndex(a => a.OrgId)
               .IsUnique()
               .HasDatabaseName("IX_AgentConfigurations_OrgId");
+        });
+
+        // Feedback — indexed for fast retrieval by org and type
+        modelBuilder.Entity<Feedback>(eb =>
+        {
+            eb.HasIndex(f => new { f.OrgId, f.CreatedDate })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_Feedback_OrgId_CreatedDate_DESC");
+
+            eb.HasIndex(f => new { f.OrgId, f.FeedbackType })
+              .HasDatabaseName("IX_Feedback_OrgId_FeedbackType");
+        });
+
+        // OrganizationSettings — one row per org
+        modelBuilder.Entity<OrganizationSettings>(eb =>
+        {
+            eb.HasKey(s => s.OrgId);
+            eb.Property(s => s.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+            eb.Property(s => s.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        });
+
+        // ApplicationUsers — indexed for fast retrieval by org and email
+        modelBuilder.Entity<ApplicationUser>(eb =>
+        {
+            eb.HasIndex(u => new { u.OrgId, u.Email })
+              .IsUnique()
+              .HasDatabaseName("UX_ApplicationUsers_OrgId_Email");
+
+            eb.HasIndex(u => new { u.OrgId, u.LastAccessAt })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_ApplicationUsers_OrgId_LastAccessAt_DESC");
         });
 
         base.OnModelCreating(modelBuilder);

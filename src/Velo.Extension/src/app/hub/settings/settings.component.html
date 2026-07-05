@@ -1,0 +1,62 @@
+<div class="settings-container">
+  <div class="settings-header">
+    <h1>Organization Settings</h1>
+    <p>Configure notification preferences and feedback settings</p>
+  </div>
+
+  <div class="settings-content">
+    <div *ngIf="isLoading" class="loading">
+      <p>Loading settings...</p>
+    </div>
+
+    <form *ngIf="!isLoading" [formGroup]="settingsForm" (ngSubmit)="onSave()" class="settings-form">
+      <div class="form-section">
+        <h2>Feedback Notifications</h2>
+        <p class="section-description">
+          When enabled, user feedback will be sent to the email address below.
+        </p>
+
+        <div class="form-group">
+          <label for="feedbackNotificationEmail">Notification Email Address</label>
+          <input
+            type="email"
+            id="feedbackNotificationEmail"
+            formControlName="feedbackNotificationEmail"
+            class="form-control"
+            placeholder="your-email@company.com"
+            [class.error]="emailControl?.invalid && emailControl?.touched"
+          />
+          <div class="help-text">
+            Leave blank to disable feedback notifications. Only a valid email address will receive notifications.
+          </div>
+          <div class="error-message" *ngIf="emailControl?.invalid && emailControl?.touched">
+            <span *ngIf="emailControl?.errors?.['email']">Please enter a valid email address</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-success" *ngIf="successMessage">
+        {{ successMessage }}
+      </div>
+
+      <div class="alert alert-error" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="!settingsForm.valid || isSaving">
+          <span *ngIf="!isSaving">Save Settings</span>
+          <span *ngIf="isSaving">Saving...</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="onClear()"
+          [disabled]="!settingsForm.get('feedbackNotificationEmail')?.value || isSaving"
+        >
+          Clear Email
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
