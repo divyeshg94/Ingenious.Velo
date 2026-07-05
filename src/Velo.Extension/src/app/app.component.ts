@@ -30,6 +30,7 @@ import { FeedbackModalComponent } from './hub/feedback-modal/feedback-modal.comp
         <a routerLink="/connections" routerLinkActive="active">Connections</a>
         <div class="nav-spacer"></div>
         <button class="feedback-btn" (click)="openFeedback()" title="Send feedback">💬 Feedback</button>
+        <a routerLink="/users" routerLinkActive="active" title="View application users">👥 Users</a>
         <a routerLink="/settings" routerLinkActive="active">⚙️ Settings</a>
       </nav>
       <main class="velo-content">

@@ -93,6 +93,7 @@ try
     builder.Services.AddScoped<IFeedbackService, FeedbackService>();
     builder.Services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
     builder.Services.AddScoped<IEmailService, GmailEmailService>();
+    builder.Services.AddScoped<IUserTrackingService, UserTrackingService>();
     builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration
@@ -328,11 +329,12 @@ try
     app.UseHttpsRedirection();
     app.UseCors("AdoExtension");
 
-    // Middleware order matters: correlation → authentication → tenant resolution → rate limit → authorization
+    // Middleware order matters: correlation → authentication → tenant resolution → rate limit → user tracking → authorization
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseAuthentication();
     app.UseMiddleware<TenantResolutionMiddleware>();
     app.UseMiddleware<RateLimitMiddleware>();
+    app.UseMiddleware<UserTrackingMiddleware>();
 
     app.UseAuthorization();
 

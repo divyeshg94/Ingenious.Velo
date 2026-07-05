@@ -21,6 +21,7 @@ public class VeloDbContext : DbContext
     public DbSet<WorkItemEvent> WorkItemEvents { get; set; } = null!;
     public DbSet<Feedback> Feedback { get; set; } = null!;
     public DbSet<OrganizationSettings> OrganizationSettings { get; set; } = null!;
+    public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,7 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
         modelBuilder.Entity<Feedback>().HasQueryFilter(f => CurrentOrgId != null && f.OrgId == CurrentOrgId);
         modelBuilder.Entity<OrganizationSettings>().HasQueryFilter(s => CurrentOrgId != null && s.OrgId == CurrentOrgId);
+        modelBuilder.Entity<ApplicationUser>().HasQueryFilter(u => CurrentOrgId != null && u.OrgId == CurrentOrgId);
         // AgentConfigurations and ProjectMappings carry their own OrgId but lacked a global filter.
         // Adding fail-closed filters here as defence-in-depth; all existing queries still work
         // because they also pass an explicit .Where(x => x.OrgId == orgId) predicate.
@@ -239,6 +241,18 @@ public class VeloDbContext : DbContext
             eb.HasKey(s => s.OrgId);
             eb.Property(s => s.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
             eb.Property(s => s.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        });
+
+        // ApplicationUsers — indexed for fast retrieval by org and email
+        modelBuilder.Entity<ApplicationUser>(eb =>
+        {
+            eb.HasIndex(u => new { u.OrgId, u.Email })
+              .IsUnique()
+              .HasDatabaseName("UX_ApplicationUsers_OrgId_Email");
+
+            eb.HasIndex(u => new { u.OrgId, u.LastAccessAt })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_ApplicationUsers_OrgId_LastAccessAt_DESC");
         });
 
         base.OnModelCreating(modelBuilder);
