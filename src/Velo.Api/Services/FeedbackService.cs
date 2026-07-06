@@ -48,8 +48,8 @@ public interface IFeedbackService
 /// </summary>
 public class FeedbackService(
     VeloDbContext db,
-    IEmailService emailService,
     IConfiguration configuration,
+    IFeedbackNotificationQueue notificationQueue,
     ILogger<FeedbackService> logger) : IFeedbackService
 {
     public async Task<Guid> SubmitFeedbackAsync(
@@ -94,9 +94,21 @@ public class FeedbackService(
             LogSanitizer.SanitiseForLog(feedbackType),
             LogSanitizer.SanitiseForLog(db.CurrentOrgId));
 
-        // Send notification email asynchronously with timeout
-        // Start task before scope disposal and await it to ensure completion
-        await SendNotificationEmailAsync(feedback, cancellationToken);
+        var ownerEmail = configuration["Smtp:OwnerEmail"];
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+        {
+            logger.LogWarning("Smtp:OwnerEmail is not configured. Feedback notification not queued for FeedbackId: {FeedbackId}", feedback.Id);
+            return feedback.Id;
+        }
+
+        notificationQueue.Enqueue(new FeedbackNotificationWorkItem(
+            OwnerEmail: ownerEmail,
+            FeedbackId: feedback.Id,
+            FeedbackType: feedback.FeedbackType,
+            Message: feedback.Message,
+            OrgId: feedback.OrgId,
+            ProjectId: feedback.ProjectId,
+            UserId: feedback.UserId));
 
         return feedback.Id;
     }
@@ -125,41 +137,4 @@ public class FeedbackService(
         return (feedback, totalCount);
     }
 
-    private async Task SendNotificationEmailAsync(Feedback feedback, CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Send to the Velo product owner — configured once in Smtp:OwnerEmail, not per-tenant.
-            var ownerEmail = configuration["Smtp:OwnerEmail"];
-            if (string.IsNullOrWhiteSpace(ownerEmail))
-            {
-                logger.LogWarning("Smtp:OwnerEmail is not configured. Feedback notification not sent for FeedbackId: {FeedbackId}", feedback.Id);
-                return;
-            }
-
-            // Use a timeout to prevent blocking if email service is slow
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(10));
-
-            await emailService.SendFeedbackNotificationAsync(
-                ownerEmail,
-                feedback.FeedbackType,
-                feedback.Message,
-                feedback.OrgId,
-                feedback.ProjectId,
-                feedback.UserId,
-                cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            logger.LogDebug("Email notification for FeedbackId {FeedbackId} timed out after 10 seconds", feedback.Id);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(
-                ex,
-                "Failed to send feedback notification for FeedbackId: {FeedbackId}",
-                feedback.Id);
-        }
-    }
 }

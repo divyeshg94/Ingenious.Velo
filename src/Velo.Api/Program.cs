@@ -92,6 +92,8 @@ try
     builder.Services.AddScoped<IAdoTimelineService, AdoTimelineService>();
     builder.Services.AddScoped<IFeedbackService, FeedbackService>();
     builder.Services.AddScoped<IEmailService, GmailEmailService>();
+    builder.Services.AddSingleton<IFeedbackNotificationQueue, FeedbackNotificationQueue>();
+    builder.Services.AddHostedService<FeedbackNotificationWorker>();
     builder.Services.AddScoped<IUserTrackingService, UserTrackingService>();
     builder.Services.AddHttpClient();
 
