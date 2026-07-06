@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-metrics.service';
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
+import { toFriendlyApiError } from '../../shared/services/api-error.util';
 
 interface MetricScore {
   label: string;
@@ -15,7 +17,7 @@ interface MetricScore {
 @Component({
   selector: 'velo-dora',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './dora.component.html',
   styleUrls: ['./dora.component.scss']
 })
@@ -121,7 +123,7 @@ export class DoraComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err.message || 'Failed to load DORA history. Please check your connection and try again.';
+        this.errorMessage = toFriendlyApiError(err, 'Failed to load DORA history. Please check your connection and try again.');
       }
     });
   }

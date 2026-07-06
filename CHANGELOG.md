@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ## [Unreleased]
 
+### Fixed — extension reliability and support discoverability
+- Extension production API base URL now resolves to the managed API endpoint (`https://api.getvelo.dev`) with runtime local override support (`velo-api-base-url` / legacy `api-base-url`) to prevent post-update outages when backend hostnames change.
+- Settings now include an **API Connection** override/reset panel so organizations can recover from endpoint misconfiguration without reinstalling the extension.
+- Added first-class **Support** and **Docs** links in the extension navigation and settings page to make creator contact paths immediately visible.
+
 ### Fixed — DORA computation correctness, ingestion completeness, and runtime bugs (PR #31)
 - **Lead Time for Changes** now measures real PR-merge → first-successful-deployment time when at least 3 PR↔deploy linkages exist in the 30-day window (averaged in hours, outliers > 60 days dropped). Falls back to the previous build-duration proxy with `IsLeadTimeApproximate = true` only when linkage data is too sparse.
 - **MTTR** now uses pipeline **finish** times instead of start times when measuring restore duration (`nextSuccess.FinishTime − failure.FinishTime`). The previous formula under-reported MTTR by the duration of the recovery pipeline itself.
