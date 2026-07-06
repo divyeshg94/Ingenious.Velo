@@ -20,7 +20,6 @@ public class VeloDbContext : DbContext
     public DbSet<AgentConfiguration> AgentConfigurations { get; set; } = null!;
     public DbSet<WorkItemEvent> WorkItemEvents { get; set; } = null!;
     public DbSet<Feedback> Feedback { get; set; } = null!;
-    public DbSet<OrganizationSettings> OrganizationSettings { get; set; } = null!;
     public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -36,7 +35,6 @@ public class VeloDbContext : DbContext
         modelBuilder.Entity<TeamMapping>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
         modelBuilder.Entity<WorkItemEvent>().HasQueryFilter(r => CurrentOrgId != null && r.OrgId == CurrentOrgId);
         modelBuilder.Entity<Feedback>().HasQueryFilter(f => CurrentOrgId != null && f.OrgId == CurrentOrgId);
-        modelBuilder.Entity<OrganizationSettings>().HasQueryFilter(s => CurrentOrgId != null && s.OrgId == CurrentOrgId);
         modelBuilder.Entity<ApplicationUser>().HasQueryFilter(u => CurrentOrgId != null && u.OrgId == CurrentOrgId);
         // AgentConfigurations and ProjectMappings carry their own OrgId but lacked a global filter.
         // Adding fail-closed filters here as defence-in-depth; all existing queries still work
@@ -233,14 +231,6 @@ public class VeloDbContext : DbContext
 
             eb.HasIndex(f => new { f.OrgId, f.FeedbackType })
               .HasDatabaseName("IX_Feedback_OrgId_FeedbackType");
-        });
-
-        // OrganizationSettings — one row per org
-        modelBuilder.Entity<OrganizationSettings>(eb =>
-        {
-            eb.HasKey(s => s.OrgId);
-            eb.Property(s => s.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
-            eb.Property(s => s.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
         });
 
         // ApplicationUsers — indexed for fast retrieval by org and email

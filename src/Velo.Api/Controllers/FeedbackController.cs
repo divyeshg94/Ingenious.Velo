@@ -41,6 +41,9 @@ public class FeedbackController(
                 request.FeedbackType,
                 request.Message,
                 request.ProjectId,
+                User.FindFirst("emails")?.Value ??
+                User.FindFirst("email")?.Value ??
+                User.FindFirst("preferred_username")?.Value,
                 cancellationToken);
 
             return Ok(new FeedbackSubmitResponse(
@@ -82,14 +85,14 @@ public class FeedbackController(
             if (skip < 0 || take < 1 || take > 500)
                 return BadRequest(new { error = "Invalid pagination parameters." });
 
-            var feedback = await feedbackService.GetFeedbackAsync(
+            var feedbackResult = await feedbackService.GetFeedbackAsync(
                 feedbackType,
                 skip,
                 take,
                 cancellationToken);
 
             return Ok(new FeedbackListResponse(
-                Feedback: feedback.Select(f => new FeedbackDto(
+                Feedback: feedbackResult.Feedback.Select(f => new FeedbackDto(
                     Id: f.Id,
                     FeedbackType: f.FeedbackType,
                     Message: f.Message,
@@ -97,7 +100,7 @@ public class FeedbackController(
                     CreatedAt: f.CreatedDate,
                     IsReviewed: f.IsReviewed
                 )).ToList(),
-                TotalCount: feedback.Count
+                TotalCount: feedbackResult.TotalCount
             ));
         }
         catch (Exception ex)
