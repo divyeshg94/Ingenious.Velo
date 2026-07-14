@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Microsoft.Extensions.Logging;
+using Velo.Api.Helpers;
 using Velo.Api.Logging;
 using Velo.Api.Services;
 
@@ -17,19 +17,15 @@ public class UserTrackingMiddleware(RequestDelegate next, ILogger<UserTrackingMi
         // Only track authenticated users in API endpoints
         if (context.User?.Identity?.IsAuthenticated == true)
         {
-            // Extract email from JWT — Azure AD B2C uses 'emails' or 'email' claims, never fallback to 'oid' (that's org_id)
-            var email = context.User.FindFirst("emails")?.Value
-                ?? context.User.FindFirst("email")?.Value
-                ?? context.User.FindFirst("preferred_username")?.Value;
+            var userIdentifier = UserIdentityResolver.ResolveUserIdentifier(context.User);
 
             // Extract display name if available
-            var displayName = context.User.FindFirst("name")?.Value
-                ?? context.User.FindFirst("given_name")?.Value;
+            var displayName = UserIdentityResolver.ResolveDisplayName(context.User);
 
-            if (!string.IsNullOrEmpty(email))
+            if (!string.IsNullOrEmpty(userIdentifier))
             {
                 // Start tracking task before next() so service scope stays alive
-                var trackingTask = TrackUserInBackgroundAsync(userTrackingService, email, displayName);
+                var trackingTask = TrackUserInBackgroundAsync(userTrackingService, userIdentifier, displayName);
                 try
                 {
                     await next(context);
@@ -53,24 +49,24 @@ public class UserTrackingMiddleware(RequestDelegate next, ILogger<UserTrackingMi
 
     private async Task TrackUserInBackgroundAsync(
         IUserTrackingService userTrackingService,
-        string email,
+        string userIdentifier,
         string? displayName)
     {
         try
         {
             // Use a timeout to prevent hanging if the database is slow
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await userTrackingService.TrackUserAccessAsync(email, displayName, cts.Token);
+            await userTrackingService.TrackUserAccessAsync(userIdentifier, displayName, cts.Token);
         }
         catch (OperationCanceledException)
         {
-            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
-            logger.LogDebug("User tracking timed out for email: {Email}", LogSanitizer.SanitiseForLog(email));
+            // cs:suppress Exposure of private information - identifier is sanitized via LogSanitizer
+            logger.LogDebug("User tracking timed out for user identifier: {UserIdentifier}", LogSanitizer.SanitiseForLog(userIdentifier));
         }
         catch (Exception ex)
         {
-            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
-            logger.LogWarning(ex, "Failed to track user access for email: {Email}", LogSanitizer.SanitiseForLog(email));
+            // cs:suppress Exposure of private information - identifier is sanitized via LogSanitizer
+            logger.LogWarning(ex, "Failed to track user access for user identifier: {UserIdentifier}", LogSanitizer.SanitiseForLog(userIdentifier));
         }
     }
 }
