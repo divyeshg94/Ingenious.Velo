@@ -16,8 +16,7 @@ public static class UserIdentityResolver
             ClaimTypes.Email,
             ClaimTypes.Upn,
             ClaimTypes.NameIdentifier,
-            "sub",
-            "oid");
+            "sub");
 
     public static string? ResolveDisplayName(ClaimsPrincipal? user)
         => ResolveFirstNonEmptyClaim(user,

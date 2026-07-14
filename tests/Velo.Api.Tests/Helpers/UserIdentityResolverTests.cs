@@ -50,6 +50,16 @@ public class UserIdentityResolverTests
         result.Should().BeNull();
     }
 
+    [Fact]
+    public void ResolveUserIdentifier_DoesNotUseOidClaim_WhenItIsOnlyClaim()
+    {
+        var principal = BuildPrincipal(new Claim("oid", "org-identifier"));
+
+        var result = UserIdentityResolver.ResolveUserIdentifier(principal);
+
+        result.Should().BeNull();
+    }
+
     private static ClaimsPrincipal BuildPrincipal(params Claim[] claims)
         => new(new ClaimsIdentity(claims, "test"));
 }
