@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Velo.Api.Helpers;
 using Velo.Api.Services;
 using Velo.Shared.Models;
 
@@ -41,9 +42,7 @@ public class FeedbackController(
                 request.FeedbackType,
                 request.Message,
                 request.ProjectId,
-                User.FindFirst("emails")?.Value ??
-                User.FindFirst("email")?.Value ??
-                User.FindFirst("preferred_username")?.Value,
+                UserIdentityResolver.ResolveUserIdentifier(User),
                 cancellationToken);
 
             return Ok(new FeedbackSubmitResponse(
@@ -53,7 +52,7 @@ public class FeedbackController(
         }
         catch (ArgumentException ex)
         {
-            logger.LogWarning("Invalid feedback submission: {Error}", ex.Message);
+            logger.LogWarning("Invalid feedback submission: {Error}", Velo.Api.Logging.LogSanitizer.SanitiseForLog(ex.Message));
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)

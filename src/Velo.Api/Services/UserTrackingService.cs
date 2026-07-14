@@ -15,12 +15,12 @@ public interface IUserTrackingService
     /// Record or update user access. Called on every request to track active users.
     /// Asynchronous fire-and-forget to avoid blocking request pipeline.
     /// </summary>
-    /// <param name="email">User's email address from Azure AD token.</param>
+    /// <param name="userIdentifier">Best available user identifier from token claims (email when present, otherwise stable subject ID).</param>
     /// <param name="displayName">User's display name (optional).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The user record (created or updated).</returns>
     Task<ApplicationUser> TrackUserAccessAsync(
-        string email,
+        string userIdentifier,
         string? displayName = null,
         CancellationToken cancellationToken = default);
 
@@ -63,12 +63,12 @@ public class UserTrackingService(
     ILogger<UserTrackingService> logger) : IUserTrackingService
 {
     public async Task<ApplicationUser> TrackUserAccessAsync(
-        string email,
+        string userIdentifier,
         string? displayName = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email is required.", nameof(email));
+        if (string.IsNullOrWhiteSpace(userIdentifier))
+            throw new ArgumentException("User identifier is required.", nameof(userIdentifier));
 
         var orgId = db.CurrentOrgId!;
         var now = DateTimeOffset.UtcNow;
@@ -77,7 +77,7 @@ public class UserTrackingService(
         {
             // Try to find existing user
             var user = await db.ApplicationUsers
-                .FirstOrDefaultAsync(u => u.OrgId == orgId && u.Email == email, cancellationToken);
+                .FirstOrDefaultAsync(u => u.OrgId == orgId && u.Email == userIdentifier, cancellationToken);
 
             if (user != null)
             {
@@ -93,7 +93,7 @@ public class UserTrackingService(
                 user = new ApplicationUser
                 {
                     OrgId = orgId,
-                    Email = email,
+                    Email = userIdentifier,
                     DisplayName = displayName,
                     FirstAccessAt = now,
                     LastAccessAt = now,
@@ -107,9 +107,9 @@ public class UserTrackingService(
         }
         catch (Exception ex)
         {
-            // cs:suppress Exposure of private information - email is sanitized via LogSanitizer
-            logger.LogError(ex, "Error tracking user access for email: {Email}, OrgId: {OrgId}",
-                LogSanitizer.SanitiseForLog(email), LogSanitizer.SanitiseForLog(orgId));
+            // cs:suppress Exposure of private information - identifier is sanitized via LogSanitizer
+            logger.LogError(ex, "Error tracking user access for user identifier: {UserIdentifier}, OrgId: {OrgId}",
+                LogSanitizer.SanitiseForLog(userIdentifier), LogSanitizer.SanitiseForLog(orgId));
             throw;
         }
     }
