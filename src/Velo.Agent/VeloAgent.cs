@@ -1,32 +1,28 @@
-using Azure.AI.Agents.Persistent;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Velo.Agent.Tools;
+using FoundryAgentResponse = Microsoft.Agents.AI.AgentResponse;
 
 namespace Velo.Agent;
 
 /// <summary>
 /// Foundry AI agent orchestration entry point.
-/// Uses Azure.AI.Agents.Persistent (GA) + AIProjectClient.GetPersistentAgentsClient().
+/// Uses the Microsoft Foundry Agents "Responses" pattern (Microsoft.Agents.AI.Foundry) —
+/// <see cref="FoundryClientFactory.CreateAgent"/> builds a code-first <see cref="AIAgent"/>
+/// via <c>AIProjectClient.AsAIAgent(...)</c>. No server-side agent resource is created or
+/// persisted; the agent definition (model + instructions) is supplied on every call.
 ///
 /// Authentication — see <see cref="FoundryClientFactory"/> for credential priority:
-///   1. API key  → api-key HTTP header (NOT Bearer token — Foundry requires the header)
-///   2. Service principal → ClientSecretCredential
-///   3. None     → DefaultAzureCredential (Velo Managed Identity)
-///
-/// Agent ID:
-///   • Provided in config → used directly
-///   • Null/empty         → agent is auto-created with Velo's default system prompt on first call;
-///                          the returned ID is persisted via IAgentDataProvider.SaveAgentIdAsync
-///                          so subsequent calls reuse it.
+///   1. Service principal → ClientSecretCredential
+///   2. None              → DefaultAzureCredential (Velo Managed Identity)
 ///
 /// Architecture:
 ///   1. Tools gather DB context via IAgentDataProvider
-///   2. Context is prepended to the user message as a structured block
-///   3. A stateless thread is created per request (history replayed each time)
-///   4. The agent runs, we poll until terminal state, then clean up the thread
+///   2. Context is prepended to the current user message as a structured block
+///   3. Full conversation history is replayed per request (stateless — no server-side thread)
 /// </summary>
 public class VeloAgent(
     AgentConfig config,
-    IAgentDataProvider dataProvider,
     PipelineAnalysisTool pipelineTool,
     CodeAnalysisTool codeTool,
     RecommendationTool recommendationTool)
@@ -64,103 +60,32 @@ public class VeloAgent(
             {prContext}
             """;
 
-        // 2. Build the agents client via the shared factory (API key → SP → Managed Identity)
-        PersistentAgentsClient agentsClient = FoundryClientFactory.Create(config);
+        // 2. Build the code-first agent via the shared factory (Service Principal → Managed Identity)
+        AIAgent agent = FoundryClientFactory.CreateAgent(config, SystemPrompt);
 
-        // 3. Resolve (or auto-create) the Foundry agent
-        var agentId = await ResolveAgentIdAsync(agentsClient, request.OrgId, cancellationToken);
-
-        // 4. Create a new thread for this conversation (stateless — history replayed per request)
-        PersistentAgentThread thread = await agentsClient.Threads.CreateThreadAsync(cancellationToken: cancellationToken);
-
-        try
+        // 3. Replay conversation history + the current message with the Velo context block prepended
+        var chatMessages = new List<ChatMessage>();
+        foreach (var msg in request.History)
         {
-            // 5. Replay conversation history so the agent has full context
-            foreach (var msg in request.History)
-            {
-                var role = string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase)
-                    ? MessageRole.Agent
-                    : MessageRole.User;
-                await agentsClient.Messages.CreateMessageAsync(
-                    thread.Id, role, msg.Content, cancellationToken: cancellationToken);
-            }
-
-            // 6. Add the current user message with the Velo context block prepended
-            var contextualMessage = $"[VELO_CONTEXT]\n{systemContext}\n[/VELO_CONTEXT]\n\n{request.Message}";
-            await agentsClient.Messages.CreateMessageAsync(
-                thread.Id, MessageRole.User, contextualMessage, cancellationToken: cancellationToken);
-
-            // 7. Create and poll the agent run until it reaches a terminal state
-            ThreadRun run = await agentsClient.Runs.CreateRunAsync(
-                thread.Id, agentId, cancellationToken: cancellationToken);
-
-            while (run.Status == RunStatus.Queued
-                || run.Status == RunStatus.InProgress
-                || run.Status == RunStatus.Cancelling)
-            {
-                await Task.Delay(1200, cancellationToken);
-                run = await agentsClient.Runs.GetRunAsync(thread.Id, run.Id, cancellationToken);
-            }
-
-            if (run.Status == RunStatus.Failed)
-                throw new InvalidOperationException(
-                    $"Foundry agent run failed: {run.LastError?.Message ?? "Unknown error"}");
-
-            if (run.Status == RunStatus.Cancelled || run.Status == RunStatus.Expired)
-                throw new InvalidOperationException(
-                    $"Foundry agent run ended with status: {run.Status}");
-
-            // 8. Extract the last assistant message (newest first)
-            var messages = agentsClient.Messages.GetMessages(thread.Id, order: ListSortOrder.Descending);
-            var lastAssistant = messages.FirstOrDefault(m => m.Role == MessageRole.Agent);
-
-            var content = lastAssistant?.ContentItems
-                .OfType<MessageTextContent>()
-                .FirstOrDefault()?.Text
-                ?? "I was unable to generate a response. Please try again.";
-
-            var tokensUsed = run.Usage?.TotalTokens ?? 0;
-            return new AgentResponse(content, [], (int)tokensUsed);
+            var role = string.Equals(msg.Role, "assistant", StringComparison.OrdinalIgnoreCase)
+                ? ChatRole.Assistant
+                : ChatRole.User;
+            chatMessages.Add(new ChatMessage(role, msg.Content));
         }
-        finally
-        {
-            // Best-effort thread cleanup to avoid accumulation in the Foundry project
-            try { await agentsClient.Threads.DeleteThreadAsync(thread.Id, cancellationToken); }
-            catch { /* intentionally swallowed — thread will expire naturally */ }
-        }
+
+        var contextualMessage = $"[VELO_CONTEXT]\n{systemContext}\n[/VELO_CONTEXT]\n\n{request.Message}";
+        chatMessages.Add(new ChatMessage(ChatRole.User, contextualMessage));
+
+        // 4. Run the agent — a single stateless call, no session/thread persistence
+        FoundryAgentResponse response = await agent.RunAsync(chatMessages, cancellationToken: cancellationToken);
+
+        var content = string.IsNullOrWhiteSpace(response.Text)
+            ? "I was unable to generate a response. Please try again."
+            : response.Text;
+
+        var tokensUsed = (int)(response.Usage?.TotalTokenCount ?? 0);
+        return new AgentResponse(content, [], tokensUsed);
     }
-
-    /// <summary>
-    /// Returns the agent ID from config if present, otherwise auto-creates a new Foundry
-    /// agent with Velo's default system prompt and persists the ID for future calls.
-    /// </summary>
-    private async Task<string> ResolveAgentIdAsync(
-        PersistentAgentsClient agentsClient,
-        string orgId,
-        CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(config.AgentId))
-            return config.AgentId;
-
-        // Auto-create the agent using the configured deployment model
-        var created = await agentsClient.Administration.CreateAgentAsync(
-            model: config.DeploymentName,
-            name: "Velo Engineering Assistant",
-            instructions: SystemPrompt,
-            cancellationToken: ct);
-
-        var newAgentId = created.Value.Id;
-
-        // Persist so subsequent calls reuse the same agent (no per-call re-creation)
-        await dataProvider.SaveAgentIdAsync(orgId, newAgentId, ct);
-
-        // Update in-memory config so the rest of this request uses the new ID
-        config.AgentId = newAgentId;
-
-        return newAgentId;
-    }
-
-    // Credential resolution is delegated to FoundryClientFactory (see FoundryClientFactory.cs).
 }
 
 public record AgentRequest(string OrgId, string ProjectId, string Message, IEnumerable<AgentMessage> History);

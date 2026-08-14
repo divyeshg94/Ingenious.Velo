@@ -1,4 +1,4 @@
-using Azure.AI.Agents.Persistent;
+using Azure.AI.Projects;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Velo.Agent;
@@ -118,60 +118,51 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default)
     {
+        // apiKey is accepted for backward-compat with older saved configs but is never used —
+        // the Foundry Agents management surface is Entra ID (AAD) only. See FoundryClientFactory.
         try
         {
-            PersistentAgentsClient agentsClient = FoundryClientFactory.Build(
-                endpoint, apiKey, tenantId, clientId, clientSecret);
+            AIProjectClient projectClient = FoundryClientFactory.BuildProjectClient(
+                endpoint, tenantId, clientId, clientSecret);
 
-            // When an Agent ID is provided, verify it exists.
-            // Otherwise list one agent — lightweight call that confirms credentials + endpoint are valid.
-            if (!string.IsNullOrWhiteSpace(agentId))
-            {
-                var response = await agentsClient.Administration.GetAgentAsync(agentId, ct);
-                var name = response?.Value?.Name ?? agentId;
-                return (true, $"Connected successfully. Agent '{name}' found.");
-            }
-            else
-            {
-                await foreach (var _ in agentsClient.Administration.GetAgentsAsync(cancellationToken: ct))
-                    break; // one page item is enough to confirm connectivity
+            // Lightweight call that confirms the endpoint + credentials are valid without
+            // spending model tokens: list one connection from the project.
+            await foreach (var _ in projectClient.Connections.GetConnectionsAsync(cancellationToken: ct))
+                break; // one page item is enough to confirm connectivity
 
-                return (true,
-                    "Connected successfully. Endpoint and credentials are valid. " +
-                    "The agent will be created automatically on the first chat.");
-            }
+            return (true,
+                "Connected successfully. Endpoint and credentials are valid. " +
+                "The agent is created in-process on every chat request (no server-side agent resource).");
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 403)
         {
-            var isApiKey  = !string.IsNullOrEmpty(apiKey);
-            var isAzureML = endpoint.Contains(".api.azureml.ms", StringComparison.OrdinalIgnoreCase);
-
-            if (isApiKey && isAzureML)
-                return (false,
-                    "Authentication failed (403). AzureML workspace endpoints (*.api.azureml.ms) do not " +
-                    "support API key authentication. Switch to Service Principal, or use an Azure AI Services " +
-                    "endpoint (*.services.ai.azure.com) where API keys are supported.");
-
-            return (false, isApiKey
-                ? "Authentication failed (403). Verify that the API key is correct and that the " +
-                  "Foundry resource grants API key access."
-                : "Authentication failed (403). Verify that the configured identity (Managed Identity " +
-                  "or Service Principal) has the 'Azure AI User' role on the Foundry resource.");
+            return (false,
+                "Authentication failed (403). Verify that the configured identity (Service Principal, " +
+                "or Velo's Managed Identity if none is configured) has the 'Azure AI User' role on the " +
+                "Foundry resource. Note: API keys are not supported for agent calls, even if the resource " +
+                "allows key-based authentication for model inference.");
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 404)
         {
             var isOpenAI = endpoint.Contains(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
+            var isBareHub = endpoint.Contains(".services.ai.azure.com", StringComparison.OrdinalIgnoreCase)
+                && !endpoint.Contains("/api/projects/", StringComparison.OrdinalIgnoreCase);
 
             if (isOpenAI)
                 return (false,
-                    "Resource not found (404). Azure OpenAI endpoints (*.openai.azure.com) are not " +
-                    "compatible with the Azure AI Agents API. Use your Azure AI Foundry project endpoint " +
-                    "instead: Azure AI Studio → your project → Overview → 'Project endpoint'.");
+                    "Resource not found (404). Azure OpenAI endpoints (*.openai.azure.com) are not Foundry " +
+                    "project endpoints. Use your project endpoint instead: Microsoft Foundry portal → your " +
+                    "project → Overview → 'Project endpoint'.");
+
+            if (isBareHub)
+                return (false,
+                    "Resource not found (404). This looks like a hub endpoint missing the project path. " +
+                    "Use the full project endpoint: https://<hub>.services.ai.azure.com/api/projects/<project> " +
+                    "— copy it exactly from Microsoft Foundry portal → your project → Overview → 'Project endpoint'.");
 
             return (false,
-                "Resource not found (404). Check: " +
-                "(1) The endpoint is your Azure AI Foundry project endpoint (not an Azure OpenAI endpoint). " +
-                $"(2) Any Agent ID you provided ({agentId ?? "none"}) exists in the project.");
+                "Resource not found (404). Check that the endpoint is your Foundry project endpoint " +
+                "(format: https://<hub>.services.ai.azure.com/api/projects/<project>).");
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 429)
         {

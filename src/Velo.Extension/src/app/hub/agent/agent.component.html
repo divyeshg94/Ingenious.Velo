@@ -25,6 +25,13 @@
             connected Foundry agent. Your chat history is preserved.
           </ng-container>
         </p>
+        <a
+          class="agent-connect__docs-link"
+          href="https://github.com/divyeshg94/Ingenious.Velo/blob/master/src/Velo.Extension/docs/foundry-agent-setup.md"
+          target="_blank"
+          rel="noopener">
+          📘 Foundry setup guide &amp; troubleshooting
+        </a>
       </div>
 
       <div class="connect-form">
@@ -34,29 +41,33 @@
             class="form-input"
             type="url"
             [(ngModel)]="formEndpoint"
-            placeholder="https://your-hub.services.ai.azure.com"
+            placeholder="https://your-hub.services.ai.azure.com/api/projects/your-project"
             autocomplete="off" />
           <div class="form-hint">
-            <strong>Where to find it:</strong> Azure AI Studio → your project → Overview → Project endpoint.<br>
+            <strong>Where to find it:</strong> Microsoft Foundry portal → your project → Overview → 'Project endpoint'.
+            Copy it exactly — don't type it by hand.<br>
             <strong>Supported formats:</strong><br>
-            <span class="endpoint-ok">✔</span> <code>https://&lt;hub&gt;.services.ai.azure.com</code><br>
+            <span class="endpoint-ok">✔</span> <code>https://&lt;hub&gt;.services.ai.azure.com/api/projects/&lt;project&gt;</code><br>
             <span class="endpoint-ok">✔</span> <code>https://&lt;project&gt;.api.azureml.ms</code><br>
+            <span class="endpoint-bad">✘</span> <code>https://&lt;hub&gt;.services.ai.azure.com</code> (no <code>/api/projects/…</code>)
+            — the bare hub endpoint 404s on agent calls, even though it looks valid.<br>
             <span class="endpoint-bad">✘</span> <code>https://&lt;name&gt;.openai.azure.com</code>
             — Azure OpenAI endpoints are <strong>not supported</strong> and will cause a 404 error.
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Agent ID <span class="optional">(optional)</span></label>
+          <label class="form-label">Agent ID <span class="optional">(optional, currently unused)</span></label>
           <input
             class="form-input"
             type="text"
             [(ngModel)]="formAgentId"
-            placeholder="asst_xxxxxxxxxxxxxxxxxxxxxxxx — leave blank to auto-create"
-            autocomplete="off" />
+            placeholder="Reserved for future use"
+            autocomplete="off"
+            disabled />
           <span class="form-hint">
-            Leave blank and Velo will create a managed agent automatically on first use.
-            Or paste an existing Agent ID from Azure AI Studio → Agents → your agent.
+            Velo builds the agent in-process on every chat request from the Model Deployment Name
+            below — no server-side agent resource is created, so there's nothing to reference here yet.
           </span>
         </div>
 
@@ -69,8 +80,8 @@
             placeholder="gpt-4o" />
           <div class="form-hint">
             The deployment name in your Foundry project (e.g. <code>gpt-4o</code>, <code>gpt-4o-mini</code>).
-            Used when Velo auto-creates the agent on first chat.<br>
-            <strong>Must exactly match</strong> a deployment listed under Azure AI Studio → your project → Deployments.
+            Used to build the agent on every chat request.<br>
+            <strong>Must exactly match</strong> a deployment listed under Microsoft Foundry portal → your project → Deployments.
             A mismatch causes a 404 "Resource not found" error.
           </div>
         </div>
@@ -124,12 +135,12 @@
             <div class="auth-panel__compat-warning">
               <span class="auth-panel__compat-icon">⚠️</span>
               <span>
-                API key authentication is only supported by
-                <strong>Azure AI Services</strong> endpoints
-                (<code>*.services.ai.azure.com</code>).<br>
-                <strong>AzureML workspace</strong> endpoints
-                (<code>*.api.azureml.ms</code>) require Service Principal or Managed Identity.
-                Using an API key with an AzureML endpoint will result in a 403 error.
+                <strong>Not supported for agent chat.</strong> The Foundry Agents API is
+                Entra ID (AAD) only — an API key authenticates model inference calls but is
+                rejected with a 403 on agent calls, even on resources with
+                "Allow API key based authentication" enabled. Use
+                <strong>Service Principal</strong> or <strong>Managed Identity</strong> instead.
+                See <a href="https://github.com/divyeshg94/Ingenious.Velo/blob/master/src/Velo.Extension/docs/foundry-agent-setup.md" target="_blank" rel="noopener">Foundry setup guide</a>.
               </span>
             </div>
             <div *ngIf="config?.hasApiKey && !formApiKey" class="key-saved-hint">
@@ -205,6 +216,45 @@
         </div>
 
         <div *ngIf="saveError" class="form-error">{{ saveError }}</div>
+
+        <!-- Common issues — collapsible troubleshooting help -->
+        <div class="help-panel">
+          <button type="button" class="help-panel__toggle" (click)="showTroubleshooting = !showTroubleshooting">
+            <span>❓ Common issues</span>
+            <span class="help-panel__chevron" [class.help-panel__chevron--open]="showTroubleshooting">▾</span>
+          </button>
+          <div *ngIf="showTroubleshooting" class="help-panel__content">
+            <dl>
+              <dt>404 "Resource not found"</dt>
+              <dd>Endpoint is missing <code>/api/projects/&lt;project&gt;</code>, points to an Azure OpenAI
+                resource (<code>*.openai.azure.com</code>), or the Model Deployment Name doesn't match a
+                deployment in your project.</dd>
+
+              <dt>403 "Authentication failed"</dt>
+              <dd>API keys aren't supported for agent calls — switch to Service Principal or Managed
+                Identity, and confirm the identity has the <strong>Azure AI User</strong> role on the
+                Foundry resource (Access control (IAM) in the Azure Portal).</dd>
+
+              <dt>429 "Rate limit exceeded"</dt>
+              <dd>Your Foundry resource hit its request quota. Wait a moment and retry.</dd>
+
+              <dt>Where do I find my project endpoint?</dt>
+              <dd>Microsoft Foundry portal → your project → Overview → "Project endpoint". Copy it
+                exactly — don't reconstruct it by hand.</dd>
+
+              <dt>Where do I find Service Principal credentials?</dt>
+              <dd>Entra ID → App registrations → your app → Overview (Tenant ID, Client ID) and
+                Certificates &amp; secrets (Client Secret). Then grant that app the
+                <strong>Azure AI User</strong> role on the Foundry resource.</dd>
+            </dl>
+            <a
+              href="https://github.com/divyeshg94/Ingenious.Velo/blob/master/src/Velo.Extension/docs/foundry-agent-setup.md"
+              target="_blank"
+              rel="noopener">
+              Full setup guide →
+            </a>
+          </div>
+        </div>
 
         <div class="connect-actions">
           <button

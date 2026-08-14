@@ -52,7 +52,7 @@ public class AgentService(
         var pipelineTool = new PipelineAnalysisTool(dataProvider);
         var codeTool = new CodeAnalysisTool(dataProvider);
         var recommendationTool = new RecommendationTool(dataProvider);
-        var agent = new VeloAgent(agentConfig, dataProvider, pipelineTool, codeTool, recommendationTool);
+        var agent = new VeloAgent(agentConfig, pipelineTool, codeTool, recommendationTool);
 
         var agentHistory = history.Select(m => new AgentMessage(m.Role, m.Content));
         var request = new AgentRequest(orgId, projectId, message, agentHistory);
@@ -67,29 +67,29 @@ public class AgentService(
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
-            // 404 on CreateAgentAsync / CreateThreadAsync usually means one of:
+            // 404 here usually means one of:
             //   a) The model deployment name does not exist in the Foundry project.
-            //   b) An Azure OpenAI endpoint (*.openai.azure.com) was supplied — those endpoints
-            //      serve the OpenAI Assistants API, NOT the Azure AI Agents Persistent API.
-            //      The correct endpoint is the Azure AI Foundry project endpoint.
-            //   c) The Foundry project endpoint URL is malformed or points to the wrong resource.
+            //   b) An Azure OpenAI endpoint (*.openai.azure.com) was supplied — not a Foundry
+            //      project endpoint.
+            //   c) The Foundry project endpoint is missing the /api/projects/<project> path
+            //      segment (a bare hub endpoint 404s on project-scoped calls).
             var isOpenAIEndpoint = agentConfig.FoundryEndpoint.Contains(
                 ".openai.azure.com", StringComparison.OrdinalIgnoreCase);
 
             if (isOpenAIEndpoint)
                 throw new InvalidOperationException(
                     "Resource not found (404). " +
-                    "Azure OpenAI endpoints (*.openai.azure.com) are not compatible with the Azure AI Agents API. " +
-                    "Please use your Azure AI Foundry project endpoint instead: " +
-                    "Azure AI Studio → your project → Overview → Project endpoint " +
-                    "(format: https://<hub>.services.ai.azure.com or https://<project>.api.azureml.ms).");
+                    "Azure OpenAI endpoints (*.openai.azure.com) are not Foundry project endpoints. " +
+                    "Use your project endpoint instead: Microsoft Foundry portal → your project → Overview → " +
+                    "'Project endpoint' (format: https://<hub>.services.ai.azure.com/api/projects/<project>). " +
+                    "See docs/foundry-agent-setup.md for details.");
 
             throw new InvalidOperationException(
                 "Resource not found (404). Check the following: " +
-                "(1) The endpoint is your Azure AI Foundry project endpoint — not an Azure OpenAI endpoint. " +
+                "(1) The endpoint includes the /api/projects/<project> path — a bare hub endpoint 404s. " +
                 "(2) The Model Deployment Name (e.g. 'gpt-4o') exactly matches a deployment that exists in your Foundry project. " +
                 $"Current deployment name: '{agentConfig.DeploymentName}'. " +
-                "Verify it in Azure AI Studio → your project → Deployments.");
+                "Verify it in the Foundry portal → your project → Deployments. See docs/foundry-agent-setup.md.");
         }
         catch (RequestFailedException ex) when (ex.Status == 429)
         {
@@ -100,31 +100,15 @@ public class AgentService(
         }
         catch (RequestFailedException ex) when (ex.Status == 403)
         {
-            // AzureML workspace endpoints (*.api.azureml.ms) do NOT support the api-key header —
-            // only Azure AI Services endpoints (*.services.ai.azure.com) do. When an API key is
-            // used against an AzureML endpoint the request arrives with an empty identity and
-            // Foundry returns 403 "Identity(object id: ) does not have permissions".
-            var isApiKeyAuth = !string.IsNullOrEmpty(agentConfig.ApiKey);
-            var isAzureMLEndpoint = agentConfig.FoundryEndpoint.Contains(
-                ".api.azureml.ms", StringComparison.OrdinalIgnoreCase);
-
-            if (isApiKeyAuth && isAzureMLEndpoint)
-                throw new InvalidOperationException(
-                    "Agent authentication failed (403 Forbidden). " +
-                    "AzureML workspace endpoints (*.api.azureml.ms) do not support API key authentication. " +
-                    "Please switch to the Service Principal tab and provide Tenant ID, Client ID, and Client Secret, " +
-                    "or use Velo's Managed Identity instead. " +
-                    "API keys are only supported for Azure AI Services endpoints (*.services.ai.azure.com).");
-
-            if (isApiKeyAuth)
-                throw new InvalidOperationException(
-                    "Agent authentication failed (403 Forbidden). " +
-                    "Verify that the API key is correct and that the Foundry resource grants API key access.");
-
+            // The Foundry Agents/Responses management surface is Entra ID (AAD) only — API keys
+            // are never attempted here regardless of what's stored on AgentConfig (see
+            // FoundryClientFactory). A 403 always means the configured identity (Service Principal
+            // or Velo's own Managed Identity) lacks the 'Azure AI User' role on the resource.
             throw new InvalidOperationException(
                 "Agent authentication failed (403 Forbidden). " +
-                "Verify that the Foundry resource grants the configured identity (Managed Identity or Service Principal) " +
-                "the 'Azure AI User' role.");
+                "Verify that the configured identity (Service Principal, or Velo's Managed Identity if " +
+                "none is configured) has the 'Azure AI User' role assigned on the Foundry resource. " +
+                "API keys are not supported for agent calls — see docs/foundry-agent-setup.md.");
         }
 
         logger.LogInformation(
