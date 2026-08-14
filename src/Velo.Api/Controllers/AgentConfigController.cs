@@ -51,6 +51,16 @@ public class AgentConfigController(
         if (!IsAllowedFoundryEndpoint(dto.FoundryEndpoint))
             return BadRequest(new { error = "foundryEndpoint must be a valid Azure AI Foundry endpoint (*.services.ai.azure.com or *.api.azureml.ms)." });
 
+        // Common misconfiguration: pasting the hub endpoint instead of the project endpoint.
+        // Catch it here instead of a round-trip 404 from Foundry.
+        if (IsBareHubEndpoint(dto.FoundryEndpoint))
+            return BadRequest(new
+            {
+                error = "foundryEndpoint is missing the project path. Use the full project endpoint " +
+                         "(format: https://<hub>.services.ai.azure.com/api/projects/<project>) — copy it from " +
+                         "Microsoft Foundry portal → your project → Overview → 'Project endpoint'."
+            });
+
         // AgentId is optional — Velo auto-creates the agent on first chat when not supplied
 
         var saved = await configService.SaveConfigAsync(orgId, dto, ct);
@@ -90,6 +100,20 @@ public class AgentConfigController(
             || host.EndsWith(".api.azureml.ms",        StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Detects the most common endpoint mistake: pasting the bare hub endpoint
+    /// (https://&lt;hub&gt;.services.ai.azure.com) instead of the project-scoped endpoint
+    /// (.../api/projects/&lt;project&gt;). Agents/Connections calls 404 against the bare hub.
+    /// </summary>
+    private static bool IsBareHubEndpoint(string url)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            return false;
+
+        return uri.Host.EndsWith(".services.ai.azure.com", StringComparison.OrdinalIgnoreCase)
+            && !uri.AbsolutePath.Contains("/api/projects/", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Tests connectivity to the specified Foundry endpoint + agent ID.</summary>
     [HttpPost("test")]
     public async Task<ActionResult> TestConnection(
@@ -101,6 +125,13 @@ public class AgentConfigController(
 
         if (!IsAllowedFoundryEndpoint(request.FoundryEndpoint))
             return BadRequest(new { error = "foundryEndpoint must be a valid Azure AI Foundry endpoint." });
+
+        if (IsBareHubEndpoint(request.FoundryEndpoint))
+            return BadRequest(new
+            {
+                error = "foundryEndpoint is missing the project path. Use the full project endpoint " +
+                         "(format: https://<hub>.services.ai.azure.com/api/projects/<project>)."
+            });
 
         var (ok, message) = await configService.TestConnectionAsync(
             request.FoundryEndpoint, request.AgentId,

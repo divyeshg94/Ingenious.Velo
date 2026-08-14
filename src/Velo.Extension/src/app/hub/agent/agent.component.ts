@@ -36,6 +36,7 @@ export class AgentComponent implements OnInit, AfterViewChecked {
   isSaving = false;
   testResult: { ok: boolean; message: string } | null = null;
   saveError = '';
+  showTroubleshooting = false;
 
   // Chat state
   messages: ChatMessage[] = [];

@@ -1,7 +1,7 @@
 const OverrideStorageKeys = ['velo-api-base-url', 'api-base-url'] as const;
 
 export const defaultDevelopmentApiBaseUrl = 'http://localhost:5001';
-export const defaultProductionApiBaseUrl = 'https://api.getvelo.dev';
+export const defaultProductionApiBaseUrl = 'https://velo.azurewebsites.net';
 
 const normaliseApiBaseUrl = (value: string): string => value.replace(/\/+$/, '');
 
