@@ -30,3 +30,17 @@ steps:
   inputs:
     command: 'test'
     projects: 'tests/Velo.Api.Tests/Velo.Api.Tests.csproj'
+
+# Live round-trip against the real Foundry resource — catches the class of bug unit tests can't:
+# a status-code catch clause written against the wrong exception type compiles clean and passes
+# every mocked test, but never fires against the real service (see 2026-08-15 incident). Requires
+# FoundryTest.TenantId / FoundryTest.ClientId / FoundryTest.ClientSecret as secret pipeline
+# variables (Pipelines → Edit → Variables), plus FoundryTest.Endpoint / FoundryTest.DeploymentName.
+- script: dotnet run --project tools/FoundryConnectivityCheck --configuration $(buildConfiguration)
+  displayName: 'Live Foundry connectivity check'
+  env:
+    FOUNDRY_ENDPOINT: $(FoundryTest.Endpoint)
+    FOUNDRY_DEPLOYMENT_NAME: $(FoundryTest.DeploymentName)
+    FOUNDRY_TENANT_ID: $(FoundryTest.TenantId)
+    FOUNDRY_CLIENT_ID: $(FoundryTest.ClientId)
+    FOUNDRY_CLIENT_SECRET: $(FoundryTest.ClientSecret)

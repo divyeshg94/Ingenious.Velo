@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Velo.Tools.FoundryConnectivityCheck</RootNamespace>
+    <!-- Deliberately excluded from Velo.sln's default publish/deploy targets — this is a dev/CI
+         diagnostic tool, not part of the shipped product. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Velo.Agent\Velo.Agent.csproj" />
+  </ItemGroup>
+
+</Project>

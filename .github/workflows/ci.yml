@@ -31,6 +31,20 @@ jobs:
       - name: Run .NET tests
         run: dotnet test Velo.sln --no-build --configuration Release
 
+      # Live round-trip against the real Foundry resource — catches the class of bug unit tests
+      # can't: a status-code catch clause written against the wrong exception type compiles clean
+      # and passes every mocked test, but never fires against the real service (see 2026-08-15
+      # incident). Requires FOUNDRY_TENANT_ID / FOUNDRY_CLIENT_ID / FOUNDRY_CLIENT_SECRET as repo
+      # secrets (Settings → Secrets and variables → Actions), plus FOUNDRY_ENDPOINT / FOUNDRY_DEPLOYMENT_NAME.
+      - name: Live Foundry connectivity check
+        run: dotnet run --project tools/FoundryConnectivityCheck --configuration Release
+        env:
+          FOUNDRY_ENDPOINT: ${{ secrets.FOUNDRY_ENDPOINT }}
+          FOUNDRY_DEPLOYMENT_NAME: ${{ secrets.FOUNDRY_DEPLOYMENT_NAME }}
+          FOUNDRY_TENANT_ID: ${{ secrets.FOUNDRY_TENANT_ID }}
+          FOUNDRY_CLIENT_ID: ${{ secrets.FOUNDRY_CLIENT_ID }}
+          FOUNDRY_CLIENT_SECRET: ${{ secrets.FOUNDRY_CLIENT_SECRET }}
+
       - name: Copy screenshots into extension directory
         run: |
           mkdir -p src/Velo.Extension/docs/screenshots

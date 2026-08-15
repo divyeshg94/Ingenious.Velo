@@ -1,0 +1,41 @@
+#!/bin/sh
+# Runs the live Foundry connectivity check before any commit that touches the Foundry agent
+# integration, so a green build can't mask a broken live call (see the 2026-08-15 incident:
+# every RunAsync catch clause silently caught the wrong exception type, compiled fine, and only
+# failed against the real service).
+#
+# Enabled once per clone via:  git config core.hooksPath .githooks
+#
+# Scoped to paths that actually touch the Foundry call path — not every commit — to avoid
+# paying a live API call + a few seconds for unrelated changes (docs, UI-only tweaks, etc.).
+# Uses your local config at %USERPROFILE%\.velo-foundry-test.json — if that file is missing,
+# this warns and lets the commit through rather than blocking on a locally-missing secret.
+
+FOUNDRY_PATHS='^(src/Velo\.Agent/|src/Velo\.Api/Interface/IAgentConfigService\.cs|src/Velo\.Api/Interface/IAgentService\.cs|src/Velo\.Api/Helpers/FoundryChatErrorMapper\.cs|tools/FoundryConnectivityCheck/)'
+
+if ! git diff --cached --name-only | grep -qE "$FOUNDRY_PATHS"; then
+    exit 0
+fi
+
+CONFIG_PATH="$USERPROFILE/.velo-foundry-test.json"
+
+echo "pre-commit: staged changes touch the Foundry agent path — running live connectivity check..."
+
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "pre-commit: WARNING — $CONFIG_PATH not found, skipping live check (commit allowed)."
+    echo "pre-commit: create it to enable this check — see tools/FoundryConnectivityCheck/Program.cs for the shape."
+    exit 0
+fi
+
+dotnet run --project tools/FoundryConnectivityCheck --configuration Release -- "$CONFIG_PATH"
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo ""
+    echo "pre-commit: BLOCKED — live Foundry connectivity check failed (exit $STATUS)."
+    echo "pre-commit: fix the issue, or commit with --no-verify if you're intentionally checking in a WIP/broken state."
+    exit 1
+fi
+
+echo "pre-commit: Foundry connectivity check passed."
+exit 0

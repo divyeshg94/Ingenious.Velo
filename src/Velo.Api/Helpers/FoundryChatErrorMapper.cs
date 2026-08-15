@@ -1,29 +1,44 @@
-using Azure;
+using System.ClientModel;
 
 namespace Velo.Api.Helpers;
 
 /// <summary>
-/// Maps a <see cref="RequestFailedException"/> raised by the Foundry Agents/Responses call in
+/// Maps a <see cref="ClientResultException"/> raised by the Foundry Agents/Responses call in
 /// <see cref="Velo.Agent.VeloAgent.ChatAsync"/> to a user-actionable <see cref="InvalidOperationException"/>.
-/// Pulled out of <see cref="Velo.Api.Interface.AgentService"/> so the status-code branching
-/// (404/429/401/403) can be unit tested without exercising the real Foundry SDK call chain.
+///
+/// IMPORTANT: Azure.AI.Projects 2.x (which Microsoft.Agents.AI.Foundry's AsAIAgent sits on top of)
+/// throws System.ClientModel.ClientResultException, NOT Azure.RequestFailedException — despite the
+/// two producing near-identical "Service request failed. Status: ###" messages, which is what made
+/// this easy to get wrong (see 2026-08-15 incident: a status-code catch written against
+/// RequestFailedException silently never matched, so every 401/403/404/429 fell through to a
+/// generic handler with no actionable message and nothing logged).
+///
+/// Takes the status/message/exception as plain values (rather than a <see cref="ClientResultException"/>
+/// directly) so tests can exercise the branching without constructing a real one — ClientResultException's
+/// Status is derived from a PipelineResponse with no public settable constructor, so faking one in a
+/// test is more trouble than it's worth for what is otherwise pure string logic.
 /// </summary>
 public static class FoundryChatErrorMapper
 {
     /// <summary>Returns null when the status code isn't one this mapper handles — caller should let it propagate.</summary>
-    public static InvalidOperationException? Map(RequestFailedException ex, string foundryEndpoint, string deploymentName)
+    public static InvalidOperationException? Map(ClientResultException ex, string foundryEndpoint, string deploymentName)
+        => Map(ex.Status, ex.Message, ex, foundryEndpoint, deploymentName);
+
+    /// <summary>Returns null when the status code isn't one this mapper handles — caller should let it propagate.</summary>
+    public static InvalidOperationException? Map(
+        int status, string rawMessage, Exception originalException, string foundryEndpoint, string deploymentName)
     {
-        switch (ex.Status)
+        switch (status)
         {
             case 404:
-                return Map404(ex, foundryEndpoint, deploymentName);
+                return Map404(originalException, foundryEndpoint, deploymentName);
 
             case 429:
                 return new InvalidOperationException(
                     "Agent rate limit exceeded (429 Too Many Requests). " +
                     "Your Azure AI Foundry resource has reached its request quota. " +
                     "Please wait a moment and try again.",
-                    ex);
+                    originalException);
 
             case 401 or 403:
                 // The Foundry Agents/Responses management surface is Entra ID (AAD) only — API keys
@@ -32,23 +47,23 @@ public static class FoundryChatErrorMapper
                 // data-action failures — e.g. the identity has 'Azure AI User' but the role assignment
                 // hasn't propagated, or is scoped to the wrong resource. Either status means the
                 // configured identity lacks the access this call needs.
-                // ex is kept as the inner exception (not surfaced to the client) so the raw Foundry
-                // message — which can include internal identifiers/request details — stays in server
-                // logs only, per AgentController's logger.LogWarning(ex, ...) on this path.
+                // originalException is kept as the inner exception (not surfaced to the client) so the
+                // raw Foundry message — which can include internal identifiers/request details — stays
+                // in server logs only, per AgentController's logger.LogWarning(ex, ...) on this path.
                 return new InvalidOperationException(
-                    $"Agent authentication failed ({ex.Status} {(ex.Status == 401 ? "Unauthorized" : "Forbidden")}). " +
+                    $"Agent authentication failed ({status} {(status == 401 ? "Unauthorized" : "Forbidden")}). " +
                     "Verify that the configured identity (Service Principal, or Velo's Managed Identity if " +
                     "none is configured) has the 'Azure AI User' role assigned on the Foundry resource, and that " +
                     "the role assignment has finished propagating (can take several minutes after granting it). " +
                     "API keys are not supported for agent calls — see docs/foundry-agent-setup.md.",
-                    ex);
+                    originalException);
 
             default:
                 return null;
         }
     }
 
-    private static InvalidOperationException Map404(RequestFailedException ex, string foundryEndpoint, string deploymentName)
+    private static InvalidOperationException Map404(Exception ex, string foundryEndpoint, string deploymentName)
     {
         // 404 here usually means one of:
         //   a) The model deployment name does not exist in the Foundry project.
