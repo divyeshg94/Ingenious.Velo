@@ -17,13 +17,19 @@ if ! git diff --cached --name-only | grep -qE "$FOUNDRY_PATHS"; then
     exit 0
 fi
 
-CONFIG_PATH="$USERPROFILE/.velo-foundry-test.json"
-
 echo "pre-commit: staged changes touch the Foundry agent path — running live connectivity check..."
 
-if [ ! -f "$CONFIG_PATH" ]; then
-    echo "pre-commit: WARNING — $CONFIG_PATH not found, skipping live check (commit allowed)."
-    echo "pre-commit: create it to enable this check — see tools/FoundryConnectivityCheck/Program.cs for the shape."
+CONFIG_PATH=""
+for candidate in "$USERPROFILE/.velo-foundry-test.json" "tests/velo-tests.json"; do
+    if [ -f "$candidate" ]; then
+        CONFIG_PATH="$candidate"
+        break
+    fi
+done
+
+if [ -z "$CONFIG_PATH" ]; then
+    echo "pre-commit: WARNING — no config found (checked \$USERPROFILE/.velo-foundry-test.json and tests/velo-tests.json), skipping live check (commit allowed)."
+    echo "pre-commit: create one to enable this check — see tools/FoundryConnectivityCheck/Program.cs for the shape."
     exit 0
 fi
 
