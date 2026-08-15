@@ -14,12 +14,11 @@ public interface IAgentConfigService
     Task DeleteConfigAsync(string orgId, CancellationToken ct = default);
 
     /// <summary>
-    /// Tests connectivity to the Foundry endpoint. agentId is optional — when null/empty
-    /// the test only verifies the endpoint and credentials are reachable (skips agent lookup).
+    /// Tests connectivity by running a trivial live turn against the given deployment.
     /// Supports both API key and service principal auth; falls back to DefaultAzureCredential.
     /// </summary>
     Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId, string? deploymentName,
+        string endpoint, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default);
@@ -112,7 +111,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId, string? deploymentName,
+        string endpoint, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default)
@@ -145,7 +144,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
                 "Connected successfully. Endpoint, credentials, and model deployment are all valid. " +
                 "The agent is created in-process on every chat request (no server-side agent resource).");
         }
-        catch (Azure.RequestFailedException ex) when (ex.Status == 403)
+        catch (System.ClientModel.ClientResultException ex) when (ex.Status == 403)
         {
             var isConnectionsPermission = ex.Message.Contains("connections/read", StringComparison.OrdinalIgnoreCase);
 
@@ -161,7 +160,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
                 "Foundry resource. Note: API keys are not supported for agent calls, even if the resource " +
                 "allows key-based authentication for model inference.");
         }
-        catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+        catch (System.ClientModel.ClientResultException ex) when (ex.Status == 404)
         {
             var isOpenAI = endpoint.Contains(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
             var isBareHub = endpoint.Contains(".services.ai.azure.com", StringComparison.OrdinalIgnoreCase)
@@ -185,7 +184,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
                 $"Model Deployment Name ('{model}') exactly matches a deployment listed under " +
                 "Microsoft Foundry portal → your project → Deployments.");
         }
-        catch (Azure.RequestFailedException ex) when (ex.Status == 429)
+        catch (System.ClientModel.ClientResultException ex) when (ex.Status == 429)
         {
             return (false,
                 "Rate limit exceeded (429). The Foundry resource has reached its request quota. " +

@@ -1,4 +1,4 @@
-using Azure;
+using System.ClientModel;
 using Velo.Agent;
 using Velo.Agent.Tools;
 using Velo.Api.Controllers;
@@ -66,11 +66,13 @@ public class AgentService(
         {
             response = await agent.ChatAsync(request, cancellationToken);
         }
-        catch (RequestFailedException ex)
+        catch (ClientResultException ex)
         {
             // Status-code → user-message mapping lives in FoundryChatErrorMapper so it can be
             // unit tested without exercising the real Foundry SDK call chain. Unmapped statuses
-            // (anything besides 404/429/401/403) propagate as the original RequestFailedException.
+            // (anything besides 404/429/401/403) propagate as the original ClientResultException.
+            // NOTE: this must be ClientResultException (System.ClientModel), not Azure.RequestFailedException —
+            // see the comment on FoundryChatErrorMapper for why that distinction matters here.
             var mapped = FoundryChatErrorMapper.Map(ex, agentConfig.FoundryEndpoint, agentConfig.DeploymentName);
             if (mapped is not null)
                 throw mapped;

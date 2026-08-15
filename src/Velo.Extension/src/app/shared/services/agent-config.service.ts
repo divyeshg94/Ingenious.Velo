@@ -33,8 +33,6 @@ export interface AgentConfigDto {
 
 export interface AgentConfigTestRequest {
   foundryEndpoint: string;
-  /** Optional — null means Velo will auto-create the agent on first chat. */
-  agentId?: string;
   /** The test runs a real (trivial) turn against this deployment — must be valid for the test to pass. */
   deploymentName?: string;
   /** Auth option 1 — used only during the test, never persisted. */

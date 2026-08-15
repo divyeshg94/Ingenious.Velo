@@ -14,6 +14,15 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
+# Self-hosted 'Default' pool agent has no guaranteed .NET version — pin the SDK here instead
+# of relying on whatever's globally installed on the box (this is what "framework not found"
+# build failures on this pipeline have been).
+- task: UseDotNet@2
+  displayName: 'Install .NET 9 SDK'
+  inputs:
+    packageType: 'sdk'
+    version: '9.0.x'
+
 - script: dotnet build Velo.sln --configuration $(buildConfiguration)
   displayName: 'dotnet build $(buildConfiguration)'
 
@@ -21,3 +30,22 @@ steps:
   inputs:
     command: 'test'
     projects: 'tests/Velo.Api.Tests/Velo.Api.Tests.csproj'
+
+# Live round-trip against the real Foundry resource — catches the class of bug unit tests can't:
+# a status-code catch clause written against the wrong exception type compiles clean and passes
+# every mocked test, but never fires against the real service (see 2026-08-15 incident). Requires
+# FoundryTest.TenantId / FoundryTest.ClientId / FoundryTest.ClientSecret as secret pipeline
+# variables (Pipelines → Edit → Variables), plus FoundryTest.Endpoint / FoundryTest.DeploymentName.
+#
+# Secret variables can't be referenced in `condition:` expressions, so this is gated on a
+# separate non-secret FoundryTest.Enabled variable — set it to 'true' once the secrets above are
+# configured. Until then this step is skipped instead of hard-failing every build.
+- script: dotnet run --project tools/FoundryConnectivityCheck --configuration $(buildConfiguration)
+  displayName: 'Live Foundry connectivity check'
+  condition: eq(variables['FoundryTest.Enabled'], 'true')
+  env:
+    FOUNDRY_ENDPOINT: $(FoundryTest.Endpoint)
+    FOUNDRY_DEPLOYMENT_NAME: $(FoundryTest.DeploymentName)
+    FOUNDRY_TENANT_ID: $(FoundryTest.TenantId)
+    FOUNDRY_CLIENT_ID: $(FoundryTest.ClientId)
+    FOUNDRY_CLIENT_SECRET: $(FoundryTest.ClientSecret)
