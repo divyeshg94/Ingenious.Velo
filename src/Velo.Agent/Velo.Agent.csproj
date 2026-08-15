@@ -12,9 +12,9 @@
          doesn't route on Foundry projects backed by the newer Responses API (404/400 routing
          collisions) and requires AAD auth even where API keys work for plain inference.
          Microsoft.Agents.AI.Foundry (AIProjectClient.AsAIAgent) is the supported replacement. -->
-    <PackageReference Include="Microsoft.Agents.AI.Foundry" Version="1.17.0-preview.260804.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry" Version="1.5.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.*" />
-    <PackageReference Include="Azure.AI.Projects" Version="2.1.0-beta.4" />
+    <PackageReference Include="Azure.AI.Projects" Version="2.0.1" />
     <PackageReference Include="Azure.Identity" Version="1.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.*" />
   </ItemGroup>

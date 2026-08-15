@@ -1,4 +1,3 @@
-using Azure.AI.Projects;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Velo.Agent;
@@ -20,7 +19,7 @@ public interface IAgentConfigService
     /// Supports both API key and service principal auth; falls back to DefaultAzureCredential.
     /// </summary>
     Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId,
+        string endpoint, string? agentId, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default);
@@ -113,29 +112,49 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId,
+        string endpoint, string? agentId, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default)
     {
         // apiKey is accepted for backward-compat with older saved configs but is never used —
         // the Foundry Agents management surface is Entra ID (AAD) only. See FoundryClientFactory.
+
+        // The test now runs a real turn against this deployment, so — unlike chat, which can fall
+        // back to "gpt-4o" — a missing name here can't be defaulted without risking a false-negative
+        // test against a project that doesn't have "gpt-4o" deployed.
+        if (string.IsNullOrWhiteSpace(deploymentName))
+            return (false, "Model Deployment Name is required to test the connection — enter it above, then try again.");
+
+        var model = deploymentName.Trim();
+
         try
         {
-            AIProjectClient projectClient = FoundryClientFactory.BuildProjectClient(
-                endpoint, tenantId, clientId, clientSecret);
+            // Run a trivial turn through the exact path VeloAgent uses for chat. We deliberately do
+            // NOT probe via AIProjectClient.Connections — that needs the
+            // `Microsoft.CognitiveServices/accounts/AIServices/connections/read` data action, which
+            // is not part of the 'Azure AI User' role we document/require and most identities won't
+            // have it granted. Running a real (cheap) turn instead means "test passed" ⇒ chat will work.
+            var agent = FoundryClientFactory.BuildAgent(
+                endpoint, model, "You are a connectivity check. Reply with a single word.",
+                tenantId, clientId, clientSecret);
 
-            // Lightweight call that confirms the endpoint + credentials are valid without
-            // spending model tokens: list one connection from the project.
-            await foreach (var _ in projectClient.Connections.GetConnectionsAsync(cancellationToken: ct))
-                break; // one page item is enough to confirm connectivity
+            await agent.RunAsync("ping", cancellationToken: ct);
 
             return (true,
-                "Connected successfully. Endpoint and credentials are valid. " +
+                "Connected successfully. Endpoint, credentials, and model deployment are all valid. " +
                 "The agent is created in-process on every chat request (no server-side agent resource).");
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 403)
         {
+            var isConnectionsPermission = ex.Message.Contains("connections/read", StringComparison.OrdinalIgnoreCase);
+
+            if (isConnectionsPermission)
+                return (false,
+                    "Authentication failed (403). The configured identity lacks " +
+                    "'Microsoft.CognitiveServices/accounts/AIServices/connections/read'. This is a separate " +
+                    "permission from the 'Azure AI User' role — see https://aka.ms/FoundryPermissions.");
+
             return (false,
                 "Authentication failed (403). Verify that the configured identity (Service Principal, " +
                 "or Velo's Managed Identity if none is configured) has the 'Azure AI User' role on the " +
@@ -161,8 +180,10 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
                     "— copy it exactly from Microsoft Foundry portal → your project → Overview → 'Project endpoint'.");
 
             return (false,
-                "Resource not found (404). Check that the endpoint is your Foundry project endpoint " +
-                "(format: https://<hub>.services.ai.azure.com/api/projects/<project>).");
+                $"Resource not found (404). Check that the endpoint is your Foundry project endpoint " +
+                "(format: https://<hub>.services.ai.azure.com/api/projects/<project>), and that the " +
+                $"Model Deployment Name ('{model}') exactly matches a deployment listed under " +
+                "Microsoft Foundry portal → your project → Deployments.");
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 429)
         {
