@@ -14,12 +14,11 @@ public interface IAgentConfigService
     Task DeleteConfigAsync(string orgId, CancellationToken ct = default);
 
     /// <summary>
-    /// Tests connectivity to the Foundry endpoint. agentId is optional — when null/empty
-    /// the test only verifies the endpoint and credentials are reachable (skips agent lookup).
+    /// Tests connectivity by running a trivial live turn against the given deployment.
     /// Supports both API key and service principal auth; falls back to DefaultAzureCredential.
     /// </summary>
     Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId, string? deploymentName,
+        string endpoint, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default);
@@ -112,7 +111,7 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(
-        string endpoint, string? agentId, string? deploymentName,
+        string endpoint, string? deploymentName,
         string? apiKey,
         string? tenantId, string? clientId, string? clientSecret,
         CancellationToken ct = default)

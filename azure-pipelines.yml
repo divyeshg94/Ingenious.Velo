@@ -36,8 +36,13 @@ steps:
 # every mocked test, but never fires against the real service (see 2026-08-15 incident). Requires
 # FoundryTest.TenantId / FoundryTest.ClientId / FoundryTest.ClientSecret as secret pipeline
 # variables (Pipelines → Edit → Variables), plus FoundryTest.Endpoint / FoundryTest.DeploymentName.
+#
+# Secret variables can't be referenced in `condition:` expressions, so this is gated on a
+# separate non-secret FoundryTest.Enabled variable — set it to 'true' once the secrets above are
+# configured. Until then this step is skipped instead of hard-failing every build.
 - script: dotnet run --project tools/FoundryConnectivityCheck --configuration $(buildConfiguration)
   displayName: 'Live Foundry connectivity check'
+  condition: eq(variables['FoundryTest.Enabled'], 'true')
   env:
     FOUNDRY_ENDPOINT: $(FoundryTest.Endpoint)
     FOUNDRY_DEPLOYMENT_NAME: $(FoundryTest.DeploymentName)

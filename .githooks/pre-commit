@@ -8,8 +8,9 @@
 #
 # Scoped to paths that actually touch the Foundry call path — not every commit — to avoid
 # paying a live API call + a few seconds for unrelated changes (docs, UI-only tweaks, etc.).
-# Uses your local config at %USERPROFILE%\.velo-foundry-test.json — if that file is missing,
-# this warns and lets the commit through rather than blocking on a locally-missing secret.
+# Uses your local config at $USERPROFILE/.velo-foundry-test.json (or $HOME on macOS/Linux),
+# falling back to tests/velo-tests.json — if neither is found, this warns and lets the commit
+# through rather than blocking on a locally-missing secret.
 
 FOUNDRY_PATHS='^(src/Velo\.Agent/|src/Velo\.Api/Interface/IAgentConfigService\.cs|src/Velo\.Api/Interface/IAgentService\.cs|src/Velo\.Api/Helpers/FoundryChatErrorMapper\.cs|tools/FoundryConnectivityCheck/)'
 
@@ -19,9 +20,13 @@ fi
 
 echo "pre-commit: staged changes touch the Foundry agent path — running live connectivity check..."
 
+# $USERPROFILE is Windows-only; fall back to $HOME for macOS/Linux so this doesn't silently
+# skip the check on non-Windows machines.
+HOME_DIR="${USERPROFILE:-$HOME}"
+
 CONFIG_PATH=""
-for candidate in "$USERPROFILE/.velo-foundry-test.json" "tests/velo-tests.json"; do
-    if [ -f "$candidate" ]; then
+for candidate in "$HOME_DIR/.velo-foundry-test.json" "tests/velo-tests.json"; do
+    if [ -n "$candidate" ] && [ -f "$candidate" ]; then
         CONFIG_PATH="$candidate"
         break
     fi
@@ -39,7 +44,8 @@ STATUS=$?
 if [ $STATUS -ne 0 ]; then
     echo ""
     echo "pre-commit: BLOCKED — live Foundry connectivity check failed (exit $STATUS)."
-    echo "pre-commit: fix the issue, or commit with --no-verify if you're intentionally checking in a WIP/broken state."
+    echo "pre-commit: fix the issue. If you need to commit anyway (e.g. intentional WIP), temporarily"
+    echo "pre-commit: disable just this hook with: git config --unset core.hooksPath"
     exit 1
 fi
 

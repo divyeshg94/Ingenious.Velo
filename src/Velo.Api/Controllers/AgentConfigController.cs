@@ -7,7 +7,6 @@ namespace Velo.Api.Controllers;
 
 public record AgentConfigTestRequest(
     string FoundryEndpoint,
-    string? AgentId,
     string? DeploymentName,
     // Auth option 1
     string? ApiKey,
@@ -135,7 +134,7 @@ public class AgentConfigController(
             });
 
         var (ok, message) = await configService.TestConnectionAsync(
-            request.FoundryEndpoint, request.AgentId, request.DeploymentName,
+            request.FoundryEndpoint, request.DeploymentName,
             request.ApiKey,
             request.TenantId, request.ClientId, request.ClientSecret, ct);
 

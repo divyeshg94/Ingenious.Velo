@@ -36,7 +36,14 @@ jobs:
       # and passes every mocked test, but never fires against the real service (see 2026-08-15
       # incident). Requires FOUNDRY_TENANT_ID / FOUNDRY_CLIENT_ID / FOUNDRY_CLIENT_SECRET as repo
       # secrets (Settings → Secrets and variables → Actions), plus FOUNDRY_ENDPOINT / FOUNDRY_DEPLOYMENT_NAME.
+      # Guarded on the endpoint secret being set: PR builds from forks never receive repo secrets,
+      # and this shouldn't hard-fail every PR before the secrets are configured the first time.
+      - name: Check Foundry secrets are configured
+        id: foundry-secrets
+        run: echo "configured=${{ secrets.FOUNDRY_ENDPOINT != '' }}" >> "$GITHUB_OUTPUT"
+
       - name: Live Foundry connectivity check
+        if: steps.foundry-secrets.outputs.configured == 'true'
         run: dotnet run --project tools/FoundryConnectivityCheck --configuration Release
         env:
           FOUNDRY_ENDPOINT: ${{ secrets.FOUNDRY_ENDPOINT }}

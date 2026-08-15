@@ -99,7 +99,6 @@ export class AgentComponent implements OnInit, AfterViewChecked {
     this.configService
       .testConnection({
         foundryEndpoint: this.formEndpoint,
-        agentId: this.formAgentId || undefined,
         deploymentName: this.formDeploymentModel || undefined,
         apiKey: this.formAuthMethod === 'apikey' ? (this.formApiKey || undefined) : undefined,
         tenantId: this.formAuthMethod === 'sp' ? (this.formTenantId || undefined) : undefined,

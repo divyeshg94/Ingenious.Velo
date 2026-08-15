@@ -25,8 +25,9 @@ using Velo.Agent;
 // }
 // Omit TenantId/ClientId/ClientSecret to test Managed Identity (DefaultAzureCredential) instead.
 //
-// Config values are never printed — only masked previews appear in output, so this is safe to
-// run in CI logs or share with a human.
+// FoundryEndpoint and DeploymentName are printed in full (not secrets). TenantId/ClientId are
+// masked previews. ClientSecret is never printed or logged anywhere — so this is safe to run in
+// CI logs or share with a human.
 
 var configPath = args.Length > 0
     ? args[0]
@@ -37,8 +38,16 @@ TestConfig config;
 if (File.Exists(configPath))
 {
     var json = await File.ReadAllTextAsync(configPath);
-    config = JsonSerializer.Deserialize<TestConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-        ?? throw new InvalidOperationException("Config file is empty or malformed.");
+    try
+    {
+        config = JsonSerializer.Deserialize<TestConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new JsonException("Config file deserialized to null.");
+    }
+    catch (JsonException ex)
+    {
+        Console.WriteLine($"Config file at {configPath} is not valid JSON: {ex.Message}");
+        return 1;
+    }
 }
 else if (Environment.GetEnvironmentVariable("FOUNDRY_ENDPOINT") is { Length: > 0 } envEndpoint)
 {
