@@ -98,17 +98,21 @@ public class AgentService(
                 "Your Azure AI Foundry resource has reached its request quota. " +
                 "Please wait a moment and try again.");
         }
-        catch (RequestFailedException ex) when (ex.Status == 403)
+        catch (RequestFailedException ex) when (ex.Status is 401 or 403)
         {
             // The Foundry Agents/Responses management surface is Entra ID (AAD) only — API keys
             // are never attempted here regardless of what's stored on AgentConfig (see
-            // FoundryClientFactory). A 403 always means the configured identity (Service Principal
-            // or Velo's own Managed Identity) lacks the 'Azure AI User' role on the resource.
+            // FoundryClientFactory). Foundry returns 401 (not 403) for RBAC "PermissionDenied"
+            // data-action failures — e.g. the identity has 'Azure AI User' but the role assignment
+            // hasn't propagated, or is scoped to the wrong resource. Either status means the
+            // configured identity lacks the access this call needs.
             throw new InvalidOperationException(
-                "Agent authentication failed (403 Forbidden). " +
+                $"Agent authentication failed ({ex.Status} {(ex.Status == 401 ? "Unauthorized" : "Forbidden")}). " +
                 "Verify that the configured identity (Service Principal, or Velo's Managed Identity if " +
-                "none is configured) has the 'Azure AI User' role assigned on the Foundry resource. " +
-                "API keys are not supported for agent calls — see docs/foundry-agent-setup.md.");
+                "none is configured) has the 'Azure AI User' role assigned on the Foundry resource, and that " +
+                "the role assignment has finished propagating (can take several minutes after granting it). " +
+                "API keys are not supported for agent calls — see docs/foundry-agent-setup.md. " +
+                $"Details: {ex.Message}");
         }
 
         logger.LogInformation(
