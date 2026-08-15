@@ -119,7 +119,14 @@ public class AgentConfigService(VeloDbContext db, IDataProtectionProvider dataPr
     {
         // apiKey is accepted for backward-compat with older saved configs but is never used —
         // the Foundry Agents management surface is Entra ID (AAD) only. See FoundryClientFactory.
-        var model = string.IsNullOrWhiteSpace(deploymentName) ? "gpt-4o" : deploymentName.Trim();
+
+        // The test now runs a real turn against this deployment, so — unlike chat, which can fall
+        // back to "gpt-4o" — a missing name here can't be defaulted without risking a false-negative
+        // test against a project that doesn't have "gpt-4o" deployed.
+        if (string.IsNullOrWhiteSpace(deploymentName))
+            return (false, "Model Deployment Name is required to test the connection — enter it above, then try again.");
+
+        var model = deploymentName.Trim();
 
         try
         {
