@@ -19,6 +19,7 @@ public class DoraControllerTests
     private readonly Mock<IMetricsRepository> _repoMock = new();
     private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
     private readonly Mock<IDoraComputeService> _doraComputeMock = new();
+    private readonly Mock<IOnboardingService> _onboardingMock = new();
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DoraController _sut;
 
@@ -34,9 +35,14 @@ public class DoraControllerTests
         var provider = services.BuildServiceProvider();
         _scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
 
+        _onboardingMock
+            .Setup(o => o.MarkDoraViewedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _sut = new DoraController(
             _repoMock.Object,
             _scopeFactory,
+            _onboardingMock.Object,
             NullLogger<DoraController>.Instance);
     }
 

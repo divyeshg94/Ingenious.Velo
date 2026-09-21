@@ -37,5 +37,31 @@ public class OrgContext : AuditableEntity
     [MaxLength(100)]
     public string? AadTenantId { get; set; }
 
+    /// <summary>
+    /// Contact email captured when the org registers (POST /api/orgs/connect), used only
+    /// for the never-used-org re-engagement campaign. Never populated by inference or
+    /// scraped from tokens — only what the org explicitly provides.
+    /// </summary>
+    [MaxLength(320)]
+    public string? AdminContactEmail { get; set; }
+
+    /// <summary>
+    /// Set when the admin contact clicks the unsubscribe link in a re-engagement email.
+    /// Once true, the org is permanently excluded from marketing sends.
+    /// </summary>
+    public bool MarketingOptOut { get; set; }
+
+    /// <summary>
+    /// Set once the never-used-org re-engagement email has been sent, so the campaign
+    /// never emails the same org twice.
+    /// </summary>
+    public DateTimeOffset? ReEngagementEmailSentAt { get; set; }
+
+    /// <summary>First-value onboarding milestone: first time DORA metrics were successfully viewed.</summary>
+    public DateTimeOffset? FirstDoraViewedAt { get; set; }
+
+    /// <summary>First-value onboarding milestone: first time a dashboard share link was created.</summary>
+    public DateTimeOffset? FirstShareCreatedAt { get; set; }
+
     // ModifiedDate is inherited from AuditableEntity — no re-declaration needed.
 }

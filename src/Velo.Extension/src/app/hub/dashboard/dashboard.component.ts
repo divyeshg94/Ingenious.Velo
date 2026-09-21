@@ -6,6 +6,7 @@ import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-m
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
 import { toFriendlyApiError } from '../../shared/services/api-error.util';
+import { OnboardingNudgeComponent } from '../onboarding-nudge/onboarding-nudge.component';
 
 interface MetricScore {
   label: string;
@@ -17,7 +18,7 @@ interface MetricScore {
 @Component({
   selector: 'velo-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, OnboardingNudgeComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })

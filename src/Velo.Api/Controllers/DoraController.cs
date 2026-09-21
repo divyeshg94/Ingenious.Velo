@@ -19,6 +19,7 @@ namespace Velo.Api.Controllers;
 public class DoraController(
     IMetricsRepository metricsRepository,
     IServiceScopeFactory scopeFactory,
+    IOnboardingService onboardingService,
     ILogger<DoraController> logger) : ControllerBase
 {
     private const string AdoTokenHeader = "X-Ado-Access-Token";
@@ -204,6 +205,9 @@ public class DoraController(
                 "DeploymentFrequency: {DeploymentFrequency}, Rating: {Rating}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), metrics.DeploymentFrequency, metrics.DeploymentFrequencyRating, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
 
+            // "First value" onboarding milestone — the org has now actually seen a DORA metric.
+            await onboardingService.MarkDoraViewedAsync(orgId, cancellationToken);
+
             return Ok(new DoraMetricsResponse
             {
                 Status = "ok",
@@ -320,6 +324,62 @@ public class DoraController(
                 Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(projectId), days, Velo.Api.Logging.LogSanitizer.SanitiseForLog(userId), Velo.Api.Logging.LogSanitizer.SanitiseForLog(correlationId));
             return StatusCode(500, new { error = "Internal server error" });
         }
+    }
+
+    /// <summary>
+    /// Export DORA metrics history as CSV — lets a team pull raw numbers into a
+    /// leadership deck or spreadsheet rather than screenshotting the dashboard.
+    /// Multi-tenant: same scoping as <see cref="GetMetricsHistory"/>.
+    /// </summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportMetricsHistory(
+        [FromQuery] string projectId,
+        [FromQuery] int days = 90,
+        [FromQuery] string? repositoryName = null,
+        [FromQuery] string? teamName = null,
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = HttpContext.Items["OrgId"]?.ToString();
+        if (string.IsNullOrEmpty(orgId))
+            return Unauthorized(new { error = "Organization context not found" });
+
+        if (string.IsNullOrWhiteSpace(projectId))
+            return BadRequest(new { error = "projectId is required" });
+
+        if (days < 1 || days > 365)
+            return BadRequest(new { error = "days must be between 1 and 365" });
+
+        string? filterKey;
+        try
+        {
+            filterKey = await ResolveFilterKeyAsync(orgId, projectId, repositoryName, teamName, cancellationToken);
+        }
+        catch (TeamHasNoMappingsException)
+        {
+            filterKey = null;
+        }
+
+        var from = DateTimeOffset.UtcNow.AddDays(-days);
+        var to = DateTimeOffset.UtcNow;
+        var history = (await metricsRepository.GetHistoryAsync(orgId, projectId, from, to, filterKey, cancellationToken))
+            .OrderBy(m => m.ComputedAt)
+            .ToList();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("ComputedAt,DeploymentFrequency,DeploymentFrequencyRating,LeadTimeForChangesHours,LeadTimeRating,ChangeFailureRate,ChangeFailureRating,MeanTimeToRestoreHours,MttrRating,ReworkRate,ReworkRateRating");
+        foreach (var m in history)
+        {
+            csv.AppendLine(string.Join(",",
+                m.ComputedAt.ToString("O"),
+                m.DeploymentFrequency, m.DeploymentFrequencyRating,
+                m.LeadTimeForChangesHours, m.LeadTimeRating,
+                m.ChangeFailureRate, m.ChangeFailureRating,
+                m.MeanTimeToRestoreHours, m.MttrRating,
+                m.ReworkRate, m.ReworkRateRating));
+        }
+
+        var fileName = $"velo-dora-{projectId}-{DateTime.UtcNow:yyyyMMdd}.csv";
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
     }
 
     /// <summary>

@@ -1,0 +1,101 @@
+.nudge {
+  position: relative;
+  background: var(--card-background);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.nudge-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary-color);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.nudge-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.nudge-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--heading-color);
+}
+
+.nudge-progress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color, #0078d4);
+}
+
+.nudge-steps {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nudge-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--text-primary-color);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.nudge-step:hover {
+  border-color: var(--primary-color, #0078d4);
+}
+
+.nudge-step.done {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.step-check {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #22c55e;
+}
+
+.nudge-step.done .step-check {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #fff;
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step-text strong {
+  font-size: 13px;
+}
+
+.step-text small {
+  font-size: 11px;
+  color: var(--text-secondary-color);
+}

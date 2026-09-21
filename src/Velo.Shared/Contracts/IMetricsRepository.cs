@@ -54,6 +54,9 @@ public interface IMetricsRepository
     Task<OrgContextDto?> GetOrgContextAsync(string orgId, CancellationToken cancellationToken);
     Task SaveOrgContextAsync(OrgContextDto org, CancellationToken cancellationToken);
 
+    /// <summary>Permanently opts an org out of marketing email (e.g. the re-engagement campaign). Idempotent no-op if the org doesn't exist.</summary>
+    Task SetMarketingOptOutAsync(string orgId, CancellationToken cancellationToken);
+
     // Team Mappings
     Task<IEnumerable<TeamMappingDto>> GetTeamMappingsAsync(string orgId, string projectId, CancellationToken cancellationToken);
     Task<TeamMappingDto?> GetTeamMappingAsync(string orgId, string projectId, string repositoryName, CancellationToken cancellationToken);

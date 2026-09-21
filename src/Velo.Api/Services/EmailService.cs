@@ -12,6 +12,14 @@ namespace Velo.Api.Services;
 public interface IEmailService
 {
     /// <summary>
+    /// True when SMTP is fully configured (host/username/from address). Callers that must
+    /// not silently no-op — e.g. a campaign that permanently marks a recipient as
+    /// "contacted" — should check this before sending rather than relying on a successful
+    /// return from a send call that may have skipped sending entirely.
+    /// </summary>
+    bool IsConfigured { get; }
+
+    /// <summary>
     /// Send a feedback notification email asynchronously.
     /// </summary>
     /// <param name="toEmail">Recipient email address (Velo owner).</param>
@@ -29,6 +37,21 @@ public interface IEmailService
         string? projectId,
         string? userId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Send a re-engagement email to an org's admin contact that never activated Velo
+    /// (registered but never synced a pipeline). Always includes an unsubscribe link —
+    /// required by CAN-SPAM/GDPR and by <see cref="SendReEngagementEmailAsync"/>'s callers.
+    /// </summary>
+    /// <param name="toEmail">Admin contact email captured at registration.</param>
+    /// <param name="orgDisplayName">Org display name for personalization.</param>
+    /// <param name="unsubscribeUrl">One-click, token-verified opt-out link.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task SendReEngagementEmailAsync(
+        string toEmail,
+        string orgDisplayName,
+        string unsubscribeUrl,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -37,6 +60,11 @@ public interface IEmailService
 /// </summary>
 public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailService> logger) : IEmailService
 {
+    public bool IsConfigured =>
+        !string.IsNullOrEmpty(configuration["Smtp:Host"])
+        && !string.IsNullOrEmpty(configuration["Smtp:Username"])
+        && !string.IsNullOrEmpty(configuration["Smtp:FromEmail"]);
+
     public async Task SendFeedbackNotificationAsync(
         string toEmail,
         string feedbackType,
@@ -97,6 +125,91 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
             throw;
         }
     }
+
+    public async Task SendReEngagementEmailAsync(
+        string toEmail,
+        string orgDisplayName,
+        string unsubscribeUrl,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var smtpHost = configuration["Smtp:Host"];
+            var smtpPort = configuration.GetValue<int>("Smtp:Port", 587);
+            var smtpUsername = configuration["Smtp:Username"];
+            var smtpPassword = configuration["Smtp:Password"];
+            var fromEmail = configuration["Smtp:FromEmail"];
+
+            if (string.IsNullOrEmpty(smtpHost) || string.IsNullOrEmpty(smtpUsername) || string.IsNullOrEmpty(fromEmail))
+            {
+                logger.LogWarning("Gmail SMTP configuration incomplete. Re-engagement email not sent.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(toEmail))
+            {
+                logger.LogWarning("Recipient email is empty. Re-engagement email not sent.");
+                return;
+            }
+
+            var subject = $"Get more out of Velo, {HtmlEncode(orgDisplayName)}";
+            var body = BuildReEngagementEmailBody(orgDisplayName, unsubscribeUrl);
+
+            using var client = new SmtpClient(smtpHost, smtpPort);
+            client.EnableSsl = true;
+            client.Credentials = new NetworkCredential(smtpUsername, smtpPassword);
+            client.Timeout = 10000;
+
+            using var mailMessage = new MailMessage(fromEmail, toEmail);
+            mailMessage.Subject = subject;
+            mailMessage.Body = body;
+            mailMessage.IsBodyHtml = true;
+
+            await client.SendMailAsync(mailMessage, cancellationToken);
+            // Unlike SendFeedbackNotificationAsync's toEmail (Velo's own config-controlled
+            // Smtp:OwnerEmail), toEmail here is a customer-submitted admin contact — real
+            // third-party PII. Log the org name instead of the address.
+            logger.LogInformation("Re-engagement email sent for OrgDisplayName: {OrgDisplayName}",
+                LogSanitizer.SanitiseForLog(orgDisplayName));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send re-engagement email for OrgDisplayName: {OrgDisplayName}",
+                LogSanitizer.SanitiseForLog(orgDisplayName));
+            throw;
+        }
+    }
+
+    private static string BuildReEngagementEmailBody(string orgDisplayName, string unsubscribeUrl) => $@"
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; color: #333; }}
+        .container {{ max-width: 600px; margin: 20px auto; }}
+        .header {{ background-color: #0078d4; color: white; padding: 20px; border-radius: 5px 5px 0 0; }}
+        .content {{ background-color: #f5f5f5; padding: 20px; border-radius: 0 0 5px 5px; }}
+        .cta {{ display: inline-block; margin-top: 12px; padding: 10px 20px; background-color: #0078d4; color: white; text-decoration: none; border-radius: 4px; }}
+        .footer {{ margin-top: 24px; font-size: 11px; color: #777; }}
+        .footer a {{ color: #777; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h2>Still there, {HtmlEncode(orgDisplayName)}?</h2>
+        </div>
+        <div class=""content"">
+            <p>You connected {HtmlEncode(orgDisplayName)} to Velo, but we haven't seen any pipeline data yet.</p>
+            <p>Two minutes gets you: automatic DORA metrics from your Azure DevOps pipelines, an AI agent that answers questions about delivery health, and a link you can share with leadership.</p>
+            <p><a class=""cta"" href=""https://marketplace.visualstudio.com/items?itemName=IngeniousLabs.velo"">Finish setup</a></p>
+            <div class=""footer"">
+                <p>You're receiving this because this address was given as the admin contact when {HtmlEncode(orgDisplayName)} connected to Velo.
+                <a href=""{HtmlEncode(unsubscribeUrl)}"">Unsubscribe from these emails</a>.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>";
 
     private static string BuildEmailBody(string feedbackType, string message, string orgId, string? projectId, string? userId = null)
     {

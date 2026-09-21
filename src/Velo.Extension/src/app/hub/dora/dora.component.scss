@@ -85,6 +85,22 @@
   }
 }
 
+.share-link-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.share-link-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--background-color);
+  color: var(--text-primary-color);
+  font-size: 12px;
+}
+
 // ── Empty state ───────────────────────────────────────────────
 .dash-empty {
   display: flex;

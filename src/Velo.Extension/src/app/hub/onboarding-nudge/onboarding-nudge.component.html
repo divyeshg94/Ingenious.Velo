@@ -1,0 +1,21 @@
+<div class="nudge" *ngIf="shouldShow">
+  <button class="nudge-close" (click)="dismiss()" aria-label="Dismiss">✕</button>
+  <div class="nudge-header">
+    <h3>Get the most out of Velo</h3>
+    <span class="nudge-progress">{{ completedCount }}/3 done</span>
+  </div>
+  <div class="nudge-steps">
+    <a
+      *ngFor="let step of steps"
+      class="nudge-step"
+      [class.done]="step.done"
+      [routerLink]="step.routerLink"
+    >
+      <span class="step-check">{{ step.done ? '✓' : '' }}</span>
+      <span class="step-text">
+        <strong>{{ step.label }}</strong>
+        <small>{{ step.description }}</small>
+      </span>
+    </a>
+  </div>
+</div>

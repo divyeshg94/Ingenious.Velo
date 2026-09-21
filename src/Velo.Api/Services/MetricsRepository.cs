@@ -487,6 +487,10 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                 // Only update LastSyncedAt when the caller explicitly sets it
                 if (orgDto.LastSyncedAt.HasValue)
                     existing.LastSyncedAt = orgDto.LastSyncedAt;
+                // Only update the admin contact when the caller explicitly supplies one —
+                // an empty PATCH must never blank out a contact captured at registration.
+                if (!string.IsNullOrWhiteSpace(orgDto.AdminContactEmail))
+                    existing.AdminContactEmail = orgDto.AdminContactEmail;
                 dbContext.Organizations.Update(existing);
             }
             else
@@ -500,7 +504,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
                     DailyTokenBudget = orgDto.DailyTokenBudget,
                     RegisteredAt = DateTimeOffset.UtcNow,
                     LastSeenAt = DateTimeOffset.UtcNow,
-                    LastSyncedAt = orgDto.LastSyncedAt
+                    LastSyncedAt = orgDto.LastSyncedAt,
+                    AdminContactEmail = string.IsNullOrWhiteSpace(orgDto.AdminContactEmail) ? null : orgDto.AdminContactEmail
                 };
                 dbContext.Organizations.Add(org);
             }
@@ -516,6 +521,18 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
             logger.LogError(ex, "Error saving organization context for OrgId: {OrgId}", orgDto.OrgId);
             throw;
         }
+    }
+
+    public async Task SetMarketingOptOutAsync(string orgId, CancellationToken cancellationToken)
+    {
+        var org = await dbContext.Organizations.FirstOrDefaultAsync(o => o.OrgId == orgId, cancellationToken);
+        if (org == null || org.MarketingOptOut) return;
+
+        org.MarketingOptOut = true;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Marketing opt-out recorded for OrgId: {OrgId}",
+            Velo.Api.Logging.LogSanitizer.SanitiseForLog(orgId));
     }
 
     public async Task SavePrEventAsync(PullRequestEventDto prDto, CancellationToken cancellationToken)
@@ -770,7 +787,8 @@ public class MetricsRepository(VeloDbContext dbContext, ILogger<MetricsRepositor
         DailyTokenBudget = org.DailyTokenBudget,
         RegisteredAt = org.RegisteredAt,
         LastSeenAt = org.LastSeenAt,
-        LastSyncedAt = org.LastSyncedAt
+        LastSyncedAt = org.LastSyncedAt,
+        AdminContactEmail = org.AdminContactEmail
     };
 
     // ── Repository Discovery ───────────────────────────────────────────────────────

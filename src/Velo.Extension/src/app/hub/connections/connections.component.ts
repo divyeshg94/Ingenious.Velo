@@ -22,6 +22,11 @@ export class ConnectionsComponent implements OnInit {
   isAutoDetected = false;
   isADO = true;
 
+  editingAdminEmail = false;
+  editAdminEmail = '';
+  adminEmailError = '';
+  isSavingAdminEmail = false;
+
   projectSearch = '';
   isLoading = false;
   isSyncing = false;
@@ -400,6 +405,30 @@ export class ConnectionsComponent implements OnInit {
         this.loadProjects();
       },
       error: () => { this.updateErrorMessage = 'Failed to update organization URL.'; this.isLoading = false; }
+    });
+  }
+
+  toggleEditAdminEmail(): void {
+    this.editingAdminEmail = !this.editingAdminEmail;
+    this.editAdminEmail = this.currentOrg?.adminContactEmail || '';
+    this.adminEmailError = '';
+  }
+
+  updateAdminContactEmail(): void {
+    if (!this.currentOrg || !this.editAdminEmail) return;
+    this.isSavingAdminEmail = true;
+    this.adminEmailError = '';
+
+    this.orgService.updateOrganization(this.currentOrg.orgUrl, undefined, this.editAdminEmail).subscribe({
+      next: (org) => {
+        this.currentOrg = org;
+        this.isSavingAdminEmail = false;
+        this.editingAdminEmail = false;
+      },
+      error: (err) => {
+        this.isSavingAdminEmail = false;
+        this.adminEmailError = err.error?.error || 'Failed to save admin contact email.';
+      }
     });
   }
 }
