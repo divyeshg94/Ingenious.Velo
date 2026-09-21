@@ -17,6 +17,8 @@ public class OrgsControllerTests
     private readonly Mock<IMetricsRepository> _repoMock = new();
     private readonly Mock<IProjectService> _projectServiceMock = new();
     private readonly Mock<IAdoPipelineIngestService> _ingestMock = new();
+    private readonly Mock<IOnboardingService> _onboardingMock = new();
+    private readonly Mock<IUnsubscribeTokenService> _unsubscribeTokenMock = new();
     private readonly OrgsController _sut;
 
     public OrgsControllerTests()
@@ -25,6 +27,8 @@ public class OrgsControllerTests
             _repoMock.Object,
             _projectServiceMock.Object,
             _ingestMock.Object,
+            _onboardingMock.Object,
+            _unsubscribeTokenMock.Object,
             NullLogger<OrgsController>.Instance);
     }
 

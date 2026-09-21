@@ -6,6 +6,7 @@ import { DoraMetricsService, DoraMetricsDto } from '../../shared/services/dora-m
 import { TeamMappingService, TeamMappingDto } from '../../shared/services/team-mapping.service';
 import { getSDK, isRunningInADO } from '../../shared/services/sdk-initializer.service';
 import { toFriendlyApiError } from '../../shared/services/api-error.util';
+import { ShareService } from '../../shared/services/share.service';
 
 interface MetricScore {
   label: string;
@@ -44,7 +45,19 @@ export class DoraComponent implements OnInit, OnDestroy {
     { label: '1 year', days: 365 },
   ];
 
-  constructor(private doraService: DoraMetricsService, private teamMappingService: TeamMappingService) {}
+  // ── Share / Export ─────────────────────────────────────────
+  isSharing = false;
+  shareUrl: string | null = null;
+  shareError = '';
+  shareCopied = false;
+  isExporting = false;
+  exportError = '';
+
+  constructor(
+    private doraService: DoraMetricsService,
+    private teamMappingService: TeamMappingService,
+    private shareService: ShareService
+  ) {}
 
   ngOnInit(): void {
     this.selectedProjectId = sessionStorage.getItem('selectedProjectId');
@@ -478,5 +491,63 @@ export class DoraComponent implements OnInit, OnDestroy {
       return `${regressed.join(', ')} regressed since the previous period. Review pipeline changes and deployment patterns from this window.`;
     }
     return 'Metrics are stable compared to the previous period. No significant changes detected.';
+  }
+
+  // ── Share / Export ─────────────────────────────────────────
+
+  shareDashboard(): void {
+    if (!this.selectedProjectId) return;
+    this.isSharing = true;
+    this.shareError = '';
+    this.shareUrl = null;
+    this.shareCopied = false;
+
+    this.shareService
+      .createDoraShare({ projectId: this.selectedProjectId, repositoryName: this.selectedRepository ?? undefined })
+      .subscribe({
+        next: (resp) => {
+          this.isSharing = false;
+          this.shareUrl = resp.shareUrl;
+        },
+        error: (err) => {
+          this.isSharing = false;
+          this.shareError = toFriendlyApiError(err, 'Failed to create share link. Please try again.');
+        },
+      });
+  }
+
+  copyShareLink(): void {
+    if (!this.shareUrl) return;
+    navigator.clipboard?.writeText(this.shareUrl).then(() => {
+      this.shareCopied = true;
+      setTimeout(() => (this.shareCopied = false), 2000);
+    });
+  }
+
+  closeSharePanel(): void {
+    this.shareUrl = null;
+    this.shareError = '';
+  }
+
+  exportCsv(): void {
+    if (!this.selectedProjectId) return;
+    this.isExporting = true;
+    this.exportError = '';
+
+    this.shareService.exportDoraCsv(this.selectedProjectId, this.selectedDays, this.selectedRepository ?? undefined).subscribe({
+      next: (blob) => {
+        this.isExporting = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `velo-dora-${this.selectedProjectId}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.isExporting = false;
+        this.exportError = toFriendlyApiError(err, 'Failed to export CSV. Please try again.');
+      },
+    });
   }
 }

@@ -23,4 +23,10 @@ public class OrgContextDto
 
     /// <summary>Null until the first historical sync has been triggered for this org.</summary>
     public DateTimeOffset? LastSyncedAt { get; set; }
+
+    /// <summary>
+    /// Contact email for the never-used-org re-engagement campaign. Provided by the org
+    /// itself (e.g. on the Connections tab) — never inferred or scraped from tokens.
+    /// </summary>
+    public string? AdminContactEmail { get; set; }
 }

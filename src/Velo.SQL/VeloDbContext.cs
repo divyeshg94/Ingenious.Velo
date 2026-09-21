@@ -21,6 +21,7 @@ public class VeloDbContext : DbContext
     public DbSet<WorkItemEvent> WorkItemEvents { get; set; } = null!;
     public DbSet<Feedback> Feedback { get; set; } = null!;
     public DbSet<ApplicationUser> ApplicationUsers { get; set; } = null!;
+    public DbSet<SharedReport> SharedReports { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,9 +53,23 @@ public class VeloDbContext : DbContext
             eb.Property(p => p.IsDeleted).HasDefaultValue(false);
             // AadTenantId is set once by TenantResolutionMiddleware and never changes.
             eb.Property(p => p.AadTenantId).HasMaxLength(100);
+            eb.Property(p => p.AdminContactEmail).HasMaxLength(320);
+            eb.Property(p => p.MarketingOptOut).HasDefaultValue(false);
             // Index for fast tenant-binding lookups in TenantResolutionMiddleware.
             eb.HasIndex(o => o.AadTenantId)
               .HasDatabaseName("IX_Organizations_AadTenantId");
+        });
+
+        // SharedReport — no tenant query filter (the public viewer endpoint has no org
+        // context); ownership for mutation is checked explicitly by the controller.
+        modelBuilder.Entity<SharedReport>(eb =>
+        {
+            eb.HasIndex(s => new { s.OrgId, s.CreatedAt })
+              .IsDescending(false, true)
+              .HasDatabaseName("IX_SharedReports_OrgId_CreatedAt_DESC");
+
+            eb.HasIndex(s => s.ExpiresAt)
+              .HasDatabaseName("IX_SharedReports_ExpiresAt");
         });
 
         void ConfigureAuditable<T>() where T : AuditableEntity

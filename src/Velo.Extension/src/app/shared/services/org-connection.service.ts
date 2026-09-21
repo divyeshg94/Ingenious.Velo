@@ -11,6 +11,7 @@ export interface OrgConnectionDto {
   dailyTokenBudget?: number;
   registerAt?: string;
   lastSyncedAt?: string;
+  adminContactEmail?: string;
 }
 
 /** Response from POST /api/orgs/connect — wraps the org plus an auto-sync flag. */
@@ -68,11 +69,11 @@ export class OrgConnectionService {
   /**
    * Update organization details
    * Optional - org is already auto-detected
-   * Use only to customize org URL or display name
+   * Use only to customize org URL, display name, or admin contact email
    */
-  updateOrganization(orgUrl: string, displayName?: string): Observable<OrgConnectionDto> {
+  updateOrganization(orgUrl: string, displayName?: string, adminContactEmail?: string): Observable<OrgConnectionDto> {
     const url = `${this.apiUrl}/update`;
-    const payload = { orgUrl, displayName };
+    const payload = { orgUrl, displayName, adminContactEmail };
     console.log('[OrgConnectionService] POST /update - Updating organization', payload);
     return this.http.post<OrgConnectionDto>(url, payload);
   }

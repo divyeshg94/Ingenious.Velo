@@ -132,6 +132,27 @@
             </div>
           </div>
         </div>
+
+        <div class="edit-url-section">
+          <button *ngIf="!editingAdminEmail" class="btn btn-ghost btn-sm" (click)="toggleEditAdminEmail()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            {{ currentOrg.adminContactEmail ? 'Update admin contact email' : 'Add admin contact email' }}
+          </button>
+          <p class="field-hint" *ngIf="!editingAdminEmail">
+            {{ currentOrg.adminContactEmail ? currentOrg.adminContactEmail : 'Optional — lets us follow up if you never see any data.' }}
+          </p>
+          <div *ngIf="editingAdminEmail" class="edit-url-form">
+            <label class="field-label">Admin contact email</label>
+            <input class="field-input" type="email" [(ngModel)]="editAdminEmail" placeholder="admin@yourcompany.com" />
+            <div *ngIf="adminEmailError" class="conn-alert conn-alert--error conn-alert--inline">{{ adminEmailError }}</div>
+            <div class="edit-url-form__actions">
+              <button class="btn btn-primary btn-sm" (click)="updateAdminContactEmail()" [disabled]="isSavingAdminEmail || !editAdminEmail">
+                {{ isSavingAdminEmail ? 'Saving…' : 'Save' }}
+              </button>
+              <button class="btn btn-ghost btn-sm" (click)="toggleEditAdminEmail()">Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Sync Card -->

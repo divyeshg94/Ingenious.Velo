@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.Mail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Velo.Shared.Models;
@@ -21,6 +22,8 @@ public class OrgsController(
     IMetricsRepository metricsRepository,
     IProjectService projectService,
     IAdoPipelineIngestService ingestService,
+    IOnboardingService onboardingService,
+    IUnsubscribeTokenService unsubscribeTokenService,
     ILogger<OrgsController> logger) : ControllerBase
 {
     // One entry per org — value is 1 if a background sync is running, absent/0 if free.
@@ -183,6 +186,9 @@ public class OrgsController(
             if (!IsAllowedAdoUrl(request.OrgUrl))
                 return BadRequest(new { error = "OrgUrl must be a valid Azure DevOps URL (https://dev.azure.com/... or https://[org].visualstudio.com)." });
 
+            if (!string.IsNullOrWhiteSpace(request.AdminContactEmail) && !IsValidEmail(request.AdminContactEmail))
+                return BadRequest(new { error = "AdminContactEmail is not a valid email address." });
+
             // Sanitise OrgUrl before logging to prevent log injection via crafted URLs.
             var safeOrgUrl = SanitiseForLog(request.OrgUrl);
             logger.LogInformation(
@@ -202,7 +208,8 @@ public class OrgsController(
                     IsPremium = false,
                     DailyTokenBudget = 50_000,
                     RegisteredAt = DateTimeOffset.UtcNow,
-                    LastSeenAt = DateTimeOffset.UtcNow
+                    LastSeenAt = DateTimeOffset.UtcNow,
+                    AdminContactEmail = request.AdminContactEmail
                 };
             }
             else
@@ -210,6 +217,8 @@ public class OrgsController(
                 org.OrgUrl = request.OrgUrl.TrimEnd('/');
                 if (!string.IsNullOrEmpty(request.DisplayName))
                     org.DisplayName = request.DisplayName;
+                if (!string.IsNullOrWhiteSpace(request.AdminContactEmail))
+                    org.AdminContactEmail = request.AdminContactEmail;
                 org.LastSeenAt = DateTimeOffset.UtcNow;
             }
 
@@ -329,6 +338,9 @@ public class OrgsController(
             if (!IsAllowedAdoUrl(request.OrgUrl))
                 return BadRequest(new { error = "OrgUrl must be a valid Azure DevOps URL (https://dev.azure.com/... or https://[org].visualstudio.com)." });
 
+            if (!string.IsNullOrWhiteSpace(request.AdminContactEmail) && !IsValidEmail(request.AdminContactEmail))
+                return BadRequest(new { error = "AdminContactEmail is not a valid email address." });
+
             logger.LogInformation(
                 "AUDIT: Updating organization - OrgId: {OrgId}, OrgUrl: {OrgUrl}, UserId: {UserId}, CorrelationId: {CorrelationId}",
                 SanitiseForLog(orgId), SanitiseForLog(request.OrgUrl), SanitiseForLog(userId), SanitiseForLog(correlationId));
@@ -349,6 +361,10 @@ public class OrgsController(
             {
                 org.DisplayName = request.DisplayName;
             }
+            if (!string.IsNullOrWhiteSpace(request.AdminContactEmail))
+            {
+                org.AdminContactEmail = request.AdminContactEmail;
+            }
 
             await metricsRepository.SaveOrgContextAsync(org, cancellationToken);
 
@@ -366,6 +382,60 @@ public class OrgsController(
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
+    /// <summary>
+    /// Onboarding progress for the "first value" nudge: sync one pipeline, view one DORA
+    /// metric, share a link. Drives the checklist banner shown until all three are done.
+    /// </summary>
+    [HttpGet("onboarding")]
+    public async Task<ActionResult<OnboardingProgressDto>> GetOnboardingProgress(CancellationToken cancellationToken)
+    {
+        var orgId = HttpContext.Items["OrgId"]?.ToString();
+        if (string.IsNullOrEmpty(orgId))
+            return Unauthorized(new { error = "Organization context not found" });
+
+        var progress = await onboardingService.GetProgressAsync(orgId, cancellationToken);
+        return Ok(progress);
+    }
+
+    /// <summary>
+    /// One-click unsubscribe link clicked from a re-engagement email. Deliberately
+    /// anonymous — the recipient has no ADO session — and gated by a signed, per-org
+    /// token instead so a third party can't opt an arbitrary org out.
+    /// </summary>
+    [HttpGet("marketing/optout")]
+    [AllowAnonymous]
+    public async Task<IActionResult> MarketingOptOut(
+        [FromQuery] string orgId, [FromQuery] string token, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(orgId) || !unsubscribeTokenService.ValidateToken(orgId, token))
+        {
+            logger.LogWarning("Rejected invalid marketing opt-out link for OrgId: {OrgId}", SanitiseForLog(orgId));
+            return Content("<html><body>This unsubscribe link is invalid or has expired.</body></html>", "text/html");
+        }
+
+        await metricsRepository.SetMarketingOptOutAsync(orgId, cancellationToken);
+        logger.LogInformation("AUDIT: Marketing opt-out recorded - OrgId: {OrgId}", SanitiseForLog(orgId));
+
+        return Content(
+            "<html><body style=\"font-family:sans-serif;padding:40px;text-align:center;\">" +
+            "<h2>You're unsubscribed</h2><p>You won't receive any further emails from Velo about this organization.</p>" +
+            "</body></html>",
+            "text/html");
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            _ = new MailAddress(email);
+            return email.Length <= 320;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// SSRF guard: only allow Azure DevOps origin URLs.
     /// Blocks requests to internal/private IP ranges or non-ADO hosts being used as proxies.
@@ -406,4 +476,4 @@ public class OrgsController(
         Velo.Api.Logging.LogSanitizer.SanitiseForLog(value);
 }
 
-public record UpdateOrgRequest(string OrgUrl, string? DisplayName = null);
+public record UpdateOrgRequest(string OrgUrl, string? DisplayName = null, string? AdminContactEmail = null);

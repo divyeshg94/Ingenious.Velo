@@ -98,7 +98,35 @@
           </button>
         </div>
         <button class="btn btn-outline btn-sm" (click)="loadHistory()" [disabled]="isLoading">↻ Refresh</button>
+        <button class="btn btn-outline btn-sm" (click)="shareDashboard()" [disabled]="isSharing" title="Create a read-only link to share with leadership">
+          {{ isSharing ? 'Sharing…' : '🔗 Share' }}
+        </button>
+        <button class="btn btn-outline btn-sm" (click)="exportCsv()" [disabled]="isExporting" title="Export this history as CSV">
+          {{ isExporting ? 'Exporting…' : '⬇ Export CSV' }}
+        </button>
       </div>
+    </div>
+
+    <!-- Share result panel -->
+    <div class="dash-alert dash-alert--success" *ngIf="shareUrl">
+      <span class="dash-alert__icon">🔗</span>
+      <div class="dash-alert__body">
+        <strong>Share link created</strong>
+        <p>Anyone with this link can view a read-only snapshot of these metrics — no Azure DevOps access required. It expires in 30 days.</p>
+        <div class="share-link-row">
+          <input type="text" readonly [value]="shareUrl" (click)="$any($event.target).select()" class="share-link-input" />
+          <button class="btn btn-sm" (click)="copyShareLink()">{{ shareCopied ? 'Copied!' : 'Copy link' }}</button>
+        </div>
+      </div>
+      <button class="btn btn-sm" (click)="closeSharePanel()">✕</button>
+    </div>
+    <div class="dash-alert dash-alert--error" *ngIf="shareError">
+      <span class="dash-alert__icon">⚠</span>
+      <div class="dash-alert__body"><p>{{ shareError }}</p></div>
+    </div>
+    <div class="dash-alert dash-alert--error" *ngIf="exportError">
+      <span class="dash-alert__icon">⚠</span>
+      <div class="dash-alert__body"><p>{{ exportError }}</p></div>
     </div>
 
     <!-- Repository / Team filter -->

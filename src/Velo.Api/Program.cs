@@ -95,6 +95,10 @@ try
     builder.Services.AddSingleton<IFeedbackNotificationQueue, FeedbackNotificationQueue>();
     builder.Services.AddHostedService<FeedbackNotificationWorker>();
     builder.Services.AddScoped<IUserTrackingService, UserTrackingService>();
+    builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+    builder.Services.AddScoped<IUnsubscribeTokenService, UnsubscribeTokenService>();
+    builder.Services.AddScoped<IOrgEngagementService, OrgEngagementService>();
+    builder.Services.AddHostedService<OrgEngagementBackgroundService>();
     builder.Services.AddHttpClient();
 
     // CORS for ADO extension iframe — origins and exposed headers come from configuration
