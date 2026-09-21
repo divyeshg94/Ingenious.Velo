@@ -166,13 +166,16 @@ public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailS
             mailMessage.IsBodyHtml = true;
 
             await client.SendMailAsync(mailMessage, cancellationToken);
-            // cs:suppress Exposure of private information - toEmail is the org's own registered admin contact
-            logger.LogInformation("Re-engagement email sent to {RecipientEmail}", LogSanitizer.SanitiseForLog(toEmail));
+            // Unlike SendFeedbackNotificationAsync's toEmail (Velo's own config-controlled
+            // Smtp:OwnerEmail), toEmail here is a customer-submitted admin contact — real
+            // third-party PII. Log the org name instead of the address.
+            logger.LogInformation("Re-engagement email sent for OrgDisplayName: {OrgDisplayName}",
+                LogSanitizer.SanitiseForLog(orgDisplayName));
         }
         catch (Exception ex)
         {
-            // cs:suppress Exposure of private information - toEmail is the org's own registered admin contact
-            logger.LogError(ex, "Failed to send re-engagement email. Recipient: {Email}", LogSanitizer.SanitiseForLog(toEmail));
+            logger.LogError(ex, "Failed to send re-engagement email for OrgDisplayName: {OrgDisplayName}",
+                LogSanitizer.SanitiseForLog(orgDisplayName));
             throw;
         }
     }
