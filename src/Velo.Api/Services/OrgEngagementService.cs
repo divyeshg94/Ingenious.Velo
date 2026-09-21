@@ -7,8 +7,15 @@ namespace Velo.Api.Services;
 /// <summary>
 /// Finds orgs that registered but never activated (no pipeline ever synced) and sends
 /// their registration-time admin contact a single re-engagement email with an unsubscribe
-/// link. Every send is permanent — <see cref="Velo.SQL.Models.OrgContext.ReEngagementEmailSentAt"/>
-/// is stamped so the same org is never emailed twice by this campaign.
+/// link.
+/// AT-MOST-ONCE, not exactly-once: each candidate is claimed with a conditional
+/// UPDATE ... WHERE ReEngagementEmailSentAt IS NULL before sending, so two overlapping
+/// runs (e.g. this hosted service on two API replicas) can't both win the same org — only
+/// the instance whose UPDATE actually changes a row proceeds to send. If the send itself
+/// then fails, the claim is deliberately NOT released and the org is not retried: for a
+/// marketing email with legal opt-out obligations, silently retrying risks a duplicate
+/// send, which is worse than one org missing this campaign. An operator can manually clear
+/// <see cref="Velo.SQL.Models.OrgContext.ReEngagementEmailSentAt"/> to retry a specific org.
 /// Disabled by default (Marketing:ReEngagementEnabled) — this only sends real email once an
 /// operator has reviewed the copy, configured SMTP + an unsubscribe secret, and opted in.
 /// </summary>
@@ -43,6 +50,12 @@ public class OrgEngagementService(
         if (!tokenService.IsConfigured)
         {
             logger.LogWarning("Marketing:UnsubscribeSecret is not configured — refusing to send email without a working unsubscribe link. Campaign skipped.");
+            return 0;
+        }
+
+        if (!emailService.IsConfigured)
+        {
+            logger.LogWarning("SMTP is not configured — refusing to run the campaign (a claimed org would never actually be emailed). Campaign skipped.");
             return 0;
         }
 
@@ -81,20 +94,23 @@ public class OrgEngagementService(
                 var everSynced = await orgDb.PipelineRuns.AsNoTracking().AnyAsync(cancellationToken);
                 if (everSynced) continue; // org has activated — not a re-engagement target
 
+                // Atomic claim: only the caller whose UPDATE actually changes a row (i.e.
+                // ReEngagementEmailSentAt was still NULL) proceeds to send. This is what
+                // makes the one-email guarantee hold across concurrent runs — see the
+                // class remarks for what happens if the send below then fails.
+                var claimed = await orgDb.Organizations
+                    .Where(o => o.OrgId == org.OrgId && o.ReEngagementEmailSentAt == null)
+                    .ExecuteUpdateAsync(
+                        s => s.SetProperty(o => o.ReEngagementEmailSentAt, DateTimeOffset.UtcNow),
+                        cancellationToken);
+
+                if (claimed == 0) continue; // another instance/tick already claimed this org
+
                 var token = tokenService.GenerateToken(org.OrgId);
                 var unsubscribeUrl = $"{apiBaseUrl.TrimEnd('/')}/api/orgs/marketing/optout?orgId={Uri.EscapeDataString(org.OrgId)}&token={Uri.EscapeDataString(token)}";
 
                 await emailService.SendReEngagementEmailAsync(
                     org.AdminContactEmail!, org.DisplayName, unsubscribeUrl, cancellationToken);
-
-                // Stamp on the same connection/org context so this can't race the
-                // per-request path into double-sending.
-                var tracked = await orgDb.Organizations.FirstOrDefaultAsync(o => o.OrgId == org.OrgId, cancellationToken);
-                if (tracked != null)
-                {
-                    tracked.ReEngagementEmailSentAt = DateTimeOffset.UtcNow;
-                    await orgDb.SaveChangesAsync(cancellationToken);
-                }
 
                 sent++;
             }

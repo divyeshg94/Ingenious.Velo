@@ -12,6 +12,14 @@ namespace Velo.Api.Services;
 public interface IEmailService
 {
     /// <summary>
+    /// True when SMTP is fully configured (host/username/from address). Callers that must
+    /// not silently no-op — e.g. a campaign that permanently marks a recipient as
+    /// "contacted" — should check this before sending rather than relying on a successful
+    /// return from a send call that may have skipped sending entirely.
+    /// </summary>
+    bool IsConfigured { get; }
+
+    /// <summary>
     /// Send a feedback notification email asynchronously.
     /// </summary>
     /// <param name="toEmail">Recipient email address (Velo owner).</param>
@@ -52,6 +60,11 @@ public interface IEmailService
 /// </summary>
 public class GmailEmailService(IConfiguration configuration, ILogger<GmailEmailService> logger) : IEmailService
 {
+    public bool IsConfigured =>
+        !string.IsNullOrEmpty(configuration["Smtp:Host"])
+        && !string.IsNullOrEmpty(configuration["Smtp:Username"])
+        && !string.IsNullOrEmpty(configuration["Smtp:FromEmail"]);
+
     public async Task SendFeedbackNotificationAsync(
         string toEmail,
         string feedbackType,
